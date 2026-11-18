@@ -11,6 +11,7 @@ import '../models/screenscraper_game_candidate.dart';
 import '../repositories/scraper_repository.dart';
 import 'retroachievements_hash_service.dart';
 import 'rom_fingerprint_service.dart';
+import 'libretro_thumbnail_service.dart';
 import 'screenscraper/region_config.dart';
 import 'screenscraper/rom_hasher.dart';
 import 'screenscraper/media_resolver.dart';
@@ -881,6 +882,12 @@ class ScreenScraperService {
     }
   }
 
+  static const usesLibretroArtwork = bool.fromEnvironment('LIBRETRO_ARTWORK');
+
+  /// Whether the individual game action can run without account setup.
+  static Future<bool> canScrapeArtwork() async =>
+      usesLibretroArtwork || await hasSavedCredentials();
+
   /// Scrapes a single game by its filename and updates its local state.
   static Future<Map<String, dynamic>> scrapeSingleGame({
     required String appSystemId,
@@ -890,8 +897,37 @@ class ScreenScraperService {
     String? gameName,
     Function(String status, double progress)? onProgress,
     bool forceOverwrite = false,
+    bool useScreenScraper = false,
   }) async {
     try {
+      if (usesLibretroArtwork && !useScreenScraper) {
+        if (!LibretroThumbnailService.supportsSystem(appSystemId)) {
+          return {
+            'success': false,
+            'message': AppLocale.scrapeMediaDownloadsFailed,
+          };
+        }
+        onProgress?.call(AppLocale.downloadingImages, 0.1);
+        final available = await LibretroThumbnailService.download(
+          appSystemId: appSystemId,
+          systemFolder: systemFolder,
+          romName: romName,
+          gameName: gameName,
+          enabledMediaTypes: await ScraperRepository.getEnabledMediaTypes(),
+          forceOverwrite: forceOverwrite,
+          onProgress: (progress) => onProgress?.call(
+            AppLocale.downloadingImages,
+            0.1 + 0.9 * progress,
+          ),
+        );
+        return {
+          'success': available,
+          'message': available
+              ? AppLocale.scrapeSuccessful
+              : AppLocale.scrapeMediaDownloadsFailed,
+        };
+      }
+
       onProgress?.call(AppLocale.checkingCredentials, 0.05);
 
       if (!await hasSavedCredentials()) {
@@ -1157,6 +1193,7 @@ class ScreenScraperService {
       gameName: gameName,
       onProgress: onProgress,
       forceOverwrite: true,
+      useScreenScraper: true,
     );
   }
 

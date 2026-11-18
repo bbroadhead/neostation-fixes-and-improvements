@@ -190,7 +190,7 @@ extension _SecondaryDisplay on _SystemGamesListState {
         ? context.read<SqliteConfigProvider>()
         : null;
     final isVideoMuted = !configProvider!.config.videoSound;
-    final isScraperLoggedIn = await ScreenScraperService.hasSavedCredentials();
+    final isScraperLoggedIn = await ScreenScraperService.canScrapeArtwork();
 
     final isMusicSystem = widget.system.folderName == 'music';
 

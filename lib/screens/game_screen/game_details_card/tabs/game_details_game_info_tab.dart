@@ -457,7 +457,7 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
             ),
             SizedBox(height: 32.r),
             FutureBuilder<bool>(
-              future: ScreenScraperService.hasSavedCredentials(),
+              future: ScreenScraperService.canScrapeArtwork(),
               builder: (context, snapshot) {
                 if (widget.system.folderName == 'android-apps') {
                   return Text(

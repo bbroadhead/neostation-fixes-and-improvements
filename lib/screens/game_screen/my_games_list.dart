@@ -2261,7 +2261,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
     final scrapeSystemId = game.systemId ?? widget.system.id;
     if (scrapeSystemId == null) return;
 
-    if (!await ScreenScraperService.hasSavedCredentials()) {
+    final canScrape = identifyAs == null
+        ? await ScreenScraperService.canScrapeArtwork()
+        : await ScreenScraperService.hasSavedCredentials();
+    if (!canScrape) {
       if (!mounted) return;
       AppNotification.showNotification(
         context,
