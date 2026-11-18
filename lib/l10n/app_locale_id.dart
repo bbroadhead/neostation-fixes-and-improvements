@@ -918,6 +918,10 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.screenScraperUseUsernameNotEmail: 'Masukkan nama pengguna ScreenScraper Anda, bukan alamat email. API tidak menerima email.',
   AppLocale.screenScraperApiClosed:
       'API ScreenScraper sementara tidak tersedia. Coba lagi nanti.',
+  AppLocale.screenScraperDeveloperCredentials:
+      'Kredensial pengembang ScreenScraper tidak tersedia atau ditolak.',
+  AppLocale.screenScraperLoginRejected:
+      'ScreenScraper tidak dapat memverifikasi login API.',
   AppLocale.screenScraperAppOutdated: 'ScreenScraper tidak lagi menerima versi aplikasi ini. Perbarui NeoStation.',
   AppLocale.screenScraperQuotaReached:
       'Kuota harian ScreenScraper tercapai. Coba lagi besok.',

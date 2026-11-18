@@ -232,11 +232,15 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
       case ScreenScraperAuthFailure.networkError:
         return AppLocale.screenScraperConnectionError.getString(context);
       case ScreenScraperAuthFailure.invalidCredentials:
-      case ScreenScraperAuthFailure.unknown:
-      case null:
         return username.contains('@')
             ? AppLocale.screenScraperUseUsernameNotEmail.getString(context)
             : AppLocale.invalidCredentials.getString(context);
+      case ScreenScraperAuthFailure.developerCredentials:
+        return AppLocale.screenScraperDeveloperCredentials.getString(context);
+      case ScreenScraperAuthFailure.authorizationDenied:
+      case ScreenScraperAuthFailure.unknown:
+      case null:
+        return AppLocale.screenScraperLoginRejected.getString(context);
     }
   }
 

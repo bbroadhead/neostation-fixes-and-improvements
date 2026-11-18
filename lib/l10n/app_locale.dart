@@ -883,6 +883,10 @@ mixin AppLocale {
   static const String screenScraperUseUsernameNotEmail =
       'screenscraper_use_username_not_email';
   static const String screenScraperApiClosed = 'screenscraper_api_closed';
+  static const String screenScraperDeveloperCredentials =
+      'screenscraper_developer_credentials';
+  static const String screenScraperLoginRejected =
+      'screenscraper_login_rejected';
   static const String screenScraperAppOutdated = 'screenscraper_app_outdated';
   static const String screenScraperQuotaReached = 'screenscraper_quota_reached';
   static const String screenScraperConnectionError =

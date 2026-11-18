@@ -52,7 +52,7 @@ void main() {
     test('maps credential and infrastructure statuses to a cause', () {
       expect(
         ScreenScraperService.failureForStatus(403),
-        ScreenScraperAuthFailure.invalidCredentials,
+        ScreenScraperAuthFailure.authorizationDenied,
       );
       expect(
         ScreenScraperService.failureForStatus(401),

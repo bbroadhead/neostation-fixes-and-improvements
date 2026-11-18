@@ -47,7 +47,11 @@ void main() {
   group('ScraperRepository secrets', () {
     test('saveCredentials keeps the password out of the database', () async {
       final secure = MemoryBackend();
-      CredentialStore.debugUseBackends(secure: secure, file: MemoryBackend());
+      CredentialStore.debugUseBackends(
+        preferEncryptedFile: false,
+        secure: secure,
+        file: MemoryBackend(),
+      );
 
       await ScraperRepository.saveCredentials('neil', 'hunter2', {
         'numid': '12345',
@@ -69,7 +73,11 @@ void main() {
       'getSavedCredentials migrates a legacy column and blanks it',
       () async {
         final secure = MemoryBackend();
-        CredentialStore.debugUseBackends(secure: secure, file: MemoryBackend());
+        CredentialStore.debugUseBackends(
+          preferEncryptedFile: false,
+          secure: secure,
+          file: MemoryBackend(),
+        );
         await seedLegacyRow();
 
         final saved = await ScraperRepository.getSavedCredentials();
@@ -87,10 +95,41 @@ void main() {
       },
     );
 
+    test(
+      'SteamOS stores and reloads the password from the encrypted file',
+      () async {
+        final secure = MemoryBackend();
+        final file = MemoryBackend();
+        CredentialStore.debugUseBackends(
+          secure: secure,
+          file: file,
+          preferEncryptedFile: true,
+        );
+        expect(
+          await ScraperRepository.saveCredentials('neil', 'fixture-password'),
+          isTrue,
+        );
+        expect(file.values['screenscraper_password'], 'fixture-password');
+        expect(await readPasswordColumn(), '');
+        CredentialStore.debugUseBackends(
+          secure: secure,
+          file: file,
+          preferEncryptedFile: true,
+        );
+        final saved = await ScraperRepository.getSavedCredentials();
+        expect(saved?['password'], 'fixture-password');
+        expect(saved?['username'], 'neil');
+      },
+    );
+
     test('getSavedCredentials prefers the store over a stale column', () async {
       final secure = MemoryBackend()
         ..values['screenscraper_password'] = 'current';
-      CredentialStore.debugUseBackends(secure: secure, file: MemoryBackend());
+      CredentialStore.debugUseBackends(
+        preferEncryptedFile: false,
+        secure: secure,
+        file: MemoryBackend(),
+      );
       await seedLegacyRow(password: 'stale');
 
       final saved = await ScraperRepository.getSavedCredentials();
@@ -99,7 +138,11 @@ void main() {
     });
 
     test('a session-only write leaves the legacy column alone', () async {
-      CredentialStore.debugUseBackends(secure: BrokenBackend(), file: null);
+      CredentialStore.debugUseBackends(
+        preferEncryptedFile: false,
+        secure: BrokenBackend(),
+        file: null,
+      );
       await seedLegacyRow();
 
       final saved = await ScraperRepository.getSavedCredentials();
@@ -109,7 +152,11 @@ void main() {
     });
 
     test('an unreadable store still returns the credentials', () async {
-      CredentialStore.debugUseBackends(secure: BrokenBackend(), file: null);
+      CredentialStore.debugUseBackends(
+        preferEncryptedFile: false,
+        secure: BrokenBackend(),
+        file: null,
+      );
       await seedLegacyRow();
 
       final saved = await ScraperRepository.getSavedCredentials();
@@ -123,6 +170,7 @@ void main() {
       // The old read decoded unguarded, so a null column threw and the whole
       // account was reported as "no credentials saved".
       CredentialStore.debugUseBackends(
+        preferEncryptedFile: false,
         secure: MemoryBackend(),
         file: MemoryBackend(),
       );
@@ -143,7 +191,11 @@ void main() {
     test('clearCredentials removes the password from the store too', () async {
       final secure = MemoryBackend();
       final file = MemoryBackend();
-      CredentialStore.debugUseBackends(secure: secure, file: file);
+      CredentialStore.debugUseBackends(
+        preferEncryptedFile: false,
+        secure: secure,
+        file: file,
+      );
       await ScraperRepository.saveCredentials('neil', 'hunter2');
 
       await ScraperRepository.clearCredentials();
@@ -160,7 +212,11 @@ void main() {
       // credentials on launch, so without this sweep the password would sit in
       // data.sqlite until the user next scraped.
       final secure = MemoryBackend();
-      CredentialStore.debugUseBackends(secure: secure, file: MemoryBackend());
+      CredentialStore.debugUseBackends(
+        preferEncryptedFile: false,
+        secure: secure,
+        file: MemoryBackend(),
+      );
       await seedLegacyRow();
 
       await ScraperRepository.migrateLegacyPasswordToCredentialStore();
@@ -172,7 +228,11 @@ void main() {
     test('is a no-op once the column is empty', () async {
       final secure = MemoryBackend()
         ..values['screenscraper_password'] = 'hunter2';
-      CredentialStore.debugUseBackends(secure: secure, file: MemoryBackend());
+      CredentialStore.debugUseBackends(
+        preferEncryptedFile: false,
+        secure: secure,
+        file: MemoryBackend(),
+      );
       await seedLegacyRow();
       await ScraperRepository.migrateLegacyPasswordToCredentialStore();
 
@@ -183,7 +243,11 @@ void main() {
     });
 
     test('leaves the column alone when nothing can persist', () async {
-      CredentialStore.debugUseBackends(secure: BrokenBackend(), file: null);
+      CredentialStore.debugUseBackends(
+        preferEncryptedFile: false,
+        secure: BrokenBackend(),
+        file: null,
+      );
       await seedLegacyRow();
 
       await ScraperRepository.migrateLegacyPasswordToCredentialStore();
@@ -193,6 +257,7 @@ void main() {
 
     test('does not throw when there are no credentials at all', () async {
       CredentialStore.debugUseBackends(
+        preferEncryptedFile: false,
         secure: MemoryBackend(),
         file: MemoryBackend(),
       );

@@ -921,6 +921,10 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.screenScraperUseUsernameNotEmail: 'Введите имя пользователя ScreenScraper, а не адрес электронной почты. API не принимает email.',
   AppLocale.screenScraperApiClosed:
       'API ScreenScraper временно недоступен. Попробуйте позже.',
+  AppLocale.screenScraperDeveloperCredentials:
+      'Данные разработчика ScreenScraper отсутствуют или отклонены.',
+  AppLocale.screenScraperLoginRejected:
+      'ScreenScraper не смог подтвердить вход через API.',
   AppLocale.screenScraperAppOutdated: 'ScreenScraper больше не принимает эту версию приложения. Обновите NeoStation.',
   AppLocale.screenScraperQuotaReached:
       'Дневная квота ScreenScraper исчерпана. Попробуйте завтра.',

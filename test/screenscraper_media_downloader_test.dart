@@ -244,12 +244,11 @@ void main() {
   test(
     'a cancel between batches stops the rest and is not a success',
     () async {
-      var checks = 0;
       final progress = <double>[];
       final result = await download(
         [entry('ss', 'shot'), entry('fanart', 'art')],
         threads: 1,
-        shouldCancel: () => ++checks > 1,
+        shouldCancel: () => progress.isNotEmpty,
         onProgress: progress.add,
       );
 

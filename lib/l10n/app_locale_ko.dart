@@ -864,6 +864,9 @@ const Map<String, dynamic> appLocaleKo = {
       'ScreenScraper 사용자 이름을 입력하세요. 이메일 주소는 사용할 수 없습니다. API는 이메일을 허용하지 않습니다.',
   AppLocale.screenScraperApiClosed:
       'ScreenScraper API를 일시적으로 사용할 수 없습니다. 나중에 다시 시도하세요.',
+  AppLocale.screenScraperDeveloperCredentials:
+      'ScreenScraper 개발자 인증 정보가 없거나 거부되었습니다.',
+  AppLocale.screenScraperLoginRejected: 'ScreenScraper에서 API 로그인을 확인할 수 없습니다.',
   AppLocale.screenScraperAppOutdated:
       'ScreenScraper에서 이 앱 버전을 더 이상 허용하지 않습니다. NeoStation을 업데이트하세요.',
   AppLocale.screenScraperQuotaReached:

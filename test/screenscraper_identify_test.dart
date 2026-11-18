@@ -271,9 +271,7 @@ void main() {
     File mediaFile(String folder, String name) =>
         File('${media.path}/nes/$folder/$name');
 
-    // The wrong game's art is not overwritten when the right game lacks that
-    // type, or has it in another format: Identify must clear it first.
-    test('removes the media the wrong match left behind', () async {
+    test('retains artwork when the manual match has no replacement', () async {
       final db = await SqliteService.getDatabase();
       await db.execute(
         'INSERT INTO user_roms (app_system_id, filename, rom_path) '
@@ -299,7 +297,7 @@ void main() {
       );
 
       for (final f in stale) {
-        expect(f.existsSync(), isFalse, reason: f.path);
+        expect(f.existsSync(), isTrue, reason: f.path);
       }
       expect(otherGame.existsSync(), isTrue);
     });

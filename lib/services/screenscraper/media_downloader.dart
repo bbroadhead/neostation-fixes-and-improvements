@@ -33,6 +33,7 @@ class ScreenscraperMediaDownloader {
     String userDataDir, {
     bool forceOverwrite = false,
     int? maxDailyRequests,
+    bool Function()? shouldCancel,
   }) async {
     try {
       final fullPath = path.join(userDataDir, relativePath);
@@ -46,20 +47,38 @@ class ScreenscraperMediaDownloader {
         timeout: const Duration(seconds: 60),
         maxRetries: 2,
         maxDailyRequests: maxDailyRequests,
+        shouldCancel: shouldCancel,
       );
-      if (response.statusCode == 200) {
+      final contentType = response.headers['content-type']?.toLowerCase() ?? '';
+      if (response.statusCode == 200 &&
+          response.bodyBytes.isNotEmpty &&
+          !contentType.startsWith('text/html') &&
+          !contentType.contains('json')) {
         // A file left half-written would count as downloaded from then on.
         await writeFileAtomically(file, response.bodyBytes);
+        if (forceOverwrite) {
+          final stem = path.withoutExtension(fullPath);
+          for (final extension in ['png', 'jpg', 'jpeg', 'webp', 'mp4']) {
+            final previous = File('$stem.$extension');
+            if (previous.path != fullPath && await previous.exists()) {
+              await previous.delete();
+            }
+          }
+        }
         return true;
       } else {
-        _log.e('Error downloading media (${response.statusCode}): $url');
+        _log.e(
+          'ScreenScraper artwork HTTP ${response.statusCode}: $relativePath',
+        );
         return false;
       }
+    } on ScreenscraperCancelledException {
+      return false;
     } on ScreenscraperQuotaExceededException {
       // Every later request would be refused too; the caller says why.
       rethrow;
     } catch (e) {
-      _log.e('Error downloading media: $e');
+      _log.e('ScreenScraper artwork $relativePath: ${e.runtimeType}');
       return false;
     }
   }
@@ -154,6 +173,7 @@ class ScreenscraperMediaDownloader {
             userDataDir,
             forceOverwrite: forceOverwrite,
             maxDailyRequests: maxDailyRequests,
+            shouldCancel: shouldCancel,
           ),
         ),
       );
@@ -167,6 +187,7 @@ class ScreenscraperMediaDownloader {
       }
     }
 
+    wasCancelled = wasCancelled || (shouldCancel?.call() ?? false);
     return {
       'success': succeeded == downloadTasks.length && !wasCancelled,
       'cancelled': wasCancelled,

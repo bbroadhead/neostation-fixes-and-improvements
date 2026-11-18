@@ -843,6 +843,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.screenScraperUseUsernameNotEmail:
       '请输入您的 ScreenScraper 用户名，而不是电子邮件地址。API 不接受电子邮件。',
   AppLocale.screenScraperApiClosed: 'ScreenScraper API 暂时不可用。请稍后再试。',
+  AppLocale.screenScraperDeveloperCredentials: 'ScreenScraper 开发者凭据缺失或被拒绝。',
+  AppLocale.screenScraperLoginRejected: 'ScreenScraper 无法验证 API 登录。',
   AppLocale.screenScraperAppOutdated: 'ScreenScraper 不再接受此应用版本。请更新 NeoStation。',
   AppLocale.screenScraperQuotaReached: '已达到 ScreenScraper 每日配额。请明天再试。',
   AppLocale.screenScraperConnectionError: '无法连接 ScreenScraper。请检查您的网络连接并重试。',

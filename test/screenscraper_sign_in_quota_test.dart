@@ -10,13 +10,18 @@ import 'package:neostation/services/screenscraper_service.dart';
 void main() {
   late HttpServer server;
   late int status;
+  late String body;
+  late int requests;
 
   setUp(() async {
+    body = 'refused';
+    requests = 0;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) {
+      requests++;
       request.response
         ..statusCode = status
-        ..write('refused')
+        ..write(body)
         ..close();
     });
     ScreenScraperService.baseUrl = 'http://127.0.0.1:${server.port}/api2';
@@ -37,9 +42,40 @@ void main() {
 
   test('a wrong password is still reported as one', () async {
     status = 403;
+    body = 'Vérifier vos identifiants utilisateur';
 
     final result = await ScreenScraperService.verifyCredentials('user', 'pw');
 
     expect(result.failure, ScreenScraperAuthFailure.invalidCredentials);
+  });
+
+  test('developer rejection is distinct and is not retried', () async {
+    status = 403;
+    body = 'Vérifier vos identifiants développeur';
+    final result = await ScreenScraperService.verifyCredentials('user', 'pw');
+    expect(result.failure, ScreenScraperAuthFailure.developerCredentials);
+    expect(requests, 1);
+  });
+
+  test('generic forbidden response does not attribute blame', () async {
+    status = 403;
+    final result = await ScreenScraperService.verifyCredentials('user', 'pw');
+    expect(result.failure, ScreenScraperAuthFailure.authorizationDenied);
+    expect(requests, 1);
+  });
+
+  test('accepts a successful response for the submitted account', () async {
+    status = 200;
+    body = '{"header":{"success":true},"response":{"ssuser":{"id":"User"}}}';
+    final result = await ScreenScraperService.verifyCredentials('user', 'pw');
+    expect(result.isSuccess, isTrue);
+  });
+
+  test('rejects malformed successful responses', () async {
+    status = 200;
+    body = '{"header":';
+    final result = await ScreenScraperService.verifyCredentials('user', 'pw');
+    expect(result.failure, ScreenScraperAuthFailure.unknown);
+    expect(requests, 1);
   });
 }
