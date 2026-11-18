@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -41,6 +42,13 @@ void main() {
     File(path).writeAsBytesSync(chd);
     return path;
   }
+
+  test('Linux CHD exports its FFI interface but keeps Zstandard private', () {
+    final library = DynamicLibrary.open(chdLibraryOverridePath!);
+    expect(library.providesSymbol('nchd_close'), isTrue);
+    expect(library.providesSymbol('ZSTD_freeDCtx'), isFalse);
+    expect(library.providesSymbol('ZSTD_decompressStream'), isFalse);
+  }, skip: Platform.isLinux ? skip : 'Linux symbol visibility test');
 
   group('reading a CHD', () {
     test('reads a single data track by sector', () async {

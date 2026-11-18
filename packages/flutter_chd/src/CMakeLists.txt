@@ -27,6 +27,15 @@ set_target_properties(flutter_chd PROPERTIES
 
 target_compile_definitions(flutter_chd PUBLIC DART_SHARED_LIB)
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  # Bind the bundled codecs locally. A system libzstd loaded by the desktop
+  # stack can otherwise supply only some of the ZSTD functions, passing a
+  # context allocated by the bundled decoder to the system decoder's free.
+  set(CHD_EXPORTS "${CMAKE_CURRENT_SOURCE_DIR}/exports.map")
+  target_link_libraries(flutter_chd PRIVATE "-Wl,--version-script=${CHD_EXPORTS}")
+  set_property(TARGET flutter_chd APPEND PROPERTY LINK_DEPENDS "${CHD_EXPORTS}")
+endif ()
+
 if (MSVC)
   # libchdr and its dependencies use the standard C library's older names.
   target_compile_definitions(flutter_chd PRIVATE _CRT_SECURE_NO_WARNINGS)

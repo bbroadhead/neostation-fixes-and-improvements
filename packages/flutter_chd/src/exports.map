@@ -1,0 +1,11 @@
+{
+  global:
+    nchd_open;
+    nchd_open_fd;
+    nchd_track_count;
+    nchd_track_field;
+    nchd_read_sector;
+    nchd_close;
+  local:
+    *;
+};
