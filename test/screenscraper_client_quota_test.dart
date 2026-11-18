@@ -1,6 +1,7 @@
 @Tags(['network'])
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -34,7 +35,10 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 300));
         inFlight--;
       }
-      final status = int.tryParse(path.split('/').last) ?? 200;
+      final status = path == '/limited' && hits[path] == 1
+          ? 429
+          : int.tryParse(path.split('/').last) ?? 200;
+      if (status == 429) request.response.headers.set('Retry-After', '0');
       request.response
         ..statusCode = status
         ..close();
@@ -119,4 +123,40 @@ void main() {
       expect(await peakConcurrency(3), 1);
     },
   );
+
+  test('429 is retried within the attempt budget', () async {
+    final response = await ScreenscraperClient.httpGetWithRetry(
+      uri('/limited'),
+    );
+    expect(response.statusCode, 200);
+    expect(hits['/limited'], 2);
+  });
+
+  test('a timeout aborts the request and releases its queue slot', () async {
+    await expectLater(
+      ScreenscraperClient.httpGetWithRetry(
+        uri('/slow'),
+        timeout: const Duration(milliseconds: 50),
+        maxRetries: 1,
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+    expect(hits['/slow'], 1);
+    final response = await ScreenscraperClient.httpGetWithRetry(
+      uri('/status/200'),
+    );
+    expect(response.statusCode, 200);
+  });
+
+  test('cancelling an in-flight request does not retry it', () async {
+    var cancelled = false;
+    final request = ScreenscraperClient.httpGetWithRetry(
+      uri('/slow'),
+      shouldCancel: () => cancelled,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    cancelled = true;
+    await expectLater(request, throwsA(isA<ScreenscraperCancelledException>()));
+    expect(hits['/slow'], 1);
+  });
 }

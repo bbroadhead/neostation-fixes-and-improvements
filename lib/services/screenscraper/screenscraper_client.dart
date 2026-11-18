@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
@@ -72,7 +73,7 @@ class ScreenscraperClient {
   static http.Client createHttpClient({SecurityContext? context}) =>
       IOClient(HttpClient(context: context));
 
-  static Semaphore _requestSemaphore = Semaphore(5);
+  static Semaphore _requestSemaphore = Semaphore(1);
 
   static int _dailyRequestsCount = 0;
   static DateTime? _lastRequestDate;
@@ -96,101 +97,142 @@ class ScreenscraperClient {
     }
   }
 
-  /// Performs an HTTP GET request with exponential backoff and timeout management.
+  static final _random = Random();
+  static final _retryAfter = <String, DateTime>{};
+  static const _retryableStatuses = {429, 500, 502, 503, 504};
+
+  /// Performs a bounded number of GET attempts through the shared request queue.
   static Future<http.Response> httpGetWithRetry(
     Uri url, {
     Map<String, String>? headers,
     int maxRetries = 2,
     Duration timeout = const Duration(seconds: 40),
     int? maxDailyRequests,
+    bool Function()? shouldCancel,
   }) async {
-    if (maxDailyRequests != null && maxDailyRequests > 0) {
-      if (!await _canMakeRequest(_dailyRequestsCount, maxDailyRequests)) {
-        throw Exception(
-          'Daily request limit reached: $_dailyRequestsCount/$maxDailyRequests',
-        );
-      }
-    }
-
-    int attempt = 0;
-    while (attempt < maxRetries) {
+    final endpoint = url.pathSegments.firstOrNull == 'api2'
+        ? url.pathSegments.last
+        : 'media/request';
+    final origin = url.origin;
+    for (var attempt = 1; attempt <= maxRetries; attempt++) {
+      final semaphore = _requestSemaphore;
+      await semaphore.acquire();
       try {
-        await _requestSemaphore.acquire();
-
-        final response = await _httpClient
-            .get(url, headers: headers)
-            .timeout(timeout);
-
-        _requestSemaphore.release();
-
-        if (response.statusCode == 200 || response.statusCode == 403) {
-          _dailyRequestsCount++;
-          return response;
-        } else if (response.statusCode == 430) {
+        if (shouldCancel?.call() ?? false) {
+          throw const ScreenscraperCancelledException();
+        }
+        final holdUntil = _retryAfter[origin];
+        if (holdUntil != null && holdUntil.isAfter(DateTime.now())) {
+          // Return a rate-limit response when the requested pause would exceed
+          // the caller's timeout. Further calls still honor the cooldown.
+          final wait = holdUntil.difference(DateTime.now());
+          if (wait > timeout) return http.Response('', 429);
+          await Future<void>.delayed(wait);
+        }
+        initializeDailyCounter(0);
+        if (maxDailyRequests != null &&
+            maxDailyRequests > 0 &&
+            _dailyRequestsCount >= maxDailyRequests) {
+          throw ScreenscraperQuotaExceededException();
+        }
+        _dailyRequestsCount++;
+        if (shouldCancel?.call() ?? false) {
+          throw const ScreenscraperCancelledException();
+        }
+        final response = await _get(url, headers, timeout, shouldCancel);
+        if (response.statusCode == 430 || response.statusCode == 431) {
           throw ScreenscraperQuotaExceededException(
-            'Daily scraping quota exceeded (HTTP 430)',
+            'Daily scraping quota exceeded (HTTP ${response.statusCode})',
           );
-        } else if (response.statusCode >= 500) {
-          if (attempt < maxRetries - 1) {
-            final delay = Duration(milliseconds: 500 * (attempt + 1));
-            _log.w(
-              'Server error ${response.statusCode}, retrying in ${delay.inMilliseconds}ms...',
-            );
-            await Future.delayed(delay);
-            attempt++;
-            continue;
+        }
+        if (!_retryableStatuses.contains(response.statusCode)) return response;
+        final pause = _parseRetryAfter(response.headers['retry-after']);
+        if (pause != null || response.statusCode == 429) {
+          final until = DateTime.now().add(pause ?? _backoff(attempt));
+          final existing = _retryAfter[origin];
+          if (existing == null || until.isAfter(existing)) {
+            _retryAfter[origin] = until;
           }
+          if (pause != null && pause > timeout) return response;
         }
-
-        return response;
-      } on ScreenscraperQuotaExceededException {
-        // Thrown above after the slot was already released. Retrying would
-        // spend another refused request, and the generic handler below would
-        // release the slot a second time.
-        rethrow;
+        if (attempt == maxRetries) return response;
+        _log.w(
+          'ScreenScraper $endpoint HTTP ${response.statusCode}, retrying after attempt $attempt',
+        );
       } on TimeoutException {
-        _requestSemaphore.release();
-        if (attempt < maxRetries - 1) {
-          final delay = Duration(milliseconds: 500 * (attempt + 1));
-          await Future.delayed(delay);
-          attempt++;
-          continue;
+        _log.w('ScreenScraper $endpoint timed out on attempt $attempt');
+        if (attempt == maxRetries) rethrow;
+      } on http.ClientException catch (error) {
+        if (shouldCancel?.call() ?? false) {
+          throw const ScreenscraperCancelledException();
         }
-        rethrow;
-      } catch (e) {
-        _requestSemaphore.release();
-        if (attempt < maxRetries - 1) {
-          final delay = Duration(milliseconds: 500 * (attempt + 1));
-          _log.e(
-            'Request failed, retrying in ${delay.inMilliseconds}ms... (${e.toString()})',
-          );
-          await Future.delayed(delay);
-          attempt++;
-          continue;
+        _log.w(
+          'ScreenScraper $endpoint ${error.runtimeType} on attempt $attempt',
+        );
+        if (attempt == maxRetries) {
+          // ClientException can include the credential-bearing request URI.
+          throw const SocketException('ScreenScraper connection failed');
         }
-        rethrow;
+      } finally {
+        semaphore.release();
       }
+      await Future<void>.delayed(_backoff(attempt));
     }
-
-    throw Exception('HTTP request failed after $maxRetries attempts');
+    throw ArgumentError.value(maxRetries, 'maxRetries', 'Must be positive');
   }
 
-  /// Validates if a new request can be made based on user's daily quota limits.
-  static Future<bool> _canMakeRequest(
-    int currentRequests,
-    int maxDailyRequests,
-  ) async {
-    if (maxDailyRequests <= 0) return true;
+  static Duration _backoff(int attempt) => Duration(
+    milliseconds: 500 * (1 << min(attempt - 1, 4)) + _random.nextInt(251),
+  );
 
-    final bufferLimit = (maxDailyRequests * 0.9).round();
-
-    if (currentRequests >= bufferLimit) {
-      _log.e(
-        'Daily limit reached: $currentRequests/$maxDailyRequests (buffer: $bufferLimit)',
-      );
-      return false;
+  static Duration? _parseRetryAfter(String? header) {
+    if (header == null) return null;
+    final seconds = int.tryParse(header.trim());
+    if (seconds != null) {
+      return Duration(seconds: max(0, min(seconds, 86400)));
     }
+    try {
+      final delay = HttpDate.parse(header).difference(DateTime.now());
+      return delay.isNegative ? Duration.zero : delay;
+    } on FormatException {
+      return null;
+    }
+  }
 
-    return true;
+  static Future<http.Response> _get(
+    Uri url,
+    Map<String, String>? headers,
+    Duration timeout,
+    bool Function()? shouldCancel,
+  ) async {
+    final abort = Completer<void>();
+    final request = http.AbortableRequest(
+      'GET',
+      url,
+      abortTrigger: abort.future,
+    )..followRedirects = false;
+    if (headers != null) request.headers.addAll(headers);
+    final cancellationTimer = shouldCancel == null
+        ? null
+        : Timer.periodic(const Duration(milliseconds: 100), (_) {
+            if (shouldCancel() && !abort.isCompleted) abort.complete();
+          });
+    try {
+      return await _httpClient
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(
+            timeout,
+            onTimeout: () {
+              if (!abort.isCompleted) abort.complete();
+              throw TimeoutException(
+                'ScreenScraper request timed out',
+                timeout,
+              );
+            },
+          );
+    } finally {
+      cancellationTimer?.cancel();
+    }
   }
 }
