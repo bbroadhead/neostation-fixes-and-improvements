@@ -670,6 +670,7 @@ mixin AppLocale {
   // ---------------------------------------------------------------------------
   static const String scraping = 'scraping';
   static const String scrapingData = 'scraping_data';
+  static const String libretroTitleScreen = 'libretro_title_screen';
   static const String scrapingMedia = 'scraping_media';
   static const String scrapeMode = 'scrape_mode';
   static const String media = 'media';

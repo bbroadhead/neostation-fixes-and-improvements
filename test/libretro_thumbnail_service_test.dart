@@ -77,6 +77,29 @@ void main() {
     expect(hits, isEmpty);
   });
 
+  test(
+    'the gallery returns available categories without changing local art',
+    () async {
+      final candidates = await LibretroThumbnailService.gallery(
+        appSystemId: 'nes',
+        romName: 'wrong-label.nes',
+        gameName: 'Game & Watch (USA)',
+        catalog: Uri.parse('http://127.0.0.1:${server.port}'),
+      );
+      expect(candidates.map((item) => item.category), [
+        'box2d',
+        'screenshots',
+        LibretroThumbnailService.titleScreens,
+      ]);
+      expect(
+        candidates.every((item) => item.title == 'Game & Watch (USA)'),
+        isTrue,
+      );
+      expect(await media.list().toList(), isEmpty);
+      expect(hits, hasLength(6));
+    },
+  );
+
   test('a cover with a different file extension is retained', () async {
     final art = File('${media.path}/nes/box2d/Game & Watch (USA).jpg');
     await art.parent.create(recursive: true);

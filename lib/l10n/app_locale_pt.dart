@@ -864,6 +864,7 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.manage: 'Gerenciar',
   AppLocale.forceRescrape: 'Forçar Rescrape',
   AppLocale.scrapingData: 'Dados do Scraping',
+  AppLocale.libretroTitleScreen: 'Tela de título',
   AppLocale.scrapingMedia: 'Mídia do Scraping',
   AppLocale.scrapeSearchTitle: 'Título de pesquisa de metadados',
   AppLocale.gameTitle: 'Título',

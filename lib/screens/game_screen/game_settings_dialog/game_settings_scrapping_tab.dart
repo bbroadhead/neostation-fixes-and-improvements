@@ -74,7 +74,13 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
   static const int _totalDataItems = 14;
 
   static const _descLanguages = ['en', 'es', 'fr', 'de', 'it', 'pt'];
-  static const _imageTypes = ['screenshots', 'wheels', 'fanarts', 'box2d'];
+  static const _imageTypes = [
+    'screenshots',
+    'wheels',
+    'fanarts',
+    'box2d',
+    'title_screens',
+  ];
 
   int _selectedIndex = 0;
   final ScrollController _scrollController = ScrollController();
@@ -850,6 +856,8 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
         return AppLocale.fanart.getString(context);
       case 'box2d':
         return AppLocale.boxart.getString(context);
+      case 'title_screens':
+        return AppLocale.libretroTitleScreen.getString(context);
       default:
         return type;
     }

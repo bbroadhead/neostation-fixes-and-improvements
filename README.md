@@ -195,6 +195,13 @@ copy while the selected image stays visible. Use **Reset to Default** below
 a category to return to its downloaded or imported-library artwork.
 Artwork imported by older builds remains in its original cache location.
 
+In the game's options menu, **Scrape** opens the Libretro artwork gallery.
+Use the D-pad to browse, L/R to filter by category, A to apply the preview,
+and B to close the gallery. With a mouse, click a thumbnail and choose
+**Apply**. The gallery checks box covers, gameplay screenshots, and title
+screens using the ROM's search title when one is saved. A check mark identifies
+an image already saved as an override.
+
 ### RetroAchievements compatibility
 
 Game Details shows a compatibility label for ROMs on mapped systems. The

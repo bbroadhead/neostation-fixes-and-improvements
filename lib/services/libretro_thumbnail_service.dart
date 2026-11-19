@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as path;
 
@@ -7,6 +8,8 @@ import 'logger_service.dart';
 import 'screenscraper/media_resolver.dart';
 import 'screenscraper/rom_hasher.dart';
 import 'screenscraper/screenscraper_client.dart';
+
+typedef LibretroArtwork = ({String category, String title, Uint8List bytes});
 
 /// RetroArch's public artwork catalog, indexed by playlist and game label.
 class LibretroThumbnailService {
@@ -74,6 +77,83 @@ class LibretroThumbnailService {
   static final _invalidLabelCharacters = RegExp(r'''[&*/:`"<>?\\|]''');
   static const _pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
 
+  static Future<List<LibretroArtwork>> gallery({
+    required String appSystemId,
+    required String romName,
+    required String gameName,
+    String? searchTitle,
+    Uri? catalog,
+    bool Function()? shouldCancel,
+  }) async {
+    final playlist = playlistForSystem(appSystemId);
+    if (playlist == null) return [];
+    final stem = await ScreenscraperRomHasher.getCleanRomName(
+      romName,
+      appSystemId,
+    );
+    final base = catalog ?? Uri.https('thumbnails.libretro.com', '/');
+    final labels = _labels(stem, gameName, searchTitle);
+    final candidates = await Future.wait([
+      for (final type in _folders.entries)
+        for (final label in labels)
+          _preview(base, playlist, type, label, shouldCancel),
+    ]);
+    return candidates.nonNulls.toList();
+  }
+
+  static Future<LibretroArtwork?> _preview(
+    Uri base,
+    String playlist,
+    MapEntry<String, String> type,
+    String title,
+    bool Function()? shouldCancel,
+  ) async {
+    try {
+      final response = await ScreenscraperClient.httpGetWithRetry(
+        _artworkUrl(base, playlist, type.value, title),
+        timeout: const Duration(seconds: 10),
+        maxRetries: 1,
+        shouldCancel: shouldCancel,
+      );
+      if (response.statusCode != 200 || !_isPng(response.bodyBytes)) {
+        return null;
+      }
+      return (
+        category: ScreenscraperMediaResolver.mapMediaTypeToFolder(type.key),
+        title: title,
+        bytes: response.bodyBytes,
+      );
+    } catch (error) {
+      _log.w('Libretro preview ${type.value}: ${error.runtimeType}');
+      return null;
+    }
+  }
+
+  static Set<String> _labels(String stem, String? title, String? searchTitle) =>
+      {
+        if (searchTitle != null)
+          searchTitle
+        else ...[
+          stem,
+          if (title != null && title.trim().isNotEmpty) title.trim(),
+        ],
+      }..remove('');
+
+  static Uri _artworkUrl(
+    Uri base,
+    String playlist,
+    String folder,
+    String label,
+  ) {
+    final safeLabel = label.replaceAll(_invalidLabelCharacters, '_');
+    return base.replace(pathSegments: [playlist, folder, '$safeLabel.png']);
+  }
+
+  static bool _isPng(Uint8List bytes) =>
+      bytes.length > _pngSignature.length &&
+      Iterable<int>.generate(_pngSignature.length)
+          .every((i) => bytes[i] == _pngSignature[i]);
+
   /// Returns whether any requested image is available locally after the run.
   /// A catalog miss leaves existing art available and can be retried later.
   static Future<bool> download({
@@ -103,14 +183,7 @@ class LibretroThumbnailService {
         systemFolder == '..') {
       return false;
     }
-    final labels = {
-      if (searchTitle != null)
-        searchTitle
-      else ...[
-        stem,
-        if (gameName != null && gameName.trim().isNotEmpty) gameName.trim(),
-      ],
-    };
+    final labels = _labels(stem, gameName, searchTitle);
     final root = await ScreenscraperMediaResolver.getMediaDirectory();
     final base = catalog ?? Uri.https('thumbnails.libretro.com', '/');
     final types = _folders.entries
@@ -126,10 +199,7 @@ class LibretroThumbnailService {
       available = available || cached;
       if (!cached || forceOverwrite) {
         for (final label in labels) {
-          final safeLabel = label.replaceAll(_invalidLabelCharacters, '_');
-          final url = base.replace(
-            pathSegments: [playlist, type.value, '$safeLabel.png'],
-          );
+          final url = _artworkUrl(base, playlist, type.value, label);
           try {
             final response = await ScreenscraperClient.httpGetWithRetry(
               url,
@@ -143,9 +213,7 @@ class LibretroThumbnailService {
               );
               break;
             }
-            if (response.bodyBytes.length <= _pngSignature.length ||
-                !Iterable<int>.generate(_pngSignature.length)
-                    .every((i) => response.bodyBytes[i] == _pngSignature[i])) {
+            if (!_isPng(response.bodyBytes)) {
               _log.w('Libretro ${type.value} invalid PNG for "$romName"');
               continue;
             }

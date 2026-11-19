@@ -28,9 +28,13 @@ import '../../utils/game_launch_utils.dart';
 import '../../services/music_player_service.dart';
 import '../../repositories/system_repository.dart';
 import '../../repositories/game_repository.dart';
+import '../../repositories/retro_achievements_repository.dart';
+import '../../repositories/scraper_repository.dart';
+import '../../services/libretro_thumbnail_service.dart';
 import '../../services/screenscraper_service.dart';
 import '../../services/secondary_achievements_controller.dart';
 import '../../utils/gamepad_nav.dart';
+import '../../utils/atomic_file_writer.dart';
 import '../../utils/performance_mode.dart';
 import '../../utils/letter_jump.dart';
 import '../../providers/file_provider.dart';
@@ -48,6 +52,7 @@ import '../../utils/game_list_size.dart';
 import 'game_details_card/game_details_card_list.dart';
 import 'game_details_card/detail_tab.dart';
 import 'game_details_card/dialogs/screenscraper_match_picker_dialog.dart';
+import 'game_details_card/dialogs/libretro_artwork_dialog.dart';
 import 'game_details_card/random_game_dialog.dart';
 import 'game_settings_dialog/game_settings_dialog.dart';
 import 'game_options_dialog.dart';
@@ -2241,6 +2246,79 @@ class _SystemGamesListState extends State<SystemGamesList> {
       }
     } catch (e) {
       _log.e('Error updating game in list: $e');
+    }
+  }
+
+  Future<void> _pickLibretroArtwork(GameModel game) async {
+    final systemId = game.systemId ?? widget.system.id;
+    final romPath = game.romPath;
+    if (systemId == null || romPath == null || _isScrapingSelectedGame) return;
+    _isScrapingSelectedGame = true;
+    try {
+      final selection = await showDialog<LibretroArtwork>(
+        context: context,
+        builder: (_) => LibretroArtworkDialog(
+          isCurrent: (image) async {
+            final selected = game.getArtworkOverridePath(
+              image.category,
+              _fileProvider,
+            );
+            if (selected == null) return false;
+            try {
+              final file = File(selected);
+              if (await file.length() != image.bytes.length) return false;
+              return listEquals(await file.readAsBytes(), image.bytes);
+            } on FileSystemException {
+              return false;
+            }
+          },
+          load: (cancelled) async {
+            final title = await ScraperRepository.getSearchTitle(romPath);
+            final verified =
+                await RetroAchievementsRepository.getVerifiedRomIdentity(
+                  romPath,
+                );
+            if (cancelled()) return [];
+            return LibretroThumbnailService.gallery(
+              appSystemId: systemId,
+              romName: game.romname,
+              gameName: verified?.title ?? game.name,
+              searchTitle: title,
+              shouldCancel: cancelled,
+            );
+          },
+        ),
+      );
+      if (selection == null || !mounted) return;
+      final target = game.getArtworkOverridePath(
+        selection.category,
+        _fileProvider,
+      );
+      if (target == null) return;
+      final decoded = await decodeImageFromList(selection.bytes);
+      decoded.dispose();
+      await writeFileAtomically(File(target), selection.bytes);
+      await evictScrapedArtwork([target]);
+      GamesGrid.evictArtworkCaches([target]);
+      GamesCarousel.evictArtworkCaches([target]);
+      if (!mounted) return;
+      await _handleGameUpdated();
+      if (!mounted) return;
+      AppNotification.showNotification(
+        context,
+        AppLocale.imageUpdated.getString(context),
+        type: NotificationType.success,
+      );
+    } catch (error) {
+      _log.w('Could not apply Libretro artwork (${error.runtimeType})');
+      if (!mounted) return;
+      AppNotification.showNotification(
+        context,
+        AppLocale.failedToSaveSetting.getString(context),
+        type: NotificationType.error,
+      );
+    } finally {
+      _isScrapingSelectedGame = false;
     }
   }
 

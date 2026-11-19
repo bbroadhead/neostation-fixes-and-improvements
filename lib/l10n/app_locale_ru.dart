@@ -857,6 +857,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.manage: 'Управление',
   AppLocale.forceRescrape: 'Принудительный рескрейп',
   AppLocale.scrapingData: 'Данные скрейпинга',
+  AppLocale.libretroTitleScreen: 'Титульный экран',
   AppLocale.scrapingMedia: 'Медиа скрейпинга',
   AppLocale.scrapeSearchTitle: 'Название для поиска метаданных',
   AppLocale.gameTitle: 'Название',

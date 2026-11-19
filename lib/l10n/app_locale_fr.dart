@@ -870,6 +870,7 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.manage: 'Gérer',
   AppLocale.forceRescrape: 'Forcer le Rescrape',
   AppLocale.scrapingData: 'Données de scraping',
+  AppLocale.libretroTitleScreen: 'Écran titre',
   AppLocale.scrapingMedia: 'Média de scraping',
   AppLocale.scrapeSearchTitle: 'Titre de recherche des métadonnées',
   AppLocale.gameTitle: 'Titre',

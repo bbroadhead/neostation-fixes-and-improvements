@@ -127,7 +127,12 @@ extension _ContextMenu on _SystemGamesListState {
       case GameOptionsAction.settings:
         _openGameSettingsDialog();
       case GameOptionsAction.scrape:
-        _scrapeSelectedGame();
+        if (ScreenScraperService.usesLibretroArtwork &&
+            game.romPath?.isNotEmpty == true) {
+          await _pickLibretroArtwork(game);
+        } else {
+          await _scrapeSelectedGame();
+        }
       case GameOptionsAction.identify:
         await _identifySelectedGame();
       case GameOptionsAction.search:

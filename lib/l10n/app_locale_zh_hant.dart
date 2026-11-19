@@ -781,6 +781,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.manage: '管理',
   AppLocale.forceRescrape: '強制重新刮削',
   AppLocale.scrapingData: '抓取資料',
+  AppLocale.libretroTitleScreen: '標題畫面',
   AppLocale.scrapingMedia: '抓取媒體',
   AppLocale.scrapeSearchTitle: '刮削搜尋標題',
   AppLocale.gameTitle: '標題',
