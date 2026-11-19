@@ -93,6 +93,29 @@ void main() {
   group('Linux, where joydev numbers only the axes a pad has', () {
     const rest = -32767.0, full = 32767.0;
 
+    test('Steam Input virtual Xbox pad translates both bumper edges', () {
+      useOs('linux', {
+        'vendorId': '28DE',
+        'productId': '11FF',
+        'connectionType': 'wireless',
+        'buttonCount': 8,
+      });
+      expect(
+        edges([
+          send('4', 1, type: KeyType.button),
+          send('5', 1, type: KeyType.button),
+          send('4', 0, type: KeyType.button),
+          send('5', 0, type: KeyType.button),
+        ]),
+        [
+          'press buttonLB',
+          'press buttonRB',
+          'release buttonLB',
+          'release buttonRB',
+        ],
+      );
+    });
+
     /// What moving axis [index] from one end to the other reads as.
     String? moves(String index) => [
       send(index, rest),
