@@ -191,6 +191,35 @@ gameplay screenshots, and title screens have separate local directories.
 The grid displays a cover or a placeholder. You can import a cover under
 **Game Settings → Scraping Media**.
 
+### RetroAchievements compatibility
+
+Game Details shows a compatibility label for ROMs on mapped systems. The
+label uses the stored RetroAchievements-format hash and console catalogue.
+
+- **Supported** means the hash matches a catalogue entry with an achievement set.
+- **Different ROM Required** means a downloaded console catalogue contains one
+  exact filename-derived title match with achievements and lacks the ROM hash.
+- **No Achievement Set** means the hash identifies a catalogue entry that
+  reports zero achievements.
+- **Unknown / Unverified** covers missing hashes, ambiguous identities, and
+  cases where the catalogue has insufficient evidence.
+
+The **Cached catalogue** label identifies bundled or older catalogue data.
+The existing online catalogue refresh fetches games with achievements, so it
+can leave games without sets unverified. Changes to a scrape title or manual
+achievement match do not change compatibility evidence.
+
+### Steam Deck Desktop Mode controls
+
+Steam's Deck desktop layout has a keyboard layer whose bumpers send Left
+Control and Left Alt. NeoStation's Linux controller backend reads joystick
+events, so that layer cannot invoke the game's bumper navigation. If your
+Desktop Mode launch uses the keyboard layer, add the AppImage as a non-Steam
+game, choose a Gamepad controller layout for that shortcut, and launch the
+shortcut from Steam. Check that its L1 and R1 bindings are the gamepad's
+left and right shoulders. NeoStation also accepts Q and E as keyboard
+equivalents. These settings are specific to the shortcut.
+
 ### Running
 
 ```bash

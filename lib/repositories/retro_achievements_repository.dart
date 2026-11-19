@@ -2,6 +2,7 @@ import '../data/datasources/sqlite_service.dart';
 import '../models/database_game_model.dart';
 import '../models/ra_game_list_entry.dart';
 import '../models/ra_catalogue_game.dart';
+import '../models/ra_compatibility.dart';
 import '../models/ra_hash_policy.dart';
 import '../models/ra_match_candidate.dart';
 import '../models/retro_achievements_dashboard_models.dart';
@@ -148,6 +149,91 @@ class RetroAchievementsRepository {
 
   static Future<String?> getRomRaHash(String romPath) =>
       SqliteService.getRomRaHash(romPath);
+
+  /// Compatibility is derived from the stored ROM hash. The game's selected
+  /// achievement, artwork, and metadata identities are independent of it.
+  static Future<RaCompatibility> getRomCompatibility(String romPath) async {
+    const unknown = RaCompatibility(RaCompatibilityStatus.unknown);
+    final db = await SqliteService.getDatabase();
+    final roms = await db.rawQuery(
+      '''
+      SELECT r.ra_hash, r.filename, CAST(s.ra_id AS INTEGER) AS console_id,
+             sync.refreshed_at
+      FROM user_roms r
+      JOIN app_systems s ON s.id = r.app_system_id
+      LEFT JOIN app_ra_catalogue_sync sync ON sync.console_id = CAST(s.ra_id AS INTEGER)
+      WHERE r.rom_path = ?
+      ''',
+      [romPath],
+    );
+    if (roms.isEmpty) return unknown;
+    final rom = roms.single;
+    final hash = rom['ra_hash']?.toString().toLowerCase();
+    if (hash == null || !RegExp(r'^[0-9a-f]{32}$').hasMatch(hash)) {
+      return unknown;
+    }
+    final consoleId = rom['console_id'];
+    if (consoleId is! int || consoleId <= 0) return unknown;
+    final refreshedAt = DateTime.tryParse(
+      rom['refreshed_at']?.toString() ?? '',
+    );
+
+    final hashMatches = await db.rawQuery(
+      '''
+      SELECT DISTINCT game_id, CAST(console_id AS INTEGER) AS console_id, num_achievements
+      FROM app_ra_game_list WHERE hash = ?
+      ''',
+      [hash],
+    );
+    final scoped = hashMatches
+        .where((r) => r['console_id'] == consoleId)
+        .toList();
+    if (scoped.length == 1) {
+      final row = scoped.single;
+      final count = row['num_achievements'];
+      if (count is! int || count < 0) return unknown;
+      return RaCompatibility(
+        count > 0
+            ? RaCompatibilityStatus.supported
+            : RaCompatibilityStatus.noAchievementSet,
+        gameId: row['game_id'] as int,
+        catalogueRefreshedAt: refreshedAt,
+      );
+    }
+    if (hashMatches.isNotEmpty || refreshedAt == null) return unknown;
+
+    // Keep the title comparison exact and console-scoped. Strip only common
+    // dump annotations, leaving hacks and other bracketed qualifiers intact.
+    final filename = rom['filename'] as String;
+    final title = filename
+        .replaceFirst(RegExp(r'\.[^.]+$'), '')
+        .replaceFirst(
+          RegExp(
+            r'(?:\s+\((?:USA|Europe|Japan|World|Rev [0-9A-Z]+)(?:, (?:USA|Europe|Japan|World))*\))+$',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .trim();
+    if (title.isEmpty) return unknown;
+    final titleMatches = await db.rawQuery(
+      '''
+      SELECT game_id, MAX(num_achievements) AS num_achievements
+      FROM app_ra_game_list
+      WHERE console_id = ? AND title = ? COLLATE NOCASE
+      GROUP BY game_id LIMIT 2
+      ''',
+      [consoleId, title],
+    );
+    if (titleMatches.length != 1) return unknown;
+    final row = titleMatches.single;
+    if ((row['num_achievements'] as int? ?? 0) <= 0) return unknown;
+    return RaCompatibility(
+      RaCompatibilityStatus.differentRomRequired,
+      gameId: row['game_id'] as int,
+      catalogueRefreshedAt: refreshedAt,
+    );
+  }
 
   /// Title of the exact ROM dump in the local RetroAchievements catalogue.
   /// A manual or filename association alone cannot supply this title.

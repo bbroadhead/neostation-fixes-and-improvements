@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/data/datasources/sqlite_service.dart';
 import 'package:neostation/models/ra_hash_policy.dart';
+import 'package:neostation/models/ra_compatibility.dart';
 import 'package:neostation/repositories/retro_achievements_repository.dart';
 
 import 'database_test_helper.dart';
@@ -21,6 +22,56 @@ void main() {
   });
 
   group('RetroAchievementsRepository', () {
+    test(
+      'classifies from the current hash and a unique console title',
+      () async {
+        const rom = '/roms/nes/zelda.nes';
+        const supported = '11111111111111111111111111111111';
+        const other = '22222222222222222222222222222222';
+        await db.execute(
+          '''
+        INSERT INTO app_ra_game_list (game_id, title, console_id, hash, num_achievements)
+        VALUES (42, 'Zelda', '7', ?, 23)
+      ''',
+          [supported],
+        );
+        await db.execute(
+          '''
+        INSERT INTO user_roms (filename, rom_path, app_system_id, ra_hash, id_ra, ra_match_source)
+        VALUES ('Zelda (USA).nes', ?, 'nes', ?, 99, 'manual')
+      ''',
+          [rom, supported],
+        );
+        Future<RaCompatibility> classify() =>
+            RetroAchievementsRepository.getRomCompatibility(rom);
+
+        expect((await classify()).status, RaCompatibilityStatus.supported);
+        expect((await classify()).gameId, 42);
+        await db.execute('UPDATE app_ra_game_list SET num_achievements = 0');
+        expect(
+          (await classify()).status,
+          RaCompatibilityStatus.noAchievementSet,
+        );
+        await db.execute('UPDATE app_ra_game_list SET num_achievements = 23');
+        await RetroAchievementsRepository.updateRomRaHash(rom, other);
+        expect((await classify()).status, RaCompatibilityStatus.unknown);
+        await db.execute('''
+        INSERT INTO app_ra_catalogue_sync (console_id, refreshed_at, match_pending)
+        VALUES (7, '2026-11-18T00:00:00Z', 0)
+      ''');
+        expect(
+          (await classify()).status,
+          RaCompatibilityStatus.differentRomRequired,
+        );
+        await db.execute('''
+        INSERT INTO app_ra_game_list (game_id, title, console_id, hash, num_achievements)
+        VALUES (43, 'Zelda', '7', 'other-release', 12)
+      ''');
+        expect((await classify()).status, RaCompatibilityStatus.unknown);
+        expect(await RetroAchievementsRepository.getManualRomRaGameId(rom), 99);
+      },
+    );
+
     test(
       'only returns a scrape title backed by the current ROM hash',
       () async {

@@ -1497,6 +1497,11 @@ mixin AppLocale {
   static const String filterGenre = 'filter_genre';
   static const String filterRating = 'filter_rating';
   static const String filterYear = 'filter_year';
+  static const String raCompatibilitySupported = 'raCompatibilitySupported';
+  static const String raCompatibilityDifferent = 'raCompatibilityDifferent';
+  static const String raCompatibilityNoSet = 'raCompatibilityNoSet';
+  static const String raCompatibilityUnknown = 'raCompatibilityUnknown';
+  static const String raCompatibilityCached = 'raCompatibilityCached';
   static const String raCoverageUnknown = 'ra_coverage_unknown';
   static const String filterAny = 'filter_any';
   static const String filterSource = 'filter_source';

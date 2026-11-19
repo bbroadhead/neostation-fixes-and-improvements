@@ -14,6 +14,8 @@ import 'package:neostation/themes/corner_radii.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'database_test_helper.dart';
+
 /// An unscraped game's info panel shows an "Incomplete Metadata" notice above
 /// the game's name and ROM filename. On a short landscape phone the room
 /// between the header and that identity footer is less than the notice needs,
@@ -57,6 +59,7 @@ void main() {
     WidgetTester tester, {
     required Size screen,
     required double cardHeight,
+    GameModel? game,
   }) async {
     tester.view.physicalSize = screen;
     tester.view.devicePixelRatio = 1.0;
@@ -84,7 +87,7 @@ void main() {
                     children: [
                       GameDetailsGameInfoTab(
                         system: _system,
-                        game: _game,
+                        game: game ?? _game,
                         fileProvider: FileProvider(),
                         description: '',
                         isScrapingGame: false,
@@ -109,6 +112,47 @@ void main() {
           find.text(AppLocale.en[AppLocale.scrapeToDownload]! as String),
         ),
       );
+
+  testWidgets('a verified ROM shows its compatibility in Game Details', (
+    tester,
+  ) async {
+    final helper = DatabaseTestHelper();
+    await tester.runAsync(() async {
+      final db = await helper.setUp();
+      await db.execute('''
+        INSERT INTO app_systems (id, folder_name, ra_id)
+        VALUES ('atari7800', 'atari7800', '51')
+      ''');
+      const hash = '11111111111111111111111111111111';
+      await db.execute(
+        '''
+        INSERT INTO user_roms (filename, rom_path, app_system_id, ra_hash)
+        VALUES (?, ?, 'atari7800', ?)
+      ''',
+        [_game.romname, _game.romPath, hash],
+      );
+      await db.execute(
+        '''
+        INSERT INTO app_ra_game_list (game_id, title, console_id, hash, num_achievements)
+        VALUES (42, 'Mario Bros.', '51', ?, 8)
+      ''',
+        [hash],
+      );
+    });
+    addTearDown(helper.tearDown);
+    await mountPanel(
+      tester,
+      screen: const Size(890, 400),
+      cardHeight: 300,
+      game: _game.copyWith(systemRaId: '51'),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('RetroAchievements · Supported · Cached catalogue'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   for (final (label, screen, cardHeight) in [
     ('a landscape phone', const Size(890, 400), 300.0),

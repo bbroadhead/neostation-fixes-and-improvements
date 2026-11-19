@@ -9,7 +9,10 @@ import 'package:neostation/services/sfx_service.dart';
 
 import '../../../../models/system_model.dart';
 import '../../../../models/game_model.dart';
+import '../../../../models/ra_compatibility.dart';
 import '../../../../providers/file_provider.dart';
+import '../../../../repositories/retro_achievements_repository.dart';
+import '../../../../services/ra_catalogue_service.dart';
 import '../../../../services/screenscraper_service.dart';
 import '../../../../themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
@@ -49,6 +52,15 @@ class GameDetailsGameInfoTab extends StatefulWidget {
 }
 
 class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
+  Future<RaCompatibility>? _compatibility;
+
+  void _loadCompatibility() {
+    final romPath = widget.game.romPath;
+    _compatibility = romPath == null || widget.game.systemRaId == null
+        ? null
+        : RetroAchievementsRepository.getRomCompatibility(romPath);
+  }
+
   /// App language code -> the key the scraper files that language under.
   ///
   /// Only the two that actually differ are listed. ScreenScraper writes
@@ -105,6 +117,7 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   @override
   void initState() {
     super.initState();
+    _loadCompatibility();
     _refreshDrivability();
   }
 
@@ -174,6 +187,7 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   @override
   void didUpdateWidget(GameDetailsGameInfoTab oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.game != widget.game) _loadCompatibility();
 
     // A new game, or a scrape landing on this one, is a new description: what
     // there is to drive has to be measured again.
@@ -389,6 +403,51 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
             _buildIdentityLine(
               icon: Symbols.description_rounded,
               text: romname,
+            ),
+          if (_compatibility != null)
+            FutureBuilder<RaCompatibility>(
+              future: _compatibility,
+              builder: (context, snapshot) {
+                final result = snapshot.connectionState == ConnectionState.done
+                    ? snapshot.data
+                    : null;
+                final status = result?.status ?? RaCompatibilityStatus.unknown;
+                final (label, icon) = switch (status) {
+                  RaCompatibilityStatus.supported => (
+                    AppLocale.raCompatibilitySupported,
+                    Symbols.verified_rounded,
+                  ),
+                  RaCompatibilityStatus.differentRomRequired => (
+                    AppLocale.raCompatibilityDifferent,
+                    Symbols.swap_horiz_rounded,
+                  ),
+                  RaCompatibilityStatus.noAchievementSet => (
+                    AppLocale.raCompatibilityNoSet,
+                    Symbols.remove_circle_outline,
+                  ),
+                  RaCompatibilityStatus.unknown => (
+                    AppLocale.raCompatibilityUnknown,
+                    Symbols.help_outline,
+                  ),
+                };
+                final refreshedAt = result?.catalogueRefreshedAt;
+                final cached =
+                    status != RaCompatibilityStatus.unknown &&
+                    (refreshedAt == null ||
+                        DateTime.now().difference(refreshedAt) >=
+                            RaCatalogueService.staleAfter);
+                final source = AppLocale.raMatchNotificationTitle.getString(
+                  context,
+                );
+                final description = label.getString(context);
+                final suffix = cached
+                    ? ' · ${AppLocale.raCompatibilityCached.getString(context)}'
+                    : '';
+                return _buildIdentityLine(
+                  icon: icon,
+                  text: '$source · $description$suffix',
+                );
+              },
             ),
         ],
       ),
