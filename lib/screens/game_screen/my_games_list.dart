@@ -1620,7 +1620,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
       folderEntries: _currentFolderEntries,
       onFolderActivated: _descendToFolderIndex,
       folderCoverResolver: (relPath, {required max, required imageType}) =>
-          _folderCoverFiles(relPath, max: max, imageType: imageType),
+          _folderCoverFiles(
+            relPath,
+            max: max,
+            imageType: imageType,
+            allowScreenshot: false,
+          ),
       // Hides the footer's mute pill: with a second screen attached the
       // preview is over there and so is its own mute control.
       isSecondaryScreenActive:
@@ -1900,7 +1905,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
     );
   }
 
-  /// Resolves on-disk cover files (box art, falling back to screenshot) for up
+  /// Resolves on-disk preview art for up
   /// to [max] games contained beneath [folderRelPath], for the folder preview
   /// mosaic. The contained games are shuffled with a seed derived from the
   /// folder path, so the sample varies between folders but is stable for a
@@ -1909,6 +1914,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
     String folderRelPath, {
     required int max,
     String imageType = 'box2d',
+    bool allowScreenshot = true,
   }) {
     final systemFolder = widget.system.primaryFolderName;
     final games = gamesUnderFolder(
@@ -1922,7 +1928,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
       final art = game.getImagePath(systemFolder, imageType, _fileProvider);
       if (File(art).existsSync()) {
         covers.add(File(art));
-      } else {
+      } else if (allowScreenshot) {
         final shot = game.getScreenshotPath(systemFolder, _fileProvider);
         if (File(shot).existsSync()) covers.add(File(shot));
       }

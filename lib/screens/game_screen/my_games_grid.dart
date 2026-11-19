@@ -70,8 +70,7 @@ class GamesGrid extends StatefulWidget {
   final void Function(int folderIndex)? onFolderActivated;
 
   /// Resolves on-disk cover files for the games beneath a folder, for the
-  /// folder-tile preview mosaic. [imageType] follows the current card style
-  /// ('fanarts' vs 'box2d'). Falls back to screenshots. Provided by the parent
+  /// folder-tile preview mosaic. Provided by the parent
   /// because it owns the full game list and subfolder roots.
   final List<File> Function(
     String folderRelPath, {
@@ -217,7 +216,6 @@ class _GamesGridState extends State<GamesGrid> {
   double _spY = 0;
   double? _lastLayoutWidth;
   int? _lastLayoutCols;
-  bool? _lastIsFanart;
   // Exact laid-out height of all rows (set by _positionCards). See its use in
   // _centerTargetFor for why we don't trust the SliverList's own estimate.
   double _contentHeight = 0;
@@ -244,7 +242,7 @@ class _GamesGridState extends State<GamesGrid> {
   // Image dimension cache
   static final Map<String, Size?> _imageSizeCache = {};
 
-  /// Folder preview covers, keyed by "relPath|imageType" so box/fanart styles
+  /// Folder preview covers, keyed by "relPath|imageType" so image categories
   /// cache independently. Resolving walks the game list and stats the disk, so
   /// each folder tile is computed once.
   final Map<String, List<File>> _folderCoverCache = {};
@@ -338,33 +336,6 @@ class _GamesGridState extends State<GamesGrid> {
     );
   }
 
-  String _fanartPath(int index) {
-    final game = widget.games[index];
-    return game.getImagePath(
-      _folderForGame(game),
-      'fanarts',
-      widget.fileProvider,
-    );
-  }
-
-  String _wheelsPath(int index) {
-    final game = widget.games[index];
-    return game.getImagePath(
-      _folderForGame(game),
-      'wheels',
-      widget.fileProvider,
-    );
-  }
-
-  String _screenshotPath(int index) {
-    final game = widget.games[index];
-    return game.getScreenshotPath(_folderForGame(game), widget.fileProvider);
-  }
-
-  bool get _isFanart =>
-      context.read<SqliteConfigProvider>().config.gameCarouselCardStyle ==
-      'fanart';
-
   final Set<String> _pendingSaves = {};
   void _scheduleAspectRatioSave(GameModel game, String ratio) {
     final key = '${game.systemId}_${game.romname}';
@@ -388,7 +359,6 @@ class _GamesGridState extends State<GamesGrid> {
   /// [_measureCards] caches into [_cardHOverW]. Note `_cardHeightFor(i)` equals
   /// `_cardWidth * _heightRatioFor(i)`.
   double _heightRatioFor(int index) {
-    if (_isFanart) return 1.0;
     // Header reads are the expensive part of this lookup; performance mode
     // uses the square fallback rather than opening every box-art file.
     if (_performanceMode) return 1.0;
@@ -432,11 +402,9 @@ class _GamesGridState extends State<GamesGrid> {
       _needsMeasure = false;
       return;
     }
-    if (!_isFanart) {
-      for (int i = 0; i < n; i++) {
-        _cardHOverW[i] = _heightRatioFor(i);
-        if (_imageSizeCache.containsKey(_box2dPath(i))) _loadedDims.add(i);
-      }
+    for (int i = 0; i < n; i++) {
+      _cardHOverW[i] = _heightRatioFor(i);
+      if (_imageSizeCache.containsKey(_box2dPath(i))) _loadedDims.add(i);
     }
     _needsMeasure = false;
   }
@@ -449,20 +417,12 @@ class _GamesGridState extends State<GamesGrid> {
     final measureChanged =
         _needsMeasure ||
         _cardHOverW.length != widget.games.length ||
-        _lastIsFanart != _isFanart ||
         _needsDimReload;
 
     if (!measureChanged &&
         _lastLayoutWidth == availableWidth &&
         _lastLayoutCols == _cols) {
       return;
-    }
-
-    // A fanart↔box2d switch is only observable here (card style is read from
-    // the config provider, not passed as a prop) — recentre on the selected card
-    // once relaid. Never on the first layout (_lastIsFanart == null).
-    if (_lastIsFanart != null && _lastIsFanart != _isFanart) {
-      _recenterAfterLayout = true;
     }
 
     if (measureChanged) {
@@ -472,7 +432,6 @@ class _GamesGridState extends State<GamesGrid> {
 
     _lastLayoutWidth = availableWidth;
     _lastLayoutCols = _cols;
-    _lastIsFanart = _isFanart;
 
     _positionCards(availableWidth);
   }
@@ -549,7 +508,7 @@ class _GamesGridState extends State<GamesGrid> {
 
   // Lazy dimension loading for newly visible cards
   void _ensureDims(int index) {
-    if (_isFanart || _performanceMode) return;
+    if (_performanceMode) return;
     if (_loadedDims.contains(index)) return;
     final path = _box2dPath(index);
     final hadBefore = _imageSizeCache.containsKey(path);
@@ -1191,13 +1150,7 @@ class _GamesGridState extends State<GamesGrid> {
                       final idx = row.startIndex + j;
                       final rect = _cardRects[idx];
                       _ensureDims(idx);
-                      Widget cell = _buildCard(
-                        idx,
-                        rect,
-                        fp,
-                        targetWidth,
-                        theme,
-                      );
+                      Widget cell = _buildCard(idx, fp, targetWidth, theme);
                       if (idx == _selectedIndex) {
                         cell = Stack(
                           children: [
@@ -1441,7 +1394,6 @@ class _GamesGridState extends State<GamesGrid> {
 
   Widget _buildCard(
     int index,
-    _CardRect rect,
     FileProvider fp,
     int targetWidth,
     ThemeData theme,
@@ -1451,10 +1403,6 @@ class _GamesGridState extends State<GamesGrid> {
     }
 
     final game = widget.games[index];
-
-    if (_isFanart) {
-      return _buildFanartGridCard(index, rect, game, theme);
-    }
 
     final box2dPath = game.getImagePath(_folderForGame(game), 'box2d', fp);
 
@@ -1578,156 +1526,13 @@ class _GamesGridState extends State<GamesGrid> {
     );
   }
 
-  Widget _buildFanartGridCard(
-    int index,
-    _CardRect rect,
-    GameModel game,
-    ThemeData theme,
-  ) {
-    final fanartPath = _fanartPath(index);
-    final screenshotPath = _screenshotPath(index);
-    final wheelsPath = _wheelsPath(index);
-    final hasFanart = File(fanartPath).existsSync();
-    final hasScreenshot = !hasFanart && File(screenshotPath).existsSync();
-    final hasWheel = File(wheelsPath).existsSync();
-    final bgPath = hasFanart
-        ? fanartPath
-        : (hasScreenshot ? screenshotPath : '');
-
-    return GestureDetector(
-      key: ValueKey('game_${game.romname}'),
-      onLongPress: () => _handleCardLongPress(index),
-      onTap: () {
-        // Second tap on the already-selected card plays it — touch users have
-        // no A button, so the footer's Play is an affordance, not a step.
-        if (index == _selectedIndex) {
-          SfxService().playEnterSound();
-          widget.onPlay();
-          return;
-        }
-
-        setState(() {
-          _selectedIndex = index;
-          _settledIndex = index; // discrete tap: update chrome immediately
-        });
-        _settleTimer?.cancel();
-        widget.onGameSelected(game);
-        _scheduleAchievementsLoad();
-        SfxService().playNavSound();
-      },
-      child: RepaintBoundary(
-        child: Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12.r)),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12.r),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (bgPath.isNotEmpty)
-                  Image.file(
-                    File(bgPath),
-                    key: ValueKey('fanart_bg_${game.romname}'),
-                    fit: BoxFit.cover,
-                    cacheWidth: performanceCacheWidth(
-                      388,
-                      performanceMode: _performanceMode,
-                    ),
-                    errorBuilder: (ctx, e, s) =>
-                        _buildFallbackCard(game, theme),
-                  )
-                else
-                  _buildFallbackCard(game, theme),
-                if (bgPath.isNotEmpty)
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.5),
-                          Colors.black.withValues(alpha: 0.85),
-                        ],
-                        stops: const [0.5, 0.75, 1.0],
-                      ),
-                    ),
-                  ),
-                if (hasWheel)
-                  Positioned(
-                    left: 10.r,
-                    right: 10.r,
-                    bottom: 5.r,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 6.r,
-                        vertical: 4.r,
-                      ),
-                      child: Image.file(
-                        File(wheelsPath),
-                        key: ValueKey('wheel_${game.romname}'),
-                        fit: BoxFit.contain,
-                        cacheWidth: performanceCacheWidth(
-                          388,
-                          performanceMode: _performanceMode,
-                        ),
-                        errorBuilder: (ctx, e, s) => const SizedBox.shrink(),
-                      ),
-                    ),
-                  ),
-                if (game.isFavorite == true)
-                  Positioned(
-                    top: 6.r,
-                    right: 6.r,
-                    child: Container(
-                      width: 22.r,
-                      height: 22.r,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Symbols.favorite_rounded,
-                        size: 12.r,
-                        color: Colors.redAccent,
-                      ),
-                    ),
-                  ),
-                if (_collections?.isInAnyCollection(game.romPath) == true)
-                  Positioned(
-                    top: (game.isFavorite == true ? 32.r : 6.r),
-                    right: 6.r,
-                    child: CollectionBadge(size: 22.r),
-                  ),
-                if (_showAchievementsBadge && AchievementsBadge.showsFor(game))
-                  Positioned(
-                    top: 6.r,
-                    left: 6.r,
-                    child: AchievementsBadge(game: game),
-                  ),
-                if (widget.scrapingGameRomnames.contains(game.romname))
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: _buildScrapeProgress(game),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildFolderCard(int index, ThemeData theme) {
     final folder = widget.folderEntries[index];
 
     // Preview the folder with up to four covers of the games it contains,
     // filling the tile edge-to-edge; fall back to the folder glyph when none
-    // have art on disk. The image type follows the current card style so the
-    // mosaic matches the surrounding cards. Cached per folder+style.
-    final imageType = _isFanart ? 'fanarts' : 'box2d';
+    // have cover art on disk.
+    const imageType = 'box2d';
     final cacheKey = '${folder.relPath}|$imageType';
     final covers = _folderCoverCache[cacheKey] ??=
         widget.folderCoverResolver?.call(
@@ -1810,40 +1615,6 @@ class _GamesGridState extends State<GamesGrid> {
         Expanded(child: row(covers.sublist(0, 2))),
         Expanded(child: row(covers.sublist(2))),
       ],
-    );
-  }
-
-  Widget _buildFallbackCard(GameModel game, ThemeData theme) {
-    return Container(
-      color: theme.colorScheme.surfaceContainerHighest,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.videogame_asset_rounded,
-              size: 32.r,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
-            SizedBox(height: 4.r),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4.r),
-              child: Text(
-                GameUtils.formatGameName(
-                  game.name.isNotEmpty ? game.name : game.romname,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 7.r,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
