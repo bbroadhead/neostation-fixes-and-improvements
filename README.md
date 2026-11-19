@@ -189,7 +189,11 @@ or release date supplied by the game summary. Libretro catalogue records
 fill gaps, and existing metadata fields retain their values. Box covers,
 gameplay screenshots, and title screens have separate local directories.
 The grid displays a cover or a placeholder. You can import a cover under
-**Game Settings → Scraping Media**.
+**Game Settings → Scraping Media**. New imports are stored per ROM path and
+artwork category. Automatic and forced refreshes can update the downloaded
+copy while the selected image stays visible. Use **Reset to Default** below
+a category to return to its downloaded or imported-library artwork.
+Artwork imported by older builds remains in its original cache location.
 
 ### RetroAchievements compatibility
 

@@ -725,6 +725,7 @@ class _SmartCollectionEditorState extends State<SmartCollectionEditor> {
       databaseGame.romPath,
       () => GameModel.findExistingImagePath(
         romname: databaseGame.filename,
+        romPath: databaseGame.romPath,
         systemFolderName: databaseGame.systemFolderName ?? '',
         imageType: 'box2d',
         fileProvider: context.read<FileProvider>(),

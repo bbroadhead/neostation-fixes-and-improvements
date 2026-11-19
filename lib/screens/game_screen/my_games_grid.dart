@@ -367,6 +367,11 @@ class _GamesGridState extends State<GamesGrid> {
     if (index < widget.folderCount) return 1.0;
 
     final game = widget.games[index];
+    final override = game.getArtworkOverridePath('box2d', widget.fileProvider);
+    if (override != null && File(override).existsSync()) {
+      final size = _readImageSize(override);
+      return size == null || size.width <= 0 ? 1.0 : size.height / size.width;
+    }
     // 1. From DB
     if (game.box2dAspectRatio != null && game.box2dAspectRatio!.isNotEmpty) {
       final parts = game.box2dAspectRatio!.split('/');

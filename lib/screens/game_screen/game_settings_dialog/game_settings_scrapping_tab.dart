@@ -11,7 +11,6 @@ import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
 import 'package:neostation/providers/file_provider.dart';
-import 'package:neostation/repositories/game_repository.dart';
 import 'package:neostation/repositories/scraper_repository.dart';
 import 'package:neostation/repositories/system_repository.dart';
 import 'package:neostation/screens/game_screen/my_games_carousel.dart';
@@ -74,10 +73,6 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
   static const int _idxSave = 13;
   static const int _totalDataItems = 14;
 
-  // Media tab: screenshot, wheel, fanart, boxart.
-  static const int _idxImageStart = 0;
-  static const int _totalMediaItems = 4;
-
   static const _descLanguages = ['en', 'es', 'fr', 'de', 'it', 'pt'];
   static const _imageTypes = ['screenshots', 'wheels', 'fanarts', 'box2d'];
 
@@ -105,7 +100,14 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
 
   int get _totalItems => _currentSubTab == _ScrappingSubTab.data
       ? _totalDataItems
-      : _totalMediaItems;
+      : _mediaActions.length;
+
+  List<({String type, bool reset})> get _mediaActions => [
+    for (final type in _imageTypes) ...[
+      (type: type, reset: false),
+      if (_overrideFile(type)?.existsSync() ?? false) (type: type, reset: true),
+    ],
+  ];
 
   int get _itemKeyIndex => _currentSubTab.index * 100 + _selectedIndex;
 
@@ -394,6 +396,39 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
       ? widget.game.getScreenshotPath(_folder, widget.fileProvider)
       : widget.game.getImagePath(_folder, type, widget.fileProvider);
 
+  File? _overrideFile(String type) {
+    final path = widget.game.getArtworkOverridePath(type, widget.fileProvider);
+    return path == null ? null : File(path);
+  }
+
+  Future<void> _refreshArtwork(String path) async {
+    await evictScrapedArtwork([path]);
+    GamesGrid.evictArtworkCaches([path]);
+    GamesCarousel.evictArtworkCaches([path]);
+    if (!mounted) return;
+    setState(() {
+      _thumbsVersion++;
+      _selectedIndex = _selectedIndex.clamp(0, _totalItems - 1);
+    });
+    widget.onGameUpdated?.call();
+  }
+
+  Future<void> _resetImage(String type) async {
+    final file = _overrideFile(type);
+    if (file == null) return;
+    try {
+      if (await file.exists()) await file.delete();
+      await _refreshArtwork(file.path);
+    } on FileSystemException {
+      if (!mounted) return;
+      AppNotification.showNotification(
+        context,
+        AppLocale.failedToSaveSetting.getString(context),
+        type: NotificationType.error,
+      );
+    }
+  }
+
   Future<void> _replaceImage(String type) async {
     final result = await FilePicker.pickFile(type: FileType.image);
     final srcPath = result?.path;
@@ -402,35 +437,21 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
     try {
       final bytes = await File(srcPath).readAsBytes();
       final decoded = await decodeImageFromList(bytes);
-      final aspectRatio = '${decoded.width}/${decoded.height}';
       decoded.dispose();
-
-      // Write into NeoStation's own media folder, never over the path the
-      // thumbnail happens to be read from: for an ES-DE imported library that
-      // path is the user's `downloaded_media` file (e.g. a miximage), which is
-      // read-only to us. The new file shadows it everywhere from now on.
-      final targetPath = widget.game.getWritableImagePath(
-        _folder,
-        type,
-        widget.fileProvider,
-      );
-      await writeFileAtomically(File(targetPath), bytes);
-      await evictScrapedArtwork([targetPath]);
-      GamesGrid.evictArtworkCaches([targetPath]);
-      GamesCarousel.evictArtworkCaches([targetPath]);
-
-      // Keep the grid's layout math correct for the new boxart dimensions.
-      if (type == 'box2d' && widget.game.systemId != null) {
-        await GameRepository.updateBox2dAspectRatio(
-          widget.game.systemId!,
-          widget.game.romname,
-          aspectRatio,
-        );
-      }
+      if (!mounted) return;
+      final target =
+          _overrideFile(type) ??
+          File(
+            widget.game.getWritableImagePath(
+              _folder,
+              type,
+              widget.fileProvider,
+            ),
+          );
+      await writeFileAtomically(target, bytes);
+      await _refreshArtwork(target.path);
 
       if (!mounted) return;
-      setState(() => _thumbsVersion++);
-      widget.onGameUpdated?.call();
       AppNotification.showNotification(
         context,
         AppLocale.imageUpdated.getString(context),
@@ -519,8 +540,14 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
         _saveMetadata();
       }
     } else {
-      if (idx >= _idxImageStart && idx < _totalMediaItems) {
-        _replaceImage(_imageTypes[idx]);
+      final actions = _mediaActions;
+      if (idx < actions.length) {
+        final action = actions[idx];
+        if (action.reset) {
+          _resetImage(action.type);
+        } else {
+          _replaceImage(action.type);
+        }
       }
     }
   }
@@ -771,6 +798,7 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
   }
 
   Widget _buildMediaTab(BuildContext context) {
+    final actions = _mediaActions;
     return SingleChildScrollView(
       controller: _scrollController,
       padding: EdgeInsets.all(12.r),
@@ -781,19 +809,32 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
             icon: Symbols.image_rounded,
             label: AppLocale.systemArt.getString(context),
           ),
-          for (int i = 0; i < _imageTypes.length; i++)
-            _ArtworkRow(
-              key: _itemKey(_idxImageStart + i),
-              isSelected: _selectedIndex == _idxImageStart + i,
-              label: _imageTypeLabel(context, _imageTypes[i]),
-              imagePath: _pathForImageType(_imageTypes[i]),
-              thumbsVersion: _thumbsVersion,
-              onTap: () {
-                SfxService().playNavSound();
-                setState(() => _selectedIndex = _idxImageStart + i);
-                _replaceImage(_imageTypes[i]);
-              },
-            ),
+          for (final (i, action) in actions.indexed)
+            if (action.reset)
+              _NavRow(
+                key: _itemKey(i),
+                isSelected: _selectedIndex == i,
+                icon: Symbols.undo_rounded,
+                label: AppLocale.resetToDefault.getString(context),
+                subtitle: _imageTypeLabel(context, action.type),
+                onTap: () {
+                  setState(() => _selectedIndex = i);
+                  _resetImage(action.type);
+                },
+              )
+            else
+              _ArtworkRow(
+                key: _itemKey(i),
+                isSelected: _selectedIndex == i,
+                label: _imageTypeLabel(context, action.type),
+                imagePath: _pathForImageType(action.type),
+                thumbsVersion: _thumbsVersion,
+                onTap: () {
+                  SfxService().playNavSound();
+                  setState(() => _selectedIndex = i);
+                  _replaceImage(action.type);
+                },
+              ),
         ],
       ),
     );

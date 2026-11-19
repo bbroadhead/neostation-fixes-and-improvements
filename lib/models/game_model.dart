@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 
 import '../providers/file_provider.dart';
@@ -324,6 +326,8 @@ class GameModel {
     String imageType, [
     FileProvider? fileProvider,
   ]) {
+    final override = getArtworkOverridePath(imageType, fileProvider);
+    if (override != null && File(override).existsSync()) return override;
     if (fileProvider != null && fileProvider.isInitialized) {
       final owned = _existingNeoStationImagePath(
         fileProvider,
@@ -355,6 +359,29 @@ class GameModel {
 
     // Manual filesystem lookup logic.
     return _manualImagePath(systemFolderName, imageType);
+  }
+
+  /// Writable destination reserved for explicit artwork selections.
+  /// The ROM path distinguishes games with identical names in subfolders.
+  String? getArtworkOverridePath(String imageType, FileProvider? fileProvider) {
+    final rom = romPath;
+    if (rom == null || rom.isEmpty) return null;
+    return _artworkOverridePath(rom, imageType, fileProvider);
+  }
+
+  static String _artworkOverridePath(
+    String romPath,
+    String imageType,
+    FileProvider? fileProvider,
+  ) {
+    final key = sha256.convert(utf8.encode('$romPath\u0000$imageType'));
+    return path.join(
+      fileProvider != null && fileProvider.isInitialized
+          ? fileProvider.getMediaDirectoryPath()
+          : 'media',
+      'manual_artwork',
+      '$key.png',
+    );
   }
 
   /// Resolves the path new art for [imageType] must be *written* to.
@@ -448,12 +475,15 @@ class GameModel {
   /// lookups made many at a time.
   static Future<String?> findExistingImagePath({
     required String romname,
+    String? romPath,
     required String systemFolderName,
     required String imageType,
     required FileProvider fileProvider,
   }) async {
     if (!fileProvider.isInitialized) return null;
     for (final candidate in [
+      if (romPath != null && romPath.isNotEmpty)
+        _artworkOverridePath(romPath, imageType, fileProvider),
       ..._neoStationImageCandidates(
         fileProvider,
         romname,

@@ -138,6 +138,40 @@ void main() {
       expect(await lookUp(), game.getImagePath('snes', 'box2d', provider));
     });
 
+    test(
+      'manual art is per ROM and category and survives a forced cache write',
+      () async {
+        final first = game.copyWith(romPath: '/roms/one/sonic.smc');
+        final second = game.copyWith(romPath: '/roms/two/sonic.smc');
+        final target = File(first.getArtworkOverridePath('box2d', provider)!);
+        await target.parent.create(recursive: true);
+        await target.writeAsString('selected cover');
+
+        final automatic = File(
+          first.getWritableImagePath('snes', 'box2d', provider),
+        );
+        await automatic.parent.create(recursive: true);
+        await automatic.writeAsString('refreshed cover');
+
+        expect(first.getImagePath('snes', 'box2d', provider), target.path);
+        expect(second.getImagePath('snes', 'box2d', provider), automatic.path);
+        expect(first.getScreenshotPath('snes', provider), isNot(target.path));
+        expect(
+          await GameModel.findExistingImagePath(
+            romname: first.romname,
+            romPath: first.romPath,
+            systemFolderName: 'snes',
+            imageType: 'box2d',
+            fileProvider: provider,
+          ),
+          target.path,
+        );
+        expect(await target.readAsString(), 'selected cover');
+        await target.delete();
+        expect(first.getImagePath('snes', 'box2d', provider), automatic.path);
+      },
+    );
+
     test('never writes into ES-DE, for any media type', () async {
       final mediaRoot = path.join(tempDir.path, 'media');
 
