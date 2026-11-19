@@ -149,6 +149,10 @@ class ScreenScraperSettingsContentState
   }
 
   Future<void> _load() async {
+    if (ScreenScraperService.usesLibretroArtwork) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
     final signedIn = await ScreenScraperService.hasSavedCredentials();
     if (!signedIn) {
       if (mounted) {
@@ -278,6 +282,10 @@ class ScreenScraperSettingsContentState
 
   void selectItem() {
     if (_isLoading) return;
+    if (ScreenScraperService.usesLibretroArtwork) {
+      _toggleScraping();
+      return;
+    }
     if (!_signedIn) {
       _signIn();
       return;
@@ -544,7 +552,9 @@ class ScreenScraperSettingsContentState
               : SingleChildScrollView(
                   controller: _scrollController,
                   padding: EdgeInsets.only(top: 6.r),
-                  child: _signedIn
+                  child: ScreenScraperService.usesLibretroArtwork
+                      ? _buildScrapeRow(context, slot: 0)
+                      : _signedIn
                       ? _buildSignedIn(context)
                       : _buildSignedOut(context),
                 ),
@@ -678,19 +688,25 @@ class ScreenScraperSettingsContentState
     );
   }
 
-  Widget _buildScrapeRow(BuildContext context) {
+  Widget _buildScrapeRow(BuildContext context, {int slot = _scrapeSlot}) {
     final theme = Theme.of(context);
-    final focused = _focused(_scrapeSlot);
+    final focused = _focused(slot);
     return Consumer<ScrapingProvider>(
       builder: (context, scraping, _) {
         return Column(
-          key: _keyFor(_scrapeSlot),
+          key: _keyFor(slot),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SettingRow(
-              title: AppLocale.scraping.getString(context),
+              title:
+                  (ScreenScraperService.usesLibretroArtwork
+                          ? AppLocale.scrapeAllRoms
+                          : AppLocale.scraping)
+                      .getString(context),
               subtitle: scraping.isScraping
                   ? '${AppLocale.scrapingInProgress.getString(context)} ${scraping.maxThreads} threads'
+                  : ScreenScraperService.usesLibretroArtwork
+                  ? AppLocale.allContentDesc.getString(context)
                   : AppLocale.scraperSubtitle.getString(context),
               focused: focused,
               onTap: _toggleScraping,

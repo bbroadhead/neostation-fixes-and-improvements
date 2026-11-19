@@ -58,10 +58,18 @@ class LibretroThumbnailService {
     'wsc': 'Bandai - WonderSwan Color',
   };
 
-  static bool supportsSystem(String appSystemId) =>
-      _playlists.containsKey(appSystemId);
+  static String? playlistForSystem(String appSystemId) =>
+      _playlists[appSystemId];
 
-  static const _folders = {'box2D': 'Named_Boxarts', 'ss': 'Named_Snaps'};
+  static bool supportsSystem(String appSystemId) =>
+      playlistForSystem(appSystemId) != null;
+
+  static const titleScreens = 'title_screens';
+  static const _folders = {
+    'box2D': 'Named_Boxarts',
+    'ss': 'Named_Snaps',
+    titleScreens: 'Named_Titles',
+  };
 
   static final _invalidLabelCharacters = RegExp(r'''[&*/:`"<>?\\|]''');
   static const _pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
@@ -74,9 +82,11 @@ class LibretroThumbnailService {
     required String romName,
     required List<String> enabledMediaTypes,
     String? gameName,
+    String? searchTitle,
     bool forceOverwrite = false,
     void Function(double)? onProgress,
     Uri? catalog,
+    bool Function()? shouldCancel,
   }) async {
     final playlist = _playlists[appSystemId];
     if (playlist == null) return false;
@@ -94,8 +104,12 @@ class LibretroThumbnailService {
       return false;
     }
     final labels = {
-      stem,
-      if (gameName != null && gameName.trim().isNotEmpty) gameName.trim(),
+      if (searchTitle != null)
+        searchTitle
+      else ...[
+        stem,
+        if (gameName != null && gameName.trim().isNotEmpty) gameName.trim(),
+      ],
     };
     final root = await ScreenscraperMediaResolver.getMediaDirectory();
     final base = catalog ?? Uri.https('thumbnails.libretro.com', '/');
@@ -105,9 +119,10 @@ class LibretroThumbnailService {
 
     var available = false;
     for (final (index, type) in types.indexed) {
+      if (shouldCancel?.call() ?? false) break;
       final folder = ScreenscraperMediaResolver.mapMediaTypeToFolder(type.key);
       final file = File(path.join(root, systemFolder, folder, '$stem.png'));
-      final cached = await file.exists() && await file.length() > 0;
+      final cached = await _hasLocalArtwork(file);
       available = available || cached;
       if (!cached || forceOverwrite) {
         for (final label in labels) {
@@ -119,15 +134,24 @@ class LibretroThumbnailService {
             final response = await ScreenscraperClient.httpGetWithRetry(
               url,
               timeout: const Duration(seconds: 15),
+              shouldCancel: shouldCancel,
             );
             if (response.statusCode == 404) continue;
-            if (response.statusCode != 200 ||
-                response.bodyBytes.length <= _pngSignature.length ||
-                !Iterable<int>.generate(_pngSignature.length)
-                    .every((i) => response.bodyBytes[i] == _pngSignature[i])) {
+            if (response.statusCode != 200) {
               _log.w(
                 'Libretro ${type.value} HTTP ${response.statusCode} for "$romName"',
               );
+              break;
+            }
+            if (response.bodyBytes.length <= _pngSignature.length ||
+                !Iterable<int>.generate(_pngSignature.length)
+                    .every((i) => response.bodyBytes[i] == _pngSignature[i])) {
+              _log.w('Libretro ${type.value} invalid PNG for "$romName"');
+              continue;
+            }
+            if (shouldCancel?.call() ?? false) return available;
+            if (!forceOverwrite && await _hasLocalArtwork(file)) {
+              available = true;
               break;
             }
             await writeFileAtomically(file, response.bodyBytes);
@@ -144,5 +168,14 @@ class LibretroThumbnailService {
       onProgress?.call((index + 1) / types.length);
     }
     return available;
+  }
+
+  static Future<bool> _hasLocalArtwork(File png) async {
+    final stem = path.withoutExtension(png.path);
+    for (final extension in const ['png', 'jpg', 'webp']) {
+      final stat = await File('$stem.$extension').stat();
+      if (stat.type == FileSystemEntityType.file && stat.size > 0) return true;
+    }
+    return false;
   }
 }

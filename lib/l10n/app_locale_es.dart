@@ -667,6 +667,7 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.mediaSettingsError: 'Error al guardar los ajustes multimedia',
   AppLocale.newContentOnlyDesc:
       'Solo descargar juegos que no han sido escaneados completamente',
+  AppLocale.scrapeAllRoms: 'Obtener datos de todas las ROM',
   AppLocale.allContentDesc:
       'Descargar todos los juegos, incluidos los ya escaneados',
   AppLocale.scrapeImages: 'Imágenes (Capturas, Cajas)',
@@ -855,6 +856,7 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.forceRescrape: 'Forzar Rescrape',
   AppLocale.scrapingData: 'Datos de Scraping',
   AppLocale.scrapingMedia: 'Media de Scraping',
+  AppLocale.scrapeSearchTitle: 'Título de búsqueda de metadatos',
   AppLocale.gameTitle: 'Título',
   AppLocale.publisher: 'Editor',
   AppLocale.genre: 'Género',

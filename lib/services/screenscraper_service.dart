@@ -8,10 +8,13 @@ import 'package:neostation/services/logger_service.dart';
 
 import '../models/rom_fingerprint.dart';
 import '../models/screenscraper_game_candidate.dart';
+import '../repositories/retro_achievements_repository.dart';
 import '../repositories/scraper_repository.dart';
+import 'retro_achievements_service.dart';
 import 'retroachievements_hash_service.dart';
 import 'rom_fingerprint_service.dart';
 import 'libretro_thumbnail_service.dart';
+import 'libretro_metadata_service.dart';
 import 'screenscraper/region_config.dart';
 import 'screenscraper/rom_hasher.dart';
 import 'screenscraper/media_resolver.dart';
@@ -592,6 +595,7 @@ class ScreenScraperService {
     int? romSize,
     int? maxDailyRequests,
     String? gameName,
+    String? searchTitle,
     int? manualGameId,
     bool Function()? shouldCancel,
   }) async {
@@ -621,10 +625,12 @@ class ScreenScraperService {
       } catch (_) {}
     }
 
-    final cleanRomName = await ScreenscraperRomHasher.getCleanRomName(
-      gameName ?? romName,
-      targetAppSystemId,
-    );
+    final cleanRomName =
+        searchTitle ??
+        await ScreenscraperRomHasher.getCleanRomName(
+          gameName ?? romName,
+          targetAppSystemId,
+        );
 
     final queryParameters = <String, String>{
       'softname': softname,
@@ -888,6 +894,30 @@ class ScreenScraperService {
   static Future<bool> canScrapeArtwork() async =>
       usesLibretroArtwork || await hasSavedCredentials();
 
+  static Future<Map<String, Object?>> _verifiedRaMetadata(
+    String romPath,
+  ) async {
+    final identity = await RetroAchievementsRepository.getVerifiedRomIdentity(
+      romPath,
+    );
+    if (identity == null) return const {};
+    final fields = <String, Object?>{'real_name': identity.title};
+    try {
+      final key = await RetroAchievementsRepository.getRAApiKey();
+      if (key != null) {
+        fields.addAll(
+          await RetroAchievementsService.getGameSummary(
+            identity.id,
+            apiKey: key,
+          ),
+        );
+      }
+    } catch (error) {
+      _log.w('RA scrape metadata unavailable (${error.runtimeType})');
+    }
+    return fields;
+  }
+
   /// Scrapes a single game by its filename and updates its local state.
   static Future<Map<String, dynamic>> scrapeSingleGame({
     required String appSystemId,
@@ -900,8 +930,11 @@ class ScreenScraperService {
     bool useScreenScraper = false,
   }) async {
     try {
+      final searchTitle = await ScraperRepository.getSearchTitle(romPath);
       if (usesLibretroArtwork && !useScreenScraper) {
-        if (!LibretroThumbnailService.supportsSystem(appSystemId)) {
+        final verifiedMetadata = await _verifiedRaMetadata(romPath);
+        if (!LibretroThumbnailService.supportsSystem(appSystemId) &&
+            verifiedMetadata.isEmpty) {
           return {
             'success': false,
             'message': AppLocale.scrapeMediaDownloadsFailed,
@@ -912,17 +945,27 @@ class ScreenScraperService {
           appSystemId: appSystemId,
           systemFolder: systemFolder,
           romName: romName,
-          gameName: gameName,
-          enabledMediaTypes: await ScraperRepository.getEnabledMediaTypes(),
+          gameName: (verifiedMetadata['real_name'] as String?) ?? gameName,
+          searchTitle: searchTitle,
+          enabledMediaTypes: [
+            ...await ScraperRepository.getEnabledMediaTypes(),
+            LibretroThumbnailService.titleScreens,
+          ],
           forceOverwrite: forceOverwrite,
           onProgress: (progress) => onProgress?.call(
             AppLocale.downloadingImages,
             0.1 + 0.9 * progress,
           ),
         );
+        final metadata = await LibretroMetadataService().scrape(
+          appSystemId,
+          romName,
+          verifiedMetadata: verifiedMetadata,
+          searchTitle: searchTitle,
+        );
         return {
-          'success': available,
-          'message': available
+          'success': available || metadata,
+          'message': available || metadata
               ? AppLocale.scrapeSuccessful
               : AppLocale.scrapeMediaDownloadsFailed,
         };
@@ -961,7 +1004,8 @@ class ScreenScraperService {
           romName,
           appSystemId: appSystemId,
           maxDailyRequests: 0,
-          gameName: (systemFolder == 'android') ? gameName : null,
+          gameName: systemFolder == 'android' ? gameName : null,
+          searchTitle: searchTitle,
           manualGameId: manualGameId,
         );
         if (gameInfoResult != null && gameInfoResult['gameInfo'] != null) break;
@@ -1223,22 +1267,32 @@ class ScreenScraperService {
     _isMetadataScrapingRunning = true;
     try {
       final startTime = DateTime.now();
-      final credentials = await getSavedCredentials();
-      if (credentials == null) return false;
+      final libretro = usesLibretroArtwork
+          ? LibretroMetadataService(shouldCancel: shouldCancel)
+          : null;
+      final credentials = libretro == null ? await getSavedCredentials() : null;
+      if (libretro == null && credentials == null) return false;
 
-      ScreenscraperClient.initializeDailyCounter(0);
       final maxDailyRequests =
-          int.tryParse(credentials['max_requests_per_day'] ?? '') ?? 0;
-      final allowedThreads = int.tryParse(credentials['maxthreads'] ?? '') ?? 1;
-      final maxThreads = allowedThreads < 1 ? 1 : allowedThreads;
+          int.tryParse(credentials?['max_requests_per_day'] ?? '') ?? 0;
+      final allowedThreads =
+          int.tryParse(credentials?['maxthreads'] ?? '') ?? 1;
+      final maxThreads = libretro != null
+          ? 4
+          : (allowedThreads < 1 ? 1 : allowedThreads);
+      if (libretro == null) ScreenscraperClient.initializeDailyCounter(0);
       ScreenscraperClient.updateRequestSemaphore(maxThreads);
 
-      final preferredLanguage = credentials['preferred_language'] ?? 'en';
+      final preferredLanguage = credentials?['preferred_language'] ?? 'en';
       final scraperConfig = await getScraperConfig();
-      final scrapeMode = scraperConfig['scrape_mode'].toString();
+      final scrapeMode = libretro != null
+          ? 'all'
+          : scraperConfig['scrape_mode'].toString();
 
-      final systemMappings = await getSystemMappings();
-      if (systemMappings.isEmpty) return false;
+      final systemMappings = libretro != null
+          ? await ScraperRepository.getLibraryScrapeSystems()
+          : await getSystemMappings();
+      if (systemMappings.isEmpty) return libretro != null;
 
       final systemsWithRoms = <Map<String, dynamic>>[];
       int totalGamesToProcess = 0;
@@ -1331,6 +1385,7 @@ class ScreenScraperService {
               scrapingProvider: scrapingProvider,
               shouldCancel: shouldCancel,
               scraperConfig: scraperConfig,
+              libretro: libretro,
             ),
           );
         }
@@ -1401,6 +1456,7 @@ class ScreenScraperService {
     required ScrapingProvider scrapingProvider,
     required bool Function()? shouldCancel,
     required Map<String, dynamic> scraperConfig,
+    required LibretroMetadataService? libretro,
   }) async {
     try {
       final filename = rom['filename'].toString();
@@ -1419,6 +1475,47 @@ class ScreenScraperService {
 
       if (shouldCancel != null && shouldCancel()) {
         return {'success': false, 'cancelled': true, 'requests': 0};
+      }
+
+      final searchTitle = await ScraperRepository.getSearchTitle(romPath);
+      if (libretro != null) {
+        final verifiedMetadata = await _verifiedRaMetadata(romPath);
+        final metadata = await libretro.scrape(
+          appSystemId,
+          filename,
+          verifiedMetadata: verifiedMetadata,
+          searchTitle: searchTitle,
+        );
+        if (shouldCancel?.call() ?? false) {
+          return {'success': false, 'cancelled': true};
+        }
+        scrapingProvider.updateThreadProgress(
+          threadId: threadId,
+          gameName: filename,
+          systemName: systemName,
+          isActive: true,
+          status: ThreadStatus.active,
+          currentStep: ThreadProcessingStep.downloadingImages,
+          progress: 0.5,
+        );
+        final artwork = await LibretroThumbnailService.download(
+          appSystemId: appSystemId,
+          systemFolder: systemFolder,
+          romName: filename,
+          gameName: (verifiedMetadata['real_name'] as String?) ?? titleName,
+          searchTitle: searchTitle,
+          enabledMediaTypes: const [
+            'box2D',
+            'ss',
+            LibretroThumbnailService.titleScreens,
+          ],
+          shouldCancel: shouldCancel,
+        );
+        final cancelled = shouldCancel?.call() ?? false;
+        return {
+          'success': !cancelled && (metadata || artwork),
+          'cancelled': cancelled,
+        };
       }
 
       // Use a hash when one is free — already cached, or a zipped ROM whose
@@ -1453,7 +1550,8 @@ class ScreenScraperService {
         crc: fingerprint?.crc32,
         romSize: fingerprint?.sizeBytes,
         maxDailyRequests: maxDailyRequests,
-        gameName: (systemFolder == 'android') ? titleName : null,
+        gameName: systemFolder == 'android' ? titleName : null,
+        searchTitle: searchTitle,
         manualGameId: manualGameId,
         shouldCancel: shouldCancel,
       );
@@ -1486,6 +1584,7 @@ class ScreenScraperService {
             crc: fingerprint.crc32,
             romSize: fingerprint.sizeBytes,
             maxDailyRequests: maxDailyRequests,
+            searchTitle: searchTitle,
             shouldCancel: shouldCancel,
           );
           gameInfo = gameResult?['gameInfo'];

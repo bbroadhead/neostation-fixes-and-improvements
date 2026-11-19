@@ -13,6 +13,49 @@ void main() {
   SharedPreferences.setMockInitialValues({});
 
   group('RetroAchievementsService', () {
+    test(
+      'game summary uses the RA id and replays verified metadata offline',
+      () async {
+        final cache = await Directory.systemTemp.createTemp('ra-summary-test');
+        RetroAchievementsCache.setDirectoryForTesting(cache.path);
+        addTearDown(() async {
+          RetroAchievementsCache.setDirectoryForTesting(null);
+          await cache.delete(recursive: true);
+        });
+        final client = MockClient((request) async {
+          expect(request.url.path, '/API/API_GetGame.php');
+          expect(request.url.queryParameters, {'i': '42', 'y': 'secret-key'});
+          return http.Response(
+            '{"Title":"A game","ConsoleID":7,"Developer":" A Developer ",'
+            '"Publisher":"","Genre":"Action","Released":"1990-01-02"}',
+            200,
+          );
+        });
+        const fields = {
+          'real_name': 'A game',
+          'developer': 'A Developer',
+          'genre': 'Action',
+          'release_date': '1990-01-02',
+        };
+        expect(
+          await RetroAchievementsService.getGameSummary(
+            42,
+            apiKey: 'secret-key',
+            client: client,
+          ),
+          fields,
+        );
+        expect(
+          await RetroAchievementsService.getGameSummary(
+            42,
+            apiKey: 'secret-key',
+            client: MockClient((_) async => http.Response('', 503)),
+          ),
+          fields,
+        );
+      },
+    );
+
     test('uses the supplied API key when provided', () {
       expect(RetroAchievementsService.resolveApiKey('demo-key'), 'demo-key');
     });

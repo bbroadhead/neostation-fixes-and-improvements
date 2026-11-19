@@ -169,6 +169,28 @@ The release workflow (`.github/workflows/build-and-deploy.yml`) reads build secr
 
 If the Android secrets are missing, the CI build falls back to debug signing (users will need to uninstall before installing a new release).
 
+### Local Libretro scraper build
+
+Set `LIBRETRO_ARTWORK=true` in the Dart defines file when building a local
+AppImage for Libretro scraping. In **Settings → ScreenScraper**, use
+**Scrape all ROMs** to scan the library. The session can continue after you
+leave Settings. Start it again to retry missing thumbnails. Existing local
+PNG, JPG, and WebP thumbnails are reused.
+
+In **Game Settings → Scraping Data**, set **Scrape Search Title** and save.
+The search title is stored per ROM path. The **Game Title** field controls
+the display name separately. Clear the search title to resume automatic
+lookup. Libretro thumbnail names are console-specific and may include a
+region suffix.
+
+For a ROM with a verified RetroAchievements hash association, the Libretro
+build uses the RetroAchievements title and any developer, publisher, genre,
+or release date supplied by the game summary. Libretro catalogue records
+fill gaps, and existing metadata fields retain their values. Box covers,
+gameplay screenshots, and title screens have separate local directories.
+The grid displays a cover or a placeholder. You can import a cover under
+**Game Settings → Scraping Media**.
+
 ### Running
 
 ```bash

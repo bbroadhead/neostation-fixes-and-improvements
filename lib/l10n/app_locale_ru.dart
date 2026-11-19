@@ -671,6 +671,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.mediaSettingsError: 'Ошибка при сохранении настроек медиа',
   AppLocale.newContentOnlyDesc:
       'Получать данные только для игр, которые еще не были обработаны',
+  AppLocale.scrapeAllRoms: 'Обработать все ROM',
   AppLocale.allContentDesc: 'Обработать все игры, включая уже обработанные',
   AppLocale.scrapeImages: 'Изображения (Скриншоты, Боксарт)',
   AppLocale.scrapeImagesDesc:
@@ -857,6 +858,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.forceRescrape: 'Принудительный рескрейп',
   AppLocale.scrapingData: 'Данные скрейпинга',
   AppLocale.scrapingMedia: 'Медиа скрейпинга',
+  AppLocale.scrapeSearchTitle: 'Название для поиска метаданных',
   AppLocale.gameTitle: 'Название',
   AppLocale.publisher: 'Издатель',
   AppLocale.genre: 'Жанр',

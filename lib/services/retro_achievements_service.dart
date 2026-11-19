@@ -138,7 +138,9 @@ class RetroAchievementsService {
         _log.w('RA[$cacheKey] HTTP $statusCode; trying offline cache');
       }
     } catch (e) {
-      _log.w('RA[$cacheKey] request failed ($e); trying offline cache');
+      _log.w(
+        'RA[$cacheKey] request failed (${e.runtimeType}); trying offline cache',
+      );
     }
 
     if (haveLive) {
@@ -338,6 +340,52 @@ class RetroAchievementsService {
         return null;
       },
       onMiss: (_) => null,
+    );
+  }
+
+  /// Retrieves public game metadata through the signed-in user's API key.
+  static Future<Map<String, Object?>> getGameSummary(
+    int gameId, {
+    required String apiKey,
+    http.Client? client,
+  }) {
+    final key = resolveApiKey(apiKey);
+    if (key.isEmpty) return Future.value(const {});
+    final url = Uri.parse('$_baseUrl/API_GetGame.php')
+        .replace(queryParameters: {'i': '$gameId', 'y': key});
+    const headers = {
+      'User-Agent': 'NeoStation/1.0',
+      'Accept': 'application/json',
+    };
+    return _fetchWithCache<Map<String, Object?>>(
+      cacheKey: 'scrape_game_summary_$gameId',
+      send: () => client == null
+          ? http.get(url, headers: headers)
+          : client.get(url, headers: headers),
+      parse: (response) {
+        if (response is! Map<String, dynamic> ||
+            response['Title'] is! String ||
+            response['ConsoleID'] is! int) {
+          throw const FormatException('Invalid game summary');
+        }
+        final fields = <String, Object?>{};
+        for (final (source, target) in const [
+          ('Title', 'real_name'),
+          ('Developer', 'developer'),
+          ('Publisher', 'publisher'),
+          ('Genre', 'genre'),
+          ('Released', 'release_date'),
+        ]) {
+          final value = response[source];
+          if (value is! String || value.trim().isEmpty) continue;
+          if (source == 'Released' && DateTime.tryParse(value) == null) {
+            continue;
+          }
+          fields[target] = value.trim();
+        }
+        return fields;
+      },
+      onMiss: (_) => const {},
     );
   }
 

@@ -113,7 +113,10 @@ extension _ContextMenu on _SystemGamesListState {
       gameTitle: game.name,
       targets: targets,
       canScrape: canScrape,
-      canIdentify: canScrape && (game.romPath?.isNotEmpty ?? false),
+      canIdentify:
+          canScrape &&
+          !ScreenScraperService.usesLibretroArtwork &&
+          (game.romPath?.isNotEmpty ?? false),
       createTargetLabel: AppLocale.newCollection.getString(context),
     );
 

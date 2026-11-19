@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../data/datasources/sqlite_service.dart';
 import '../models/rom_fingerprint.dart';
 import '../services/credential_store.dart';
@@ -19,6 +21,35 @@ class MetadataTransferResult {
 /// Repository for ScreenScraper system configuration data access.
 class ScraperRepository {
   static final _log = LoggerService.instance;
+
+  // Keep these preferences readable by older AppImages without bumping the
+  // main database version, whose downgrade path can recreate the database.
+  static String _searchTitleKey(String romPath) =>
+      'scrape_search_title:$romPath';
+
+  static Future<String?> getSearchTitle(String romPath) async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      return preferences.getString(_searchTitleKey(romPath));
+    } catch (error) {
+      _log.w('Unable to read scrape search title (${error.runtimeType})');
+      return null;
+    }
+  }
+
+  static Future<bool> saveSearchTitle(String romPath, String title) async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final key = _searchTitleKey(romPath);
+      final value = title.trim();
+      return await (value.isEmpty
+          ? preferences.remove(key)
+          : preferences.setString(key, value));
+    } catch (error) {
+      _log.w('Unable to save scrape search title (${error.runtimeType})');
+      return false;
+    }
+  }
 
   /// `user_screenscraper_metadata.is_fully_scraped` once a game's media have
   /// downloaded: "New content only" leaves the game alone.
@@ -1085,6 +1116,16 @@ class ScraperRepository {
   }
 
   // ── Bulk scraping ─────────────────────────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getLibraryScrapeSystems() async {
+    final db = await SqliteService.getDatabase();
+    return db.rawQuery('''
+      SELECT DISTINCT s.id AS app_system_id, s.real_name,
+        s.folder_name AS primary_folder_name
+      FROM app_systems s
+      INNER JOIN user_roms r ON r.app_system_id = s.id
+    ''');
+  }
 
   /// The `WHERE` condition that limits a scrape to what [scrapeMode] still
   /// has to do: for "New content only", games never scraped or not finished,

@@ -695,6 +695,7 @@ mixin AppLocale {
   static const String languageError = 'language_error';
   static const String mediaSettingsError = 'media_settings_error';
   static const String newContentOnlyDesc = 'new_content_only_desc';
+  static const String scrapeAllRoms = 'scrape_all_roms';
   static const String allContentDesc = 'all_content_desc';
   static const String scrapeImages = 'scrape_images_title';
   static const String scrapeImagesDesc = 'scrape_images_desc';
@@ -812,6 +813,7 @@ mixin AppLocale {
   static const String gameInfo = 'game_info';
   static const String manage = 'manage';
   static const String forceRescrape = 'force_rescrape';
+  static const String scrapeSearchTitle = 'scrape_search_title';
   static const String gameTitle = 'game_title';
   static const String publisher = 'publisher';
   static const String genre = 'genre';

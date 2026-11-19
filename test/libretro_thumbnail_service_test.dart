@@ -76,4 +76,57 @@ void main() {
     expect(await download(appSystemId: 'android'), isFalse);
     expect(hits, isEmpty);
   });
+
+  test('a cover with a different file extension is retained', () async {
+    final art = File('${media.path}/nes/box2d/Game & Watch (USA).jpg');
+    await art.parent.create(recursive: true);
+    await art.writeAsBytes(png);
+    expect(await download(), isTrue);
+    expect(hits, isEmpty);
+    expect(await art.readAsBytes(), png);
+  });
+
+  test(
+    'a search title changes the request and keeps the ROM artwork path',
+    () async {
+      expect(
+        await LibretroThumbnailService.download(
+          appSystemId: 'nes',
+          systemFolder: 'nes',
+          romName: 'my-cart.nes',
+          enabledMediaTypes: ['box2D'],
+          searchTitle: 'Game & Watch (USA)',
+          catalog: Uri.parse('http://127.0.0.1:${server.port}'),
+        ),
+        isTrue,
+      );
+      expect(hits.single.last, 'Game _ Watch (USA).png');
+      expect(
+        await File('${media.path}/nes/box2d/my-cart.png').readAsBytes(),
+        png,
+      );
+    },
+  );
+
+  test('keeps title screens separate from gameplay and cover art', () async {
+    Future<bool> downloadTitles() => LibretroThumbnailService.download(
+      appSystemId: 'nes',
+      systemFolder: 'nes',
+      romName: 'Game & Watch (USA).nes',
+      enabledMediaTypes: [LibretroThumbnailService.titleScreens],
+      catalog: Uri.parse('http://127.0.0.1:${server.port}'),
+    );
+
+    expect(await downloadTitles(), isTrue);
+    expect(hits.single[1], 'Named_Titles');
+    expect(
+      await File('${media.path}/nes/title_screens/Game & Watch (USA).png')
+          .readAsBytes(),
+      png,
+    );
+    expect(await Directory('${media.path}/nes/screenshots').exists(), isFalse);
+    expect(await Directory('${media.path}/nes/box2d').exists(), isFalse);
+    expect(await downloadTitles(), isTrue);
+    expect(hits, hasLength(1));
+  });
 }

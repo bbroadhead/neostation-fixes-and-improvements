@@ -663,6 +663,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.mediaSettingsError: 'Error saving media settings',
   AppLocale.newContentOnlyDesc:
       'Only scrape games that haven\'t been fully scraped yet',
+  AppLocale.scrapeAllRoms: 'Scrape all ROMs',
   AppLocale.allContentDesc: 'Scrape all games, including those already scraped',
   AppLocale.scrapeImages: 'Images (Screenshots, Boxart)',
   AppLocale.scrapeImagesDesc:
@@ -846,6 +847,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.forceRescrape: 'Force Rescrape',
   AppLocale.scrapingData: 'Scraping Data',
   AppLocale.scrapingMedia: 'Scraping Media',
+  AppLocale.scrapeSearchTitle: 'Scrape Search Title',
   AppLocale.gameTitle: 'Title',
   AppLocale.publisher: 'Publisher',
   AppLocale.genre: 'Genre',

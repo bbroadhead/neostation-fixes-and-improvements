@@ -665,6 +665,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.languageError: 'Kesalahan saat memperbarui bahasa',
   AppLocale.mediaSettingsError: 'Kesalahan saat menyimpan pengaturan media',
   AppLocale.newContentOnlyDesc: 'Hanya cari game yang belum pernah di-scrape',
+  AppLocale.scrapeAllRoms: 'Ambil data semua ROM',
   AppLocale.allContentDesc:
       'Cari semua game, termasuk yang sudah pernah di-scrape',
   AppLocale.scrapeImages: 'Gambar (Screenshot, Sampul)',
@@ -852,6 +853,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.forceRescrape: 'Paksa Rescrape',
   AppLocale.scrapingData: 'Data Scraping',
   AppLocale.scrapingMedia: 'Media Scraping',
+  AppLocale.scrapeSearchTitle: 'Judul pencarian metadata',
   AppLocale.gameTitle: 'Judul',
   AppLocale.publisher: 'Penerbit',
   AppLocale.genre: 'Genre',

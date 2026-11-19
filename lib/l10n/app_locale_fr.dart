@@ -682,6 +682,7 @@ const Map<String, dynamic> appLocaleFr = {
       'Erreur lors de l’enregistrement des paramètres médias',
   AppLocale.newContentOnlyDesc:
       'Rechercher uniquement les jeux qui n’ont pas encore été recherchés',
+  AppLocale.scrapeAllRoms: 'Récupérer les données de toutes les ROM',
   AppLocale.allContentDesc:
       'Rechercher tous les jeux, y compris ceux déjà recherchés',
   AppLocale.scrapeImages: 'Images (Captures, Couvertures)',
@@ -870,6 +871,7 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.forceRescrape: 'Forcer le Rescrape',
   AppLocale.scrapingData: 'Données de scraping',
   AppLocale.scrapingMedia: 'Média de scraping',
+  AppLocale.scrapeSearchTitle: 'Titre de recherche des métadonnées',
   AppLocale.gameTitle: 'Titre',
   AppLocale.publisher: 'Éditeur',
   AppLocale.genre: 'Genre',

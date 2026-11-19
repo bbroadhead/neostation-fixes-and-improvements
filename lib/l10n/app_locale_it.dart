@@ -681,6 +681,7 @@ const Map<String, dynamic> appLocaleIt = {
       'Errore durante il salvataggio delle impostazioni media',
   AppLocale.newContentOnlyDesc:
       'Cerca solo i giochi che non sono stati ancora cercati',
+  AppLocale.scrapeAllRoms: 'Scarica i dati di tutte le ROM',
   AppLocale.allContentDesc: 'Cerca tutti i giochi, inclusi quelli già cercati',
   AppLocale.scrapeImages: 'Immagini (Screenshot, Copertine)',
   AppLocale.scrapeImagesDesc:
@@ -868,6 +869,7 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.forceRescrape: 'Forza Rescrape',
   AppLocale.scrapingData: 'Dati Scraping',
   AppLocale.scrapingMedia: 'Media Scraping',
+  AppLocale.scrapeSearchTitle: 'Titolo di ricerca dei metadati',
   AppLocale.gameTitle: 'Titolo',
   AppLocale.publisher: 'Editore',
   AppLocale.genre: 'Genere',

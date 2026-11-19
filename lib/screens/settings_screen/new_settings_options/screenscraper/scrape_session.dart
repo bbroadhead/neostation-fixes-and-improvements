@@ -10,6 +10,7 @@ import 'package:neostation/services/screenscraper/screenscraper_exceptions.dart'
 import 'package:neostation/widgets/custom_notification.dart';
 
 final _log = LoggerService.instance;
+bool _sessionRunning = false;
 
 /// Starts a full ScreenScraper session: syncs system IDs, then scrapes every
 /// enabled system, reporting progress through the persistent global
@@ -22,6 +23,8 @@ Future<void> startScrapeSession(
   BuildContext context, {
   VoidCallback? onFinished,
 }) async {
+  if (_sessionRunning) return;
+  _sessionRunning = true;
   final scrapingProvider = context.read<ScrapingProvider>();
   const notificationId = 'scraping_progress';
 
@@ -43,12 +46,16 @@ Future<void> startScrapeSession(
     context,
   );
 
-  final credentials = await ScreenScraperService.getSavedCredentials();
-  final maxThreads = int.tryParse(credentials?['maxthreads'] ?? '4') ?? 4;
-
-  scrapingProvider.startScraping(maxThreads: maxThreads);
-
   try {
+    final libretro = ScreenScraperService.usesLibretroArtwork;
+    final credentials = libretro
+        ? null
+        : await ScreenScraperService.getSavedCredentials();
+    final maxThreads = libretro
+        ? 4
+        : int.tryParse(credentials?['maxthreads'] ?? '4') ?? 4;
+    scrapingProvider.startScraping(maxThreads: maxThreads);
+
     // Show the persistent progress notification up front. Its progress bar
     // is kept in sync by the app-level ScrapingNotificationListener, so it
     // keeps advancing regardless of which screen is visible.
@@ -61,7 +68,7 @@ Future<void> startScrapeSession(
     );
 
     _log.i('Step 1: Synchronizing system IDs...');
-    final syncSuccess = await ScreenScraperService.syncSystemIds();
+    final syncSuccess = libretro || await ScreenScraperService.syncSystemIds();
 
     if (!syncSuccess) {
       GlobalNotificationService().update(
@@ -134,6 +141,7 @@ Future<void> startScrapeSession(
       progress: null,
     );
   } finally {
+    _sessionRunning = false;
     scrapingProvider.stopScraping();
     onFinished?.call();
   }

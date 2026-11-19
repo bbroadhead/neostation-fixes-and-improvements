@@ -21,6 +21,39 @@ void main() {
   });
 
   group('RetroAchievementsRepository', () {
+    test(
+      'only returns a scrape title backed by the current ROM hash',
+      () async {
+        await db.execute('''
+        INSERT INTO app_ra_game_list (game_id, title, console_id, console_name, hash)
+        VALUES (42, 'The Legend of Zelda', 7, 'NES', 'registered')
+      ''');
+        const rom = '/roms/nes/zelda.nes';
+        await db.execute(
+          '''
+        INSERT INTO user_roms
+          (filename, rom_path, app_system_id, id_ra, ra_hash, ra_match_source)
+        VALUES ('zelda.nes', ?, 'nes', 42, 'registered', 'hash')
+      ''',
+          [rom],
+        );
+        expect(await RetroAchievementsRepository.getVerifiedRomIdentity(rom), (
+          id: 42,
+          title: 'The Legend of Zelda',
+        ));
+        await RetroAchievementsRepository.updateRomRaHash(rom, 'changed');
+        expect(
+          await RetroAchievementsRepository.getVerifiedRomIdentity(rom),
+          isNull,
+        );
+        await RetroAchievementsRepository.setManualRomRaMatch(rom, 42);
+        expect(
+          await RetroAchievementsRepository.getVerifiedRomIdentity(rom),
+          isNull,
+        );
+      },
+    );
+
     test('getLocalRomStats returns zero when no ROMs', () async {
       final stats = await RetroAchievementsRepository.getLocalRomStats();
       expect(stats.totalRoms, 0);

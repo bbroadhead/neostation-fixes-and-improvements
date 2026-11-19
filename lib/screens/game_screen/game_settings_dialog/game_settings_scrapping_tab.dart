@@ -20,6 +20,7 @@ import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/services/screenscraper_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/artwork_cache.dart';
+import 'package:neostation/utils/atomic_file_writer.dart';
 import 'package:neostation/widgets/custom_notification.dart';
 
 /// Sub-tabs inside the Scrapping tab of [GameSettingsDialog].
@@ -60,17 +61,18 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
   _ScrappingSubTab _currentSubTab = _ScrappingSubTab.data;
 
   // ── Navigation entries (per sub-tab) ────────────────────────────────────
-  // Data tab: rescrape, identify, title, developer, publisher, genre,
+  // Data tab: rescrape, identify, search title, title, developer, publisher, genre,
   // 6 descriptions, save.
   static const int _idxRescrape = 0;
   static const int _idxIdentify = 1;
-  static const int _idxTitle = 2;
-  static const int _idxDeveloper = 3;
-  static const int _idxPublisher = 4;
-  static const int _idxGenre = 5;
-  static const int _idxDescStart = 6;
-  static const int _idxSave = 12;
-  static const int _totalDataItems = 13;
+  static const int _idxSearchTitle = 2;
+  static const int _idxTitle = 3;
+  static const int _idxDeveloper = 4;
+  static const int _idxPublisher = 5;
+  static const int _idxGenre = 6;
+  static const int _idxDescStart = 7;
+  static const int _idxSave = 13;
+  static const int _totalDataItems = 14;
 
   // Media tab: screenshot, wheel, fanart, boxart.
   static const int _idxImageStart = 0;
@@ -84,6 +86,7 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
   final Map<int, GlobalKey> _itemKeys = {};
 
   // Text editing
+  final _searchTitleController = TextEditingController();
   final _titleController = TextEditingController();
   final _developerController = TextEditingController();
   final _publisherController = TextEditingController();
@@ -135,6 +138,7 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchTitleController.dispose();
     _titleController.dispose();
     _developerController.dispose();
     _publisherController.dispose();
@@ -152,6 +156,10 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
 
   Future<void> _loadMetadata() async {
     final systemId = _systemId;
+    final romPath = widget.game.romPath;
+    final searchTitle = romPath == null
+        ? null
+        : await ScraperRepository.getSearchTitle(romPath);
     Map<String, dynamic>? row;
     if (systemId != null) {
       row = await ScraperRepository.getGameMetadata(
@@ -161,6 +169,7 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
     }
     if (!mounted) return;
     setState(() {
+      _searchTitleController.text = searchTitle ?? '';
       _titleController.text =
           (row?['real_name'] as String?) ??
           (widget.game.name.isNotEmpty ? widget.game.name : '');
@@ -184,6 +193,7 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
     final systemId = _systemId;
     if (systemId == null || _isSaving) return;
     setState(() => _isSaving = true);
+    final searchTitle = _searchTitleController.text;
 
     String? nullable(String text) {
       final trimmed = text.trim();
@@ -199,11 +209,15 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
         'description_$lang': nullable(_descControllers[lang]!.text),
     };
 
-    final ok = await ScraperRepository.updateGameMetadata(
+    var ok = await ScraperRepository.updateGameMetadata(
       systemId,
       widget.game.romname,
       fields,
     );
+    final romPath = widget.game.romPath;
+    if (ok && romPath != null) {
+      ok = await ScraperRepository.saveSearchTitle(romPath, searchTitle);
+    }
     if (!mounted) return;
     setState(() => _isSaving = false);
     AppNotification.showNotification(
@@ -230,7 +244,7 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
   /// a single-line metadata field is focused. Matches the ScreenScraper login
   /// form behavior.
   void _focusNextInput(int currentIndex) {
-    if (currentIndex >= _idxTitle && currentIndex < _idxGenre) {
+    if (currentIndex >= _idxSearchTitle && currentIndex < _idxGenre) {
       _focusFieldAt(currentIndex + 1);
     } else if (currentIndex == _idxGenre) {
       setState(() => _selectedIndex = _idxSave);
@@ -386,6 +400,11 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
     if (srcPath == null || !mounted) return;
 
     try {
+      final bytes = await File(srcPath).readAsBytes();
+      final decoded = await decodeImageFromList(bytes);
+      final aspectRatio = '${decoded.width}/${decoded.height}';
+      decoded.dispose();
+
       // Write into NeoStation's own media folder, never over the path the
       // thumbnail happens to be read from: for an ES-DE imported library that
       // path is the user's `downloaded_media` file (e.g. a miximage), which is
@@ -395,20 +414,17 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
         type,
         widget.fileProvider,
       );
-      await File(targetPath).parent.create(recursive: true);
-      await File(srcPath).copy(targetPath);
+      await writeFileAtomically(File(targetPath), bytes);
       await evictScrapedArtwork([targetPath]);
       GamesGrid.evictArtworkCaches([targetPath]);
       GamesCarousel.evictArtworkCaches([targetPath]);
 
       // Keep the grid's layout math correct for the new boxart dimensions.
       if (type == 'box2d' && widget.game.systemId != null) {
-        final bytes = await File(targetPath).readAsBytes();
-        final decoded = await decodeImageFromList(bytes);
         await GameRepository.updateBox2dAspectRatio(
           widget.game.systemId!,
           widget.game.romname,
-          '${decoded.width}/${decoded.height}',
+          aspectRatio,
         );
       }
 
@@ -497,7 +513,7 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
         _forceRescrape();
       } else if (idx == _idxIdentify) {
         _identify();
-      } else if (idx >= _idxTitle && idx < _idxSave) {
+      } else if (idx >= _idxSearchTitle && idx < _idxSave) {
         _focusFieldAt(idx);
       } else if (idx == _idxSave) {
         _saveMetadata();
@@ -659,6 +675,16 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
           _SectionHeader(
             icon: Symbols.edit_rounded,
             label: AppLocale.description.getString(context),
+          ),
+          _MetadataFieldRow(
+            key: _itemKey(_idxSearchTitle),
+            isSelected: _selectedIndex == _idxSearchTitle,
+            label: AppLocale.scrapeSearchTitle.getString(context),
+            controller: _searchTitleController,
+            focusNode: _focusNodeFor(_idxSearchTitle),
+            readOnly: _activeFieldIndex != _idxSearchTitle,
+            onTap: () => setState(() => _selectedIndex = _idxSearchTitle),
+            onSubmitted: () => _focusNextInput(_idxSearchTitle),
           ),
           _MetadataFieldRow(
             key: _itemKey(_idxTitle),

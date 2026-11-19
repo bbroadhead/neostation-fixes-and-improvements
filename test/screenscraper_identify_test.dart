@@ -246,6 +246,23 @@ void main() {
       expect(sent['crc'], 'ABCD1234');
       expect(sent['romtaille'], '40960');
     });
+
+    test(
+      'a search title preserves punctuation without changing the hash',
+      () async {
+        await ScreenScraperService.fetchGameInfo(
+          '3',
+          'my-rom.nes',
+          appSystemId: 'nes',
+          crc: 'ABCD1234',
+          searchTitle: 'Dr. Mario',
+        );
+
+        final sent = requests.single.queryParameters;
+        expect(sent['romnom'], 'Dr. Mario');
+        expect(sent['crc'], 'ABCD1234');
+      },
+    );
   });
 
   group('identifyGame', () {

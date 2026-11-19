@@ -149,6 +149,26 @@ class RetroAchievementsRepository {
   static Future<String?> getRomRaHash(String romPath) =>
       SqliteService.getRomRaHash(romPath);
 
+  /// Title of the exact ROM dump in the local RetroAchievements catalogue.
+  /// A manual or filename association alone cannot supply this title.
+  static Future<({int id, String title})?> getVerifiedRomIdentity(
+    String romPath,
+  ) async {
+    final db = await SqliteService.getDatabase();
+    final rows = await db.rawQuery(
+      '''
+      SELECT DISTINCT ra.game_id, ra.title
+      FROM user_roms rom
+      JOIN app_ra_game_list ra ON ra.hash = rom.ra_hash AND ra.game_id = rom.id_ra
+      WHERE rom.rom_path = ? AND rom.ra_match_source = ?
+      ''',
+      [romPath, raMatchHash],
+    );
+    if (rows.length != 1) return null;
+    final row = rows.single;
+    return (id: row['game_id'] as int, title: row['title'] as String);
+  }
+
   static Future<void> updateRomRaHash(String romPath, String hash) =>
       SqliteService.updateRomRaHash(romPath, hash);
 

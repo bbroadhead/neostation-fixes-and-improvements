@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/repositories/scraper_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database_test_helper.dart';
 
@@ -32,6 +33,22 @@ void main() {
   tearDown(() async {
     await dbHelper.tearDown();
   });
+
+  test(
+    'scrape search title is independent per ROM path and can be cleared',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      const rom = '/roms/a/zelda.nes';
+      expect(await ScraperRepository.saveSearchTitle(rom, '  Zelda  '), isTrue);
+      expect(await ScraperRepository.getSearchTitle(rom), 'Zelda');
+      expect(
+        await ScraperRepository.getSearchTitle('/roms/b/zelda.nes'),
+        isNull,
+      );
+      expect(await ScraperRepository.saveSearchTitle(rom, ''), isTrue);
+      expect(await ScraperRepository.getSearchTitle(rom), isNull);
+    },
+  );
 
   group('ScraperRepository', () {
     test('getScraperSystems excludes android-apps and unmapped', () async {
