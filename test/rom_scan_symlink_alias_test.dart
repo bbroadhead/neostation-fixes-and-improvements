@@ -85,13 +85,110 @@ void main() {
       Directory('${root.path}/gc').createSync(recursive: true);
       Directory('${root.path}/ngc').createSync(recursive: true);
       File('${root.path}/gc/A.rvz').writeAsStringSync('rom');
-      File('${root.path}/ngc/B.rvz').writeAsStringSync('rom');
+      File('${root.path}/ngc/B.rvz').writeAsStringSync('rev');
 
       await SqliteDatabaseService.scanSystemRoms(gcSystem, [root.path]);
 
       final rows = await romRows();
       expect(rows.map((r) => r['filename']), ['A.rvz', 'B.rvz']);
     });
+
+    test(
+      'skips byte-identical copies and keeps the familiar path on rescan',
+      () async {
+        final root = await Directory.systemTemp.createTemp(
+          'neostation_copies_',
+        );
+        addTearDown(() => root.delete(recursive: true));
+        final folder = await Directory('${root.path}/gc').create();
+        final original = await File('${folder.path}/Z Original.rvz')
+            .writeAsString('abc');
+        await SqliteDatabaseService.scanSystemRoms(gcSystem, [root.path]);
+        await db.execute(
+          'UPDATE user_roms SET is_favorite = 1 WHERE rom_path = ?',
+          [original.path],
+        );
+
+        final copies = await Directory('${folder.path}/Copies').create();
+        await original.copy('${copies.path}/A Copy.rvz');
+        await original.copy('${copies.path}/B Copy.rvz');
+        await File('${copies.path}/Revision.rvz').writeAsString('xyz');
+        final scan = await SqliteDatabaseService.scanSystemRoms(gcSystem, [
+          root.path,
+        ]);
+        expect(scan.added, 1);
+        expect(scan.removed, 0);
+        final rows = await romRows();
+        expect(
+          rows.map((row) => row['filename']),
+          unorderedEquals(['Z Original.rvz', 'Revision.rvz']),
+        );
+        expect(
+          rows.singleWhere(
+            (row) => row['rom_path'] == original.path,
+          )['is_favorite'],
+          1,
+        );
+        expect(await File('${copies.path}/A Copy.rvz').exists(), isTrue);
+        expect(
+          (await SqliteDatabaseService.scanSystemRoms(gcSystem, [
+            root.path,
+          ])).added,
+          0,
+        );
+      },
+    );
+
+    test('fresh scan indexes one deterministic copy', () async {
+      final root = await createAliasedRomTree(['B.rvz', 'A.rvz']);
+      final scan = await SqliteDatabaseService.scanSystemRoms(gcSystem, [
+        root.path,
+      ]);
+      expect(scan.added, 1);
+      expect((await romRows()).single['filename'], 'A.rvz');
+    });
+
+    test(
+      'keeps identical launcher scripts that run in different directories',
+      () async {
+        await db.execute(
+          "INSERT INTO app_system_extensions (system_id, extension) VALUES ('gc', 'sh')",
+        );
+        final root = await createAliasedRomTree([]);
+        for (final title in ['A', 'B']) {
+          final folder = await Directory('${root.path}/gc/$title').create();
+          await File('${folder.path}/run.sh').writeAsString('./game');
+        }
+        final scan = await SqliteDatabaseService.scanSystemRoms(gcSystem, [
+          root.path,
+        ]);
+        expect(scan.added, 2);
+      },
+    );
+
+    test(
+      'identical disc descriptors can reference different local tracks',
+      () async {
+        await db.execute(
+          "INSERT INTO app_system_extensions (system_id, extension) VALUES ('gc', 'cue')",
+        );
+        final root = await createAliasedRomTree([]);
+        for (final disc in ['Disc A', 'Disc B']) {
+          final folder = await Directory('${root.path}/gc/$disc').create();
+          await File('${folder.path}/game.cue')
+              .writeAsString('FILE "track.bin" BINARY');
+          await File('${folder.path}/track.bin').writeAsString(disc);
+        }
+        final scan = await SqliteDatabaseService.scanSystemRoms(gcSystem, [
+          root.path,
+        ]);
+        expect(scan.added, 2);
+        expect((await romRows()).map((row) => row['filename']), [
+          'game.cue',
+          'game.cue',
+        ]);
+      },
+    );
 
     test(
       'keeps the real directory when the primary folder is the link',

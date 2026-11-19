@@ -54,7 +54,7 @@ void main() {
 
   void addGame(Directory root, String folder, String filename) {
     Directory('${root.path}/$folder').createSync(recursive: true);
-    File('${root.path}/$folder/$filename').writeAsStringSync('rom');
+    File('${root.path}/$folder/$filename').writeAsStringSync(filename);
   }
 
   Future<List<String>> storedFilenames() async {

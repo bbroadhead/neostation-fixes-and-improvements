@@ -15,6 +15,7 @@ import 'dart:isolate';
 import 'dart:convert';
 
 import 'package:path/path.dart' as path;
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 /// Summary report of a ROM scanning operation for a specific system.
@@ -347,11 +348,18 @@ class SqliteDatabaseService {
     // 399 transactions around them) into zero work. Entries whose row is
     // populated from the file itself are always re-upserted so a previously
     // failed extraction still gets another chance.
+    final duplicatePaths = await _findNewDuplicatePaths(
+      romEntries,
+      cleanup.knownPaths,
+    );
+    final queuedPaths = <String>{};
     final entriesToWrite = romEntries
         .where(
           (e) =>
-              !cleanup.knownPaths.contains(e.path) ||
-              _needsMetadataExtraction(system.id!, e),
+              !duplicatePaths.contains(e.path) &&
+              queuedPaths.add(e.path) &&
+              (!cleanup.knownPaths.contains(e.path) ||
+                  _needsMetadataExtraction(system.id!, e)),
         )
         .toList();
 
@@ -396,6 +404,94 @@ class SqliteDatabaseService {
       total: finalCount,
       systemName: system.realName,
     );
+  }
+
+  /// Find copies of standalone ROMs within a system. Keep indexed paths so
+  /// favourites, launch settings and other path-keyed data stay attached.
+  static Future<Set<String>> _findNewDuplicatePaths(
+    List<RomEntry> entries,
+    Set<String> knownPaths,
+  ) async {
+    // Identical descriptor or launcher bytes can refer to different files
+    // depending on the containing directory.
+    const pathDependentFormats = {
+      '.m3u',
+      '.m3u8',
+      '.cue',
+      '.gdi',
+      '.ccd',
+      '.mds',
+      '.toc',
+      '.steam',
+      '.ps3',
+      '.desktop',
+      '.lnk',
+      '.sh',
+      '.exe',
+      '.appimage',
+      '.x86_64',
+      '.aarch64',
+    };
+    final bySizeAndFormat = <(int, String), Map<String, RomEntry>>{};
+    for (final entry in entries) {
+      final extension = path.extension(entry.filename).toLowerCase();
+      if (entry.size <= 0 ||
+          entry.path.startsWith('content://') ||
+          pathDependentFormats.contains(extension)) {
+        continue;
+      }
+      bySizeAndFormat.putIfAbsent((
+        entry.size,
+        extension,
+      ), () => {})[entry.path] = entry;
+    }
+    final groups = [
+      for (final group in bySizeAndFormat.values)
+        if (group.length > 1 &&
+            group.keys.any((file) => !knownPaths.contains(file)))
+          group.values.toList(),
+    ];
+    if (groups.isEmpty) return const {};
+    return Isolate.run(() => _hashDuplicateGroups(groups, knownPaths));
+  }
+
+  static Future<Set<String>> _hashDuplicateGroups(
+    List<List<RomEntry>> groups,
+    Set<String> knownPaths,
+  ) async {
+    final duplicates = <String>{};
+    for (final group in groups) {
+      group.sort((a, b) {
+        final existingFirst =
+            (knownPaths.contains(b.path) ? 1 : 0) -
+            (knownPaths.contains(a.path) ? 1 : 0);
+        return existingFirst == 0 ? a.path.compareTo(b.path) : existingFirst;
+      });
+      final seen = <Digest>{};
+      for (final entry in group) {
+        try {
+          final file = File(entry.path);
+          final before = await file.stat();
+          if (before.type != FileSystemEntityType.file ||
+              before.size != entry.size) {
+            continue;
+          }
+          final digest = await sha256.bind(file.openRead()).single;
+          final after = await file.stat();
+          if (before.size != after.size ||
+              before.modified != after.modified ||
+              before.changed != after.changed) {
+            continue;
+          }
+          if (!seen.add(digest) && !knownPaths.contains(entry.path)) {
+            duplicates.add(entry.path);
+          }
+        } on FileSystemException {
+          // An unreadable file is insufficient evidence to suppress an entry.
+        }
+      }
+    }
+    return duplicates;
   }
 
   /// Toggles the favorite status of a game.

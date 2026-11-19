@@ -60,7 +60,7 @@ void main() {
     });
     final nes = Directory('${root.path}/nes')..createSync();
     for (var i = 0; i < count; i++) {
-      File('${nes.path}/$prefix Game $i.nes').writeAsStringSync('rom');
+      File('${nes.path}/$prefix Game $i.nes').writeAsStringSync('$prefix $i');
     }
     return root;
   }

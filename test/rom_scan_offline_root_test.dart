@@ -50,7 +50,7 @@ void main() {
     for (final entry in files.entries) {
       File('${root.path}/${entry.key}/${entry.value}')
         ..parent.createSync(recursive: true)
-        ..writeAsStringSync('rom');
+        ..writeAsStringSync(entry.value);
     }
     return root;
   }
