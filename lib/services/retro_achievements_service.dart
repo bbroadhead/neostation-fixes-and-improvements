@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:neostation/services/logger_service.dart';
 
 import 'retro_achievements_cache.dart';
+import '../models/artwork_preview.dart';
 import '../models/retro_achievements_user.dart';
 import '../models/retro_achievements_summary.dart';
 import '../models/retro_achievements_game_info.dart';
@@ -348,7 +349,85 @@ class RetroAchievementsService {
     int gameId, {
     required String apiKey,
     http.Client? client,
-  }) {
+  }) async {
+    final response = await _getScrapeSummary(gameId, apiKey, client);
+    final fields = <String, Object?>{};
+    for (final (source, target) in const [
+      ('Title', 'real_name'),
+      ('Developer', 'developer'),
+      ('Publisher', 'publisher'),
+      ('Genre', 'genre'),
+      ('Released', 'release_date'),
+    ]) {
+      final value = response[source];
+      if (value is! String || value.trim().isEmpty) continue;
+      if (source == 'Released' && DateTime.tryParse(value) == null) continue;
+      fields[target] = value.trim();
+    }
+    return fields;
+  }
+
+  /// Game Summary advertises each image separately. Resolve its paths only
+  /// against the RetroAchievements media host and never send the API key there.
+  static Future<List<ArtworkPreview>> getArtworkPreviews(
+    int verifiedGameId, {
+    required String apiKey,
+    http.Client? client,
+    bool Function()? shouldCancel,
+  }) async {
+    final response = await _getScrapeSummary(verifiedGameId, apiKey, client);
+    final title = response['Title'];
+    if (title is! String || (shouldCancel?.call() ?? false)) return [];
+    final imagePath = RegExp(r'^/Images/[0-9]+\.png$');
+    final results = await Future.wait([
+      for (final (field, category) in const [
+        ('ImageBoxArt', 'box2d'),
+        ('ImageIngame', 'screenshots'),
+        ('ImageTitle', 'title_screens'),
+        ('ImageIcon', 'icons'),
+      ])
+        if (response[field] case final String path
+            when imagePath.hasMatch(path) &&
+                path != '/Images/000001.png' &&
+                (category != 'box2d' ||
+                    (path != response['ImageIcon'] &&
+                        path != response['GameIcon'] &&
+                        path != response['ImageTitle'] &&
+                        path != response['ImageIngame'])))
+          _getArtworkPreview(path, category, title, client),
+    ]);
+    return (shouldCancel?.call() ?? false) ? [] : results.nonNulls.toList();
+  }
+
+  static Future<ArtworkPreview?> _getArtworkPreview(
+    String path,
+    String category,
+    String title,
+    http.Client? client,
+  ) async {
+    try {
+      final uri = Uri.https('media.retroachievements.org', path);
+      final response = await (client?.get(uri) ?? http.get(uri)).timeout(
+        const Duration(seconds: 10),
+      );
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) return null;
+      return (
+        provider: ArtworkProvider.retroAchievements,
+        category: category,
+        title: title,
+        bytes: response.bodyBytes,
+      );
+    } catch (error) {
+      _log.w('RA artwork $category unavailable (${error.runtimeType})');
+      return null;
+    }
+  }
+
+  static Future<Map<String, Object?>> _getScrapeSummary(
+    int gameId,
+    String apiKey,
+    http.Client? client,
+  ) {
     final key = resolveApiKey(apiKey);
     if (key.isEmpty) return Future.value(const {});
     final url = Uri.parse('$_baseUrl/API_GetGame.php')
@@ -368,22 +447,7 @@ class RetroAchievementsService {
             response['ConsoleID'] is! int) {
           throw const FormatException('Invalid game summary');
         }
-        final fields = <String, Object?>{};
-        for (final (source, target) in const [
-          ('Title', 'real_name'),
-          ('Developer', 'developer'),
-          ('Publisher', 'publisher'),
-          ('Genre', 'genre'),
-          ('Released', 'release_date'),
-        ]) {
-          final value = response[source];
-          if (value is! String || value.trim().isEmpty) continue;
-          if (source == 'Released' && DateTime.tryParse(value) == null) {
-            continue;
-          }
-          fields[target] = value.trim();
-        }
-        return fields;
+        return response;
       },
       onMiss: (_) => const {},
     );

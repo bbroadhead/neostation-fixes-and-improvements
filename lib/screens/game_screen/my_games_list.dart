@@ -31,6 +31,7 @@ import '../../repositories/game_repository.dart';
 import '../../repositories/retro_achievements_repository.dart';
 import '../../repositories/scraper_repository.dart';
 import '../../services/libretro_thumbnail_service.dart';
+import '../../services/retro_achievements_service.dart';
 import '../../services/screenscraper_service.dart';
 import '../../services/secondary_achievements_controller.dart';
 import '../../utils/gamepad_nav.dart';
@@ -46,13 +47,14 @@ import '../../providers/neo_sync_provider.dart';
 import '../../repositories/neosync_save_folder_repository.dart';
 import '../../models/system_model.dart';
 import '../../models/game_model.dart';
+import '../../models/artwork_preview.dart';
 import '../../models/database_game_model.dart';
 import '../../utils/rom_tree.dart';
 import '../../utils/game_list_size.dart';
 import 'game_details_card/game_details_card_list.dart';
 import 'game_details_card/detail_tab.dart';
 import 'game_details_card/dialogs/screenscraper_match_picker_dialog.dart';
-import 'game_details_card/dialogs/libretro_artwork_dialog.dart';
+import 'game_details_card/dialogs/artwork_gallery_dialog.dart';
 import 'game_details_card/random_game_dialog.dart';
 import 'game_settings_dialog/game_settings_dialog.dart';
 import 'game_options_dialog.dart';
@@ -2249,15 +2251,15 @@ class _SystemGamesListState extends State<SystemGamesList> {
     }
   }
 
-  Future<void> _pickLibretroArtwork(GameModel game) async {
+  Future<void> _openArtworkGallery(GameModel game) async {
     final systemId = game.systemId ?? widget.system.id;
     final romPath = game.romPath;
     if (systemId == null || romPath == null || _isScrapingSelectedGame) return;
     _isScrapingSelectedGame = true;
     try {
-      final selection = await showDialog<LibretroArtwork>(
+      final selection = await showDialog<ArtworkPreview>(
         context: context,
-        builder: (_) => LibretroArtworkDialog(
+        builder: (_) => ArtworkGalleryDialog(
           isCurrent: (image) async {
             final selected = game.getArtworkOverridePath(
               image.category,
@@ -2279,13 +2281,17 @@ class _SystemGamesListState extends State<SystemGamesList> {
                   romPath,
                 );
             if (cancelled()) return [];
-            return LibretroThumbnailService.gallery(
-              appSystemId: systemId,
-              romName: game.romname,
-              gameName: verified?.title ?? game.name,
-              searchTitle: title,
-              shouldCancel: cancelled,
-            );
+            final results = await Future.wait([
+              if (verified != null) _loadRaArtwork(verified.id, cancelled),
+              LibretroThumbnailService.gallery(
+                appSystemId: systemId,
+                romName: game.romname,
+                gameName: verified?.title ?? game.name,
+                searchTitle: title,
+                shouldCancel: cancelled,
+              ),
+            ]);
+            return results.expand((images) => images).toList();
           },
         ),
       );
@@ -2310,7 +2316,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
         type: NotificationType.success,
       );
     } catch (error) {
-      _log.w('Could not apply Libretro artwork (${error.runtimeType})');
+      _log.w('Could not apply artwork (${error.runtimeType})');
       if (!mounted) return;
       AppNotification.showNotification(
         context,
@@ -2319,6 +2325,24 @@ class _SystemGamesListState extends State<SystemGamesList> {
       );
     } finally {
       _isScrapingSelectedGame = false;
+    }
+  }
+
+  Future<List<ArtworkPreview>> _loadRaArtwork(
+    int verifiedGameId,
+    bool Function() cancelled,
+  ) async {
+    try {
+      final key = await RetroAchievementsRepository.getRAApiKey();
+      if (key == null || cancelled()) return [];
+      return await RetroAchievementsService.getArtworkPreviews(
+        verifiedGameId,
+        apiKey: key,
+        shouldCancel: cancelled,
+      );
+    } catch (error) {
+      _log.w('RA gallery unavailable (${error.runtimeType})');
+      return [];
     }
   }
 

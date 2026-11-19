@@ -3,13 +3,12 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as path;
 
+import '../models/artwork_preview.dart';
 import '../utils/atomic_file_writer.dart';
 import 'logger_service.dart';
 import 'screenscraper/media_resolver.dart';
 import 'screenscraper/rom_hasher.dart';
 import 'screenscraper/screenscraper_client.dart';
-
-typedef LibretroArtwork = ({String category, String title, Uint8List bytes});
 
 /// RetroArch's public artwork catalog, indexed by playlist and game label.
 class LibretroThumbnailService {
@@ -77,7 +76,7 @@ class LibretroThumbnailService {
   static final _invalidLabelCharacters = RegExp(r'''[&*/:`"<>?\\|]''');
   static const _pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
 
-  static Future<List<LibretroArtwork>> gallery({
+  static Future<List<ArtworkPreview>> gallery({
     required String appSystemId,
     required String romName,
     required String gameName,
@@ -101,7 +100,7 @@ class LibretroThumbnailService {
     return candidates.nonNulls.toList();
   }
 
-  static Future<LibretroArtwork?> _preview(
+  static Future<ArtworkPreview?> _preview(
     Uri base,
     String playlist,
     MapEntry<String, String> type,
@@ -119,6 +118,7 @@ class LibretroThumbnailService {
         return null;
       }
       return (
+        provider: ArtworkProvider.libretro,
         category: ScreenscraperMediaResolver.mapMediaTypeToFolder(type.key),
         title: title,
         bytes: response.bodyBytes,

@@ -868,6 +868,8 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.manage: 'Gestisci',
   AppLocale.forceRescrape: 'Forza Rescrape',
   AppLocale.scrapingData: 'Dati Scraping',
+  AppLocale.galleryGameIcon: 'Icona del gioco',
+  AppLocale.galleryAllProviders: 'Tutti i fornitori',
   AppLocale.libretroTitleScreen: 'Schermata del titolo',
   AppLocale.scrapingMedia: 'Media Scraping',
   AppLocale.scrapeSearchTitle: 'Titolo di ricerca dei metadati',

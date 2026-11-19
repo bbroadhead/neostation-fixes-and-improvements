@@ -80,6 +80,7 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
     'fanarts',
     'box2d',
     'title_screens',
+    'icons',
   ];
 
   int _selectedIndex = 0;
@@ -856,6 +857,8 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
         return AppLocale.fanart.getString(context);
       case 'box2d':
         return AppLocale.boxart.getString(context);
+      case 'icons':
+        return AppLocale.galleryGameIcon.getString(context);
       case 'title_screens':
         return AppLocale.libretroTitleScreen.getString(context);
       default:

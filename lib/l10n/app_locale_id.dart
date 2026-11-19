@@ -852,6 +852,8 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.manage: 'Kelola',
   AppLocale.forceRescrape: 'Paksa Rescrape',
   AppLocale.scrapingData: 'Data Scraping',
+  AppLocale.galleryGameIcon: 'Ikon gim',
+  AppLocale.galleryAllProviders: 'Semua penyedia',
   AppLocale.libretroTitleScreen: 'Layar judul',
   AppLocale.scrapingMedia: 'Media Scraping',
   AppLocale.scrapeSearchTitle: 'Judul pencarian metadata',

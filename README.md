@@ -195,12 +195,14 @@ copy while the selected image stays visible. Use **Reset to Default** below
 a category to return to its downloaded or imported-library artwork.
 Artwork imported by older builds remains in its original cache location.
 
-In the game's options menu, **Scrape** opens the Libretro artwork gallery.
-Use the D-pad to browse, L/R to filter by category, A to apply the preview,
-and B to close the gallery. With a mouse, click a thumbnail and choose
-**Apply**. The gallery checks box covers, gameplay screenshots, and title
-screens using the ROM's search title when one is saved. A check mark identifies
-an image already saved as an override.
+In the game's options menu, **Scrape** opens the artwork gallery. Use the
+D-pad to browse, L/R to filter by category, X to cycle providers, A to apply
+the preview, and B to close. With a mouse, click a thumbnail and choose
+**Apply**. Libretro uses the ROM's saved search title when available.
+RetroAchievements contributes any available box cover, gameplay screenshot,
+title screen, and game icon for a hash-verified match using the existing
+RetroAchievements account. A check mark identifies an image already saved
+as an override.
 
 ### RetroAchievements compatibility
 

@@ -781,6 +781,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.manage: '管理',
   AppLocale.forceRescrape: '强制重新刮削',
   AppLocale.scrapingData: '抓取数据',
+  AppLocale.galleryGameIcon: '游戏图标',
+  AppLocale.galleryAllProviders: '所有来源',
   AppLocale.libretroTitleScreen: '标题画面',
   AppLocale.scrapingMedia: '抓取媒体',
   AppLocale.scrapeSearchTitle: '刮削搜索标题',

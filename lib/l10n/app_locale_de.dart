@@ -867,6 +867,8 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.manage: 'Verwalten',
   AppLocale.forceRescrape: 'Rescrape erzwingen',
   AppLocale.scrapingData: 'Scraping-Daten',
+  AppLocale.galleryGameIcon: 'Spielsymbol',
+  AppLocale.galleryAllProviders: 'Alle Anbieter',
   AppLocale.libretroTitleScreen: 'Titelbildschirm',
   AppLocale.scrapingMedia: 'Scraping-Medien',
   AppLocale.scrapeSearchTitle: 'Suchtitel für Metadaten',

@@ -6,8 +6,8 @@ import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/l10n/app_locale.dart';
-import 'package:neostation/screens/game_screen/game_details_card/dialogs/libretro_artwork_dialog.dart';
-import 'package:neostation/services/libretro_thumbnail_service.dart';
+import 'package:neostation/screens/game_screen/game_details_card/dialogs/artwork_gallery_dialog.dart';
+import 'package:neostation/models/artwork_preview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/plugin_channel_mocks.dart';
@@ -32,10 +32,20 @@ void main() {
         final bytes = base64Decode(
           'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
         );
-        final cover = (category: 'box2d', title: 'Cover', bytes: bytes);
-        final shot = (category: 'screenshots', title: 'Gameplay', bytes: bytes);
+        final cover = (
+          provider: ArtworkProvider.libretro,
+          category: 'box2d',
+          title: 'Cover',
+          bytes: bytes,
+        );
+        final shot = (
+          provider: ArtworkProvider.retroAchievements,
+          category: 'screenshots',
+          title: 'Gameplay',
+          bytes: bytes,
+        );
         late Completer<void> decoded;
-        LibretroArtwork? selected;
+        ArtworkPreview? selected;
         var closed = false;
         await tester.pumpWidget(
           ScreenUtilInit(
@@ -47,9 +57,9 @@ void main() {
               home: Builder(
                 builder: (context) => TextButton(
                   onPressed: () async {
-                    selected = await showDialog<LibretroArtwork>(
+                    selected = await showDialog<ArtworkPreview>(
                       context: context,
-                      builder: (_) => LibretroArtworkDialog(
+                      builder: (_) => ArtworkGalleryDialog(
                         load: (_) async => [cover, shot],
                         isCurrent: (image) async {
                           if (image == shot) decoded.complete();
@@ -74,6 +84,9 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
+        await tester.tap(find.widgetWithText(ChoiceChip, 'RetroAchievements'));
+        await tester.pumpAndSettle();
+        expect(find.byIcon(Icons.check_circle_outline), findsNothing);
         final filter = find.widgetWithText(ChoiceChip, 'Screenshot');
         await tester.tap(filter);
         await tester.pumpAndSettle();

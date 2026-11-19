@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/models/retro_achievements_user_awards.dart';
+import 'package:neostation/models/artwork_preview.dart';
 import 'package:neostation/services/retro_achievements_cache.dart';
 import 'package:neostation/services/retro_achievements_service.dart';
 import 'package:http/http.dart' as http;
@@ -13,6 +14,59 @@ void main() {
   SharedPreferences.setMockInitialValues({});
 
   group('RetroAchievementsService', () {
+    test('artwork uses documented categories and sends credentials only to the API', () async {
+      final cache = await Directory.systemTemp.createTemp('ra-artwork-test');
+      RetroAchievementsCache.setDirectoryForTesting(cache.path);
+      addTearDown(() async {
+        RetroAchievementsCache.setDirectoryForTesting(null);
+        await cache.delete(recursive: true);
+      });
+      final visited = <Uri>[];
+      var coverPath = '/Images/012345.png';
+      final client = MockClient((request) async {
+        final uri = request.url;
+        visited.add(uri);
+        if (uri.host == 'retroachievements.org') {
+          expect(uri.path, '/API/API_GetGame.php');
+          expect(uri.queryParameters, {'i': '42', 'y': 'test-key'});
+          return http.Response(
+            '{"Title":"A game","ConsoleID":7,'
+            '"ImageBoxArt":"$coverPath","ImageIcon":"/Images/012345.png",'
+            '"ImageTitle":"https://example.invalid/image.png",'
+            '"ImageIngame":"/Images/023456.png"}',
+            200,
+          );
+        }
+        expect(uri.host, 'media.retroachievements.org');
+        expect(uri.queryParameters, isEmpty);
+        expect(request.headers.containsKey('authorization'), isFalse);
+        return http.Response.bytes([1, 2, 3], 200);
+      });
+      Future<List<ArtworkPreview>> load() =>
+          RetroAchievementsService.getArtworkPreviews(
+            42,
+            apiKey: 'test-key',
+            client: client,
+          );
+      expect((await load()).map((image) => image.category), [
+        'screenshots',
+        'icons',
+      ]);
+      expect(visited, hasLength(3));
+      coverPath = '/Images/034567.png';
+      final images = await load();
+      expect(images.map((image) => image.category), [
+        'box2d',
+        'screenshots',
+        'icons',
+      ]);
+      expect(
+        images.every(
+          (image) => image.provider == ArtworkProvider.retroAchievements,
+        ),
+        isTrue,
+      );
+    });
     test(
       'game summary uses the RA id and replays verified metadata offline',
       () async {

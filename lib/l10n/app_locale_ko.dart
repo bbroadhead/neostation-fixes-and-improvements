@@ -798,6 +798,8 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.manage: '관리',
   AppLocale.forceRescrape: '강제 다시 가져오기',
   AppLocale.scrapingData: '데이터 가져오는 중',
+  AppLocale.galleryGameIcon: '게임 아이콘',
+  AppLocale.galleryAllProviders: '모든 제공자',
   AppLocale.libretroTitleScreen: '타이틀 화면',
   AppLocale.scrapingMedia: '미디어 가져오는 중',
   AppLocale.scrapeSearchTitle: '스크래핑 검색 제목',

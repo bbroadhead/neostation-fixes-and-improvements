@@ -795,6 +795,8 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.manage: '管理',
   AppLocale.forceRescrape: '強制再スクレイプ',
   AppLocale.scrapingData: 'スクラピング データ',
+  AppLocale.galleryGameIcon: 'ゲームアイコン',
+  AppLocale.galleryAllProviders: 'すべての提供元',
   AppLocale.libretroTitleScreen: 'タイトル画面',
   AppLocale.scrapingMedia: 'スクラピング メディア',
   AppLocale.scrapeSearchTitle: 'スクレイプ検索タイトル',
