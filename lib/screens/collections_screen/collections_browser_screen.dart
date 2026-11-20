@@ -16,6 +16,7 @@ import 'package:neostation/models/system_model.dart';
 import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
+import 'package:neostation/repositories/collection_repository.dart';
 import 'package:neostation/models/my_systems.dart';
 import 'package:neostation/responsive.dart';
 import 'package:neostation/utils/collection_sort.dart';
@@ -29,12 +30,14 @@ import 'package:neostation/widgets/custom_notification.dart';
 import 'package:neostation/widgets/header_sort_dropdown.dart';
 import 'package:neostation/widgets/tv_directory_picker.dart';
 
+import '../game_screen/game_details_card/detail_tab.dart';
 import '../game_screen/my_games_list.dart';
 import '../systems_screen/my_systems_section/my_systems_carousel.dart';
 import '../systems_screen/my_systems_section/my_systems_grid.dart';
 import 'collection_cards.dart';
 import 'collection_name_dialog.dart';
 import 'smart_collection_editor.dart';
+import 'ra_incompatible_games_screen.dart';
 
 /// Second level of the collections navigation: the user's collections as cards,
 /// with a trailing "New collection" card.
@@ -217,10 +220,27 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       return;
     }
     final fileProvider = context.read<FileProvider>();
-    final target = SystemGamesList(
-      system: _createCollectionSystem(collection),
-      fileProvider: fileProvider,
-    );
+    final system = _createCollectionSystem(collection);
+    final Widget target =
+        collection.id == CollectionRepository.retroAchievementsIncompatibleId
+        ? RaIncompatibleGamesScreen(
+            title: collection.name,
+            openDetails: (game) async {
+              if (!mounted) return;
+              await Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SystemGamesList(
+                    system: system,
+                    fileProvider: fileProvider,
+                    initialRomPath: game.romPath,
+                    initialDetailTab: DetailTab.gameInfo,
+                    showDetailsOnOpen: true,
+                  ),
+                ),
+              );
+            },
+          )
+        : SystemGamesList(system: system, fileProvider: fileProvider);
 
     // Held for the whole push: a bounced A press would otherwise stack a second
     // copy of the games list on top of the first.

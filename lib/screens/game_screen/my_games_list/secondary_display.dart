@@ -466,7 +466,7 @@ extension _SecondaryDisplay on _SystemGamesListState {
   void _startVideoTimer() {
     if (!mounted || _isGameLaunching || !_videoPreviewsEnabled) return;
 
-    final viewMode = context.read<SqliteConfigProvider>().config.gameViewMode;
+    final viewMode = _viewMode(context.read<SqliteConfigProvider>());
     final secondaryActive =
         _secondaryDisplayState?.value?.isSecondaryActive ?? false;
     if (viewMode != 'list' && !secondaryActive) {
@@ -514,7 +514,8 @@ extension _SecondaryDisplay on _SystemGamesListState {
       }
 
       // The primary preview only exists in the list view's media tab.
-      if (config.gameViewMode == 'list' && config.showGameInfo) {
+      if ((widget.showDetailsOnOpen || config.gameViewMode == 'list') &&
+          config.showGameInfo) {
         await _initializeVideo(game);
       }
     });
@@ -524,7 +525,7 @@ extension _SecondaryDisplay on _SystemGamesListState {
   /// Initializes the video player for the primary UI, including volume and loop management.
   Future<void> _initializeVideo(GameModel game) async {
     if (!mounted ||
-        context.read<SqliteConfigProvider>().config.gameViewMode != 'list' ||
+        _viewMode(context.read<SqliteConfigProvider>()) != 'list' ||
         _selectedGame == null ||
         _selectedGame != game ||
         _isVideoLoading ||

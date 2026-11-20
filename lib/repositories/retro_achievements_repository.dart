@@ -253,8 +253,7 @@ class RetroAchievementsRepository {
       if (isCancelled()) return null;
       final path = row['rom_path'] as String;
       final status = (await getRomCompatibility(path)).status;
-      if (status == RaCompatibilityStatus.differentRomRequired ||
-          status == RaCompatibilityStatus.noAchievementSet) {
+      if (status.isIncompatible) {
         incompatible.add(path);
       }
     }

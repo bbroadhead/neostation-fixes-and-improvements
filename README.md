@@ -248,7 +248,9 @@ user's RetroAchievements API key. Copy a hash using its copy button.
 
 A completed library match refreshes **RetroAchievements Incompatible** with
 ROMs classified as **Different ROM Required** or **No Achievement Set**. Open
-a game's details to see its reason and hash.
+the collection to see each game's reason. Filter by selecting a reason or
+cycling with L/R. Select a game to open Game Info with its current ROM hash
+and any available supported game files.
 
 ### Arduboy ROMs
 

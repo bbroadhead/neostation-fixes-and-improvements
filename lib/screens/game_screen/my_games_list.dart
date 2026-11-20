@@ -30,6 +30,7 @@ import '../../utils/game_launch_utils.dart';
 import '../../services/music_player_service.dart';
 import '../../repositories/system_repository.dart';
 import '../../repositories/game_repository.dart';
+import '../../repositories/collection_repository.dart';
 import '../../repositories/retro_achievements_repository.dart';
 import '../../repositories/scraper_repository.dart';
 import '../../services/libretro_thumbnail_service.dart';
@@ -105,12 +106,16 @@ class SystemGamesList extends StatefulWidget {
   /// Optional details-card tab for feature deep links.
   final DetailTab? initialDetailTab;
 
+  /// Keeps the details pane available for a metadata review deep link.
+  final bool showDetailsOnOpen;
+
   const SystemGamesList({
     super.key,
     required this.system,
     required this.fileProvider,
     this.initialRomPath,
     this.initialDetailTab,
+    this.showDetailsOnOpen = false,
   });
 
   @override
@@ -493,7 +498,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
     _lastShowInfo = _configProvider.config.showGameInfo;
     _lastVideoPreviewDelay = _configProvider.config.videoPreviewDelay;
     _lastGameListSize = _configProvider.config.gameListSize;
-    _lastGameViewMode = _configProvider.config.gameViewMode;
+    _lastGameViewMode = _viewMode(_configProvider);
 
     MusicPlayerService().addListener(_onMusicPlayerStateChanged);
 
@@ -652,6 +657,9 @@ class _SystemGamesListState extends State<SystemGamesList> {
     imageCache.clearLiveImages();
   }
 
+  String _viewMode(SqliteConfigProvider configProvider) =>
+      widget.showDetailsOnOpen ? 'list' : configProvider.config.gameViewMode;
+
   /// Synchronizes UI state with global configuration changes.
   void _onConfigChanged() {
     if (!mounted) return;
@@ -661,7 +669,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
       _loadGames();
     }
     final newShowInfo = configProvider.config.showGameInfo;
-    final gameViewMode = configProvider.config.gameViewMode;
+    final gameViewMode = _viewMode(configProvider);
     final gameListSize = configProvider.config.gameListSize;
 
     if (gameListSize != _lastGameListSize) {
@@ -852,7 +860,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
     final secondaryActive =
         _secondaryDisplayState?.value?.isSecondaryActive ?? false;
     final previewAvailable =
-        previewDelay >= 0 && (config.gameViewMode == 'list' || secondaryActive);
+        previewDelay >= 0 &&
+        (widget.showDetailsOnOpen ||
+            config.gameViewMode == 'list' ||
+            secondaryActive);
     _videoPreviewDeadline = previewAvailable
         ? now.add(Duration(seconds: previewDelay))
         : null;
@@ -1114,10 +1125,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
                               baseTextScale: baseTextScale,
                             );
                           }
-                          if (configProvider.config.gameViewMode == 'grid') {
+                          final mode = _viewMode(configProvider);
+                          if (mode == 'grid') {
                             return _buildGamesGrid();
-                          } else if (configProvider.config.gameViewMode ==
-                              'carousel') {
+                          } else if (mode == 'carousel') {
                             return _buildGamesCarousel();
                           }
                           return _buildGamesList(

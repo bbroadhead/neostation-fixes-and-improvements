@@ -81,7 +81,9 @@ extension _ContextMenu on _SystemGamesListState {
         },
       ),
       for (final collection in collectionsProvider.collections.where(
-        (c) => !c.isSmart,
+        (c) =>
+            !c.isSmart &&
+            c.id != CollectionRepository.retroAchievementsIncompatibleId,
       ))
         GameContextMenuTarget(
           id: '${SystemFolderNames.collectionPrefix}${collection.id}',

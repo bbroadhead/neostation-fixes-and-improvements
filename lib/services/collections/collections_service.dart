@@ -11,7 +11,9 @@ import 'package:neostation/services/logger_service.dart';
 
 import '../../models/collection_model.dart';
 import '../../models/game_model.dart';
+import '../../models/ra_compatibility.dart';
 import '../../repositories/collection_repository.dart';
+import '../../repositories/retro_achievements_repository.dart';
 import '../config_service.dart';
 import '../game/game_list_service.dart';
 
@@ -244,6 +246,27 @@ class CollectionsService {
     smartPaths: smartPaths,
   );
 
+  /// Uses the current evidence for each stored member so catalogue or ROM
+  /// changes cannot display a compatible or unverified game as incompatible.
+  static Future<List<({GameModel game, RaCompatibilityStatus reason})>>
+  loadIncompatibleGames({bool Function()? isCancelled}) async {
+    final games = await loadGamesForCollection(
+      CollectionRepository.retroAchievementsIncompatibleId,
+    );
+    final review = <({GameModel game, RaCompatibilityStatus reason})>[];
+    for (final (index, game) in games.indexed) {
+      if (index % 32 == 0) await Future<void>.delayed(Duration.zero);
+      if (isCancelled?.call() ?? false) return const [];
+      final path = game.romPath;
+      if (path == null || path.isEmpty) continue;
+      final reason = (await RetroAchievementsRepository.getRomCompatibility(
+        path,
+      )).status;
+      if (reason.isIncompatible) review.add((game: game, reason: reason));
+    }
+    return review;
+  }
+
   static Future<void> updateRules(String id, SmartCollectionRules rules) async {
     final collection = await getCollection(id);
     if (collection == null || !collection.isSmart) {
@@ -254,7 +277,9 @@ class CollectionsService {
 
   static Future<void> _requireManual(String id) async {
     final collection = await getCollection(id);
-    if (collection == null || collection.isSmart) {
+    if (collection == null ||
+        collection.isSmart ||
+        id == CollectionRepository.retroAchievementsIncompatibleId) {
       throw StateError('Membership is editable only for manual collections');
     }
   }
