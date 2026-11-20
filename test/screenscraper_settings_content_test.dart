@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/screens/settings_screen/new_settings_options/screenscraper/screenscraper_settings_content.dart';
+import 'package:neostation/services/credential_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database_test_helper.dart';
@@ -15,6 +17,7 @@ void main() {
 
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
     await FlutterLocalization.instance.ensureInitialized();
     FlutterLocalization.instance.init(
       mapLocales: [MapLocale('en', AppLocale.en)],
@@ -23,14 +26,18 @@ void main() {
   });
 
   setUp(() async {
+    CredentialStore.debugUseBackends(preferEncryptedFile: false);
     await dbHelper.setUp();
   });
 
   tearDown(() async {
+    CredentialStore.debugReset();
     await dbHelper.tearDown();
   });
 
-  testWidgets('signed out, the page is a single sign-in row', (tester) async {
+  testWidgets('the SteamGridDB key can be saved without ScreenScraper login', (
+    tester,
+  ) async {
     final key = GlobalKey<ScreenScraperSettingsContentState>();
     await tester.pumpWidget(
       MediaQuery(
@@ -65,9 +72,31 @@ void main() {
 
     expect(find.text('Metadata'), findsOneWidget);
     expect(find.text('ScreenScraper Login'), findsOneWidget);
-    expect(key.currentState!.getItemCount(), 1);
-    // Nothing to move to or drop, so the cursor stays put and B falls through.
+    expect(key.currentState!.getItemCount(), 2);
+    expect(key.currentState!.navigateDown(), isTrue);
     expect(key.currentState!.navigateDown(), isFalse);
     expect(key.currentState!.navigateBack(), isFalse);
+    key.currentState!.selectItem();
+    await tester.pumpAndSettle();
+
+    final field = find.byType(TextField);
+    expect(tester.widget<TextField>(field).obscureText, isTrue);
+    await tester.enterText(field, ' fixture-key ');
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+
+    key.currentState!.selectItem();
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).controller!.text, 'fixture-key');
+    await tester.enterText(field, '');
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    key.currentState!.selectItem();
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
   });
 }

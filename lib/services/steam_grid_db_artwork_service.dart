@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../models/artwork_preview.dart';
+import 'credential_store.dart';
 import 'logger_service.dart';
 import 'screenscraper/screenscraper_client.dart';
 
@@ -14,10 +15,9 @@ class SteamGridDbArtworkService {
     this.shouldCancel,
     this.onFailure,
     this.allowPartialMatch = false,
-    String? apiKey,
+    this._apiKey,
     this.client,
-  }) : _key = (apiKey ?? Platform.environment['STEAMGRIDDB_API_KEY'] ?? '')
-           .trim();
+  });
 
   final String title;
   final bool allowPartialMatch;
@@ -26,8 +26,36 @@ class SteamGridDbArtworkService {
   late final _game = _findGame();
   static final _log = LoggerService.instance;
 
-  // Read at runtime so the build and Git repository never contain the key.
-  final String _key;
+  static const _credentialKey = 'steamgriddb_api_key';
+  final String? _apiKey;
+  late final _key = _resolveKey();
+
+  static Future<String?> readSavedApiKey() =>
+      CredentialStore.read(_credentialKey);
+
+  static Future<void> saveApiKey(String value) async {
+    final key = value.trim();
+    if (key.isEmpty) {
+      await CredentialStore.delete(_credentialKey);
+      if (await readSavedApiKey() == null) return;
+    } else {
+      final outcome = await CredentialStore.write(_credentialKey, key);
+      if (outcome != CredentialWriteOutcome.sessionOnly) return;
+    }
+    throw CredentialStoreException('Could not persist SteamGridDB API key');
+  }
+
+  Future<String> _resolveKey() async {
+    if (_apiKey != null) return _apiKey.trim();
+    try {
+      final saved = await readSavedApiKey();
+      if (saved != null) return saved.trim();
+    } catch (error) {
+      _log.w('SteamGridDB key unavailable (${error.runtimeType})');
+    }
+    return (Platform.environment['STEAMGRIDDB_API_KEY'] ?? '').trim();
+  }
+
   final http.Client? client;
 
   static const endpoints = {
@@ -51,13 +79,14 @@ class SteamGridDbArtworkService {
 
   Future<List<dynamic>> _request(List<String> segments) async {
     if (shouldCancel?.call() ?? false) return [];
+    final key = await _key;
     final response = await _get(
       Uri(
         scheme: 'https',
         host: 'www.steamgriddb.com',
         pathSegments: ['api', 'v2', ...segments],
       ),
-      headers: {'Authorization': 'Bearer $_key', 'Accept': 'application/json'},
+      headers: {'Authorization': 'Bearer $key', 'Accept': 'application/json'},
     );
     if (response.statusCode != 200) {
       throw HttpException('SteamGridDB HTTP ${response.statusCode}');
@@ -78,7 +107,7 @@ class SteamGridDbArtworkService {
 
   Future<({int id, String name})?> _findGame() async {
     final searchTitle = title.trim().replaceFirst(_dumpSuffix, '').trim();
-    if (_key.isEmpty || searchTitle.isEmpty) return null;
+    if (searchTitle.isEmpty || (await _key).isEmpty) return null;
     try {
       final query = searchTitle.toLowerCase();
       final entries = await _request(['search', 'autocomplete', searchTitle]);

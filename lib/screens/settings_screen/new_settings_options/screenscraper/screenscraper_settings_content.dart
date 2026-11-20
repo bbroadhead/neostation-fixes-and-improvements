@@ -23,12 +23,13 @@ import 'scrape_session.dart';
 import 'scraping_progress_panel.dart';
 import 'screenscraper_account_card.dart';
 import 'screenscraper_login_dialog.dart';
+import 'steam_grid_db_key_dialog.dart';
 
 /// The ScreenScraper settings category: account, scraping, and every scraper
 /// option on one scrolling page.
 ///
-/// Signed out, the page is a single sign-in row that opens
-/// [ScreenScraperLoginDialog]. Signed in, it owns one gamepad cursor over the
+/// The SteamGridDB key is available independently of the ScreenScraper login.
+/// Signed in, the page owns one gamepad cursor over the
 /// account and scraping rows (start/stop, scrape mode, language), the
 /// enable-all row and a grid of system tiles, then the media type and region
 /// priority rows. The settings screen delegates D-pad, A and B here, like the Themes and System
@@ -108,8 +109,8 @@ class ScreenScraperSettingsContentState
   bool _movingRegion = false;
 
   // Slot layout when signed in, in page order: account, the scraping rows,
-  // enable-all, the systems grid, then the media and region rows. Signed out
-  // there is a single slot: the sign-in row.
+  // enable-all, the systems grid, then the media and region rows. The
+  // SteamGridDB key follows the scraper rows in every mode.
   static const int _accountSlot = 0;
   static const int _scrapeSlot = 1;
   static const int _scrapeModeSlot = 2;
@@ -119,6 +120,8 @@ class ScreenScraperSettingsContentState
   int get _gridEnd => _gridStart + _systems.length;
   int get _mediaStart => _gridEnd;
   int get _regionStart => _mediaStart + _mediaTypes.length;
+
+  int get _steamGridDbSlot => _signedIn ? _regionStart + _regions.length : 1;
 
   bool _isRegionSlot(int slot) =>
       slot >= _regionStart && slot < _regionStart + _regions.length;
@@ -207,8 +210,7 @@ class ScreenScraperSettingsContentState
 
   int getItemCount() {
     if (_isLoading) return 0;
-    if (!_signedIn) return 1;
-    return _regionStart + _regions.length;
+    return _steamGridDbSlot + 1;
   }
 
   /// Returns whether the cursor moved (drives the nav sound).
@@ -282,6 +284,10 @@ class ScreenScraperSettingsContentState
 
   void selectItem() {
     if (_isLoading) return;
+    if (_cursor == _steamGridDbSlot) {
+      _editSteamGridDbKey();
+      return;
+    }
     if (ScreenScraperService.usesLibretroArtwork) {
       _toggleScraping();
       return;
@@ -552,14 +558,37 @@ class ScreenScraperSettingsContentState
               : SingleChildScrollView(
                   controller: _scrollController,
                   padding: EdgeInsets.only(top: 6.r),
-                  child: ScreenScraperService.usesLibretroArtwork
-                      ? _buildScrapeRow(context, slot: 0)
-                      : _signedIn
-                      ? _buildSignedIn(context)
-                      : _buildSignedOut(context),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (ScreenScraperService.usesLibretroArtwork)
+                        _buildScrapeRow(context, slot: 0)
+                      else if (_signedIn)
+                        _buildSignedIn(context)
+                      else
+                        _buildSignedOut(context),
+                      SizedBox(height: 12.r),
+                      SettingRow(
+                        key: _keyFor(_steamGridDbSlot),
+                        title: AppLocale.steamGridDbApiKey.getString(context),
+                        subtitle: '',
+                        focused: _focused(_steamGridDbSlot),
+                        onTap: _editSteamGridDbKey,
+                        trailing: Icon(Symbols.edit_rounded, size: 20.r),
+                      ),
+                    ],
+                  ),
                 ),
         ),
       ],
+    );
+  }
+
+  void _editSteamGridDbKey() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const SteamGridDbKeyDialog(),
     );
   }
 

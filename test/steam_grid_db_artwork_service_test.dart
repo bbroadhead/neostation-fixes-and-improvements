@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -7,6 +8,29 @@ import 'package:neostation/models/artwork_preview.dart';
 import 'package:neostation/services/steam_grid_db_artwork_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'artwork requests use the persisted key without an explicit key',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      await SteamGridDbArtworkService.saveApiKey('  saved-key  ');
+      var requested = false;
+      final client = MockClient((request) async {
+        requested = true;
+        expect(request.headers['authorization'], 'Bearer saved-key');
+        return http.Response('{"success":true,"data":[]}', 200);
+      });
+      addTearDown(client.close);
+
+      await SteamGridDbArtworkService(
+        'A Game',
+        client: client,
+      ).inCategory('icons');
+      expect(requested, isTrue);
+    },
+  );
+
   test(
     'matches once, selects portrait covers and keeps credentials off the CDN',
     () async {

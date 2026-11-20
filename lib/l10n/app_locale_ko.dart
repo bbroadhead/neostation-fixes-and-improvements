@@ -1239,6 +1239,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.rommCredentialsRequired: '서버 URL, 사용자 이름, 비밀번호를 입력하세요',
   AppLocale.rommAuthPassword: '비밀번호',
   AppLocale.rommAuthApiKey: 'API 키',
+  AppLocale.steamGridDbApiKey: 'SteamGridDB API 키',
   AppLocale.rommApiKey: 'API 키',
   AppLocale.rommApiKeyHint: 'rmm_...',
   AppLocale.rommApiKeyRequired: '서버 URL과 API 키를 입력하세요',

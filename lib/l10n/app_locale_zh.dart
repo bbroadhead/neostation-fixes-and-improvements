@@ -1205,6 +1205,7 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.rommCredentialsRequired: '请输入服务器 URL、用户名和密码',
   AppLocale.rommAuthPassword: '密码',
   AppLocale.rommAuthApiKey: 'API 密钥',
+  AppLocale.steamGridDbApiKey: 'SteamGridDB API 密钥',
   AppLocale.rommApiKey: 'API 密钥',
   AppLocale.rommApiKeyHint: 'rmm_...',
   AppLocale.rommApiKeyRequired: '请输入服务器 URL 和 API 密钥',

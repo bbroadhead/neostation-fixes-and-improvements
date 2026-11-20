@@ -1444,6 +1444,7 @@ mixin AppLocale {
   static const String rommCredentialsRequired = 'romm_credentials_required';
   static const String rommAuthPassword = 'romm_auth_password';
   static const String rommAuthApiKey = 'romm_auth_api_key';
+  static const String steamGridDbApiKey = 'steam_grid_db_api_key';
   static const String rommApiKey = 'romm_api_key';
   static const String rommApiKeyHint = 'romm_api_key_hint';
   static const String rommApiKeyRequired = 'romm_api_key_required';

@@ -1233,6 +1233,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.rommCredentialsRequired: 'サーバー URL、ユーザー名、パスワードを入力してください',
   AppLocale.rommAuthPassword: 'パスワード',
   AppLocale.rommAuthApiKey: 'API キー',
+  AppLocale.steamGridDbApiKey: 'SteamGridDB API キー',
   AppLocale.rommApiKey: 'API キー',
   AppLocale.rommApiKeyHint: 'rmm_...',
   AppLocale.rommApiKeyRequired: 'サーバー URL と API キーを入力してください',

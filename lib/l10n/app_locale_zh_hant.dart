@@ -1203,6 +1203,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.rommCredentialsRequired: '請輸入伺服器 URL、使用者名稱和密碼',
   AppLocale.rommAuthPassword: '密碼',
   AppLocale.rommAuthApiKey: 'API 金鑰',
+  AppLocale.steamGridDbApiKey: 'SteamGridDB API 金鑰',
   AppLocale.rommApiKey: 'API 金鑰',
   AppLocale.rommApiKeyHint: 'rmm_...',
   AppLocale.rommApiKeyRequired: '請輸入伺服器 URL 和 API 金鑰',

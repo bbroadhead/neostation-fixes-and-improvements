@@ -211,8 +211,10 @@ lookup uses the verified RetroAchievements ROM match when available. A
 submitted title searches each available provider by name. Choosing artwork
 from those results leaves the ROM's verified identity unchanged.
 
-For SteamGridDB, set the runtime environment variable
-`STEAMGRIDDB_API_KEY` for the NeoStation process. Local artwork builds try
+In **Settings → Metadata → SteamGridDB API key**, enter your key and select
+**Save**. The saved key persists across launches. Save an empty field to clear
+it. The runtime environment variable `STEAMGRIDDB_API_KEY` remains available
+when no saved key is set. Local artwork builds try
 SteamGridDB, then hash-verified RetroAchievements artwork, then Libretro for
 each missing category. SteamGridDB supplies portrait covers, backgrounds,
 logos, and icons. The existing ScreenScraper workflow remains available

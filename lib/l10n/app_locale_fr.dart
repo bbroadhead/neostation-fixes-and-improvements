@@ -1325,6 +1325,7 @@ const Map<String, dynamic> appLocaleFr = {
       'Saisissez l’URL du serveur, l’utilisateur et le mot de passe',
   AppLocale.rommAuthPassword: 'Mot de passe',
   AppLocale.rommAuthApiKey: 'Clé d’API',
+  AppLocale.steamGridDbApiKey: 'Clé d’API SteamGridDB',
   AppLocale.rommApiKey: 'Clé d’API',
   AppLocale.rommApiKeyHint: 'rmm_...',
   AppLocale.rommApiKeyRequired: 'Saisissez l’URL du serveur et la clé d’API',
