@@ -11,10 +11,14 @@ class ArtworkGalleryDialog extends StatefulWidget {
   const ArtworkGalleryDialog({
     super.key,
     required this.load,
+    required this.detectedTitle,
+    this.savedTitle,
     required this.isCurrent,
   });
 
-  final Future<List<ArtworkPreview>> Function(bool Function()) load;
+  final String detectedTitle;
+  final String? savedTitle;
+  final Future<List<ArtworkPreview>> Function(String, bool Function()) load;
   final Future<bool> Function(ArtworkPreview) isCurrent;
 
   @override
@@ -28,6 +32,13 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
   List<ArtworkPreview>? _images;
   final _current = <ArtworkPreview>{};
   final _items = <GlobalKey>[];
+  late final _search = TextEditingController(
+    text: widget.savedTitle ?? widget.detectedTitle,
+  );
+  final _searchFocus = FocusNode();
+  final _pending = <String, ArtworkPreview>{};
+  int _request = 0;
+  bool _failed = false;
   int _selected = 0;
   int _categoryIndex = 0;
   ArtworkProvider? _provider;
@@ -60,8 +71,16 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
       onNavigateRight: () => _move(1),
       onNavigateUp: () => _move(-_columns),
       onNavigateDown: () => _move(_columns),
-      onSelectItem: _apply,
-      onBack: () => Navigator.of(context).pop(),
+      onSelectItem: () => _searchFocus.hasFocus ? _submit() : _choose(),
+      onBack: () {
+        if (_searchFocus.hasFocus) {
+          _searchFocus.unfocus();
+        } else {
+          Navigator.of(context).pop();
+        }
+      },
+      onSettings: _apply,
+      onFavorite: _searchFocus.requestFocus,
       onLeftBumper: () =>
           _selectCategory((_categoryIndex - 1) % _categories.length),
       onRightBumper: () =>
@@ -79,33 +98,57 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
         onDeactivate: _navigation.deactivate,
       );
     });
-    _load();
+    _load(_search.text);
   }
 
-  Future<void> _load() async {
+  void _submit() {
+    _searchFocus.unfocus();
+    _load(_search.text.trim());
+  }
+
+  Future<void> _load(String query) async {
+    final request = ++_request;
+    bool cancelled() => !mounted || request != _request;
+    setState(() {
+      _images = null;
+      _failed = false;
+      _current.clear();
+      _items.clear();
+      _selected = 0;
+      _categoryIndex = 0;
+      _provider = null;
+    });
     try {
-      final results = await widget.load(() => !mounted);
+      final results = await widget.load(
+        query.isEmpty ? widget.detectedTitle : query,
+        cancelled,
+      );
       final valid = <ArtworkPreview>[];
+      final current = <ArtworkPreview>{};
       for (final image in results) {
-        if (!mounted) return;
+        if (cancelled()) return;
         try {
           final decoded = await decodeImageFromList(image.bytes);
           decoded.dispose();
           valid.add(image);
-          if (await widget.isCurrent(image)) _current.add(image);
+          if (await widget.isCurrent(image)) current.add(image);
         } catch (_) {
           // A provider response with a PNG header can still be truncated.
         }
       }
-      if (mounted) {
-        setState(() {
-          _images = valid;
-          _items.addAll(List.generate(valid.length, (_) => GlobalKey()));
-          if (_current.isNotEmpty) _selected = valid.indexOf(_current.first);
-        });
-      }
+      if (cancelled()) return;
+      setState(() {
+        _images = valid;
+        _current.addAll(current);
+        _items.addAll(List.generate(valid.length, (_) => GlobalKey()));
+        if (_current.isNotEmpty) _selected = valid.indexOf(_current.first);
+      });
     } catch (_) {
-      if (mounted) setState(() => _images = []);
+      if (cancelled()) return;
+      setState(() {
+        _failed = true;
+        _images = [];
+      });
     }
   }
 
@@ -113,6 +156,8 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
   void dispose() {
     GamepadNavigationManager.popLayer(_layerId);
     _navigation.dispose();
+    _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -131,10 +176,15 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
     });
   }
 
+  void _choose() {
+    final image = _visible?.elementAtOrNull(_selected);
+    if (image == null) return;
+    setState(() => _pending[image.category] = image);
+  }
+
   void _apply() {
-    final images = _visible;
-    if (images == null || images.isEmpty) return;
-    Navigator.of(context).pop(images[_selected]);
+    if (_pending.isEmpty) return;
+    Navigator.of(context).pop(_pending.values.toList());
   }
 
   void _selectCategory(int index) {
@@ -176,135 +226,192 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
       content: SizedBox(
         width: 420.r,
         height: 235.r,
-        child: images == null
-            ? const Center(child: CircularProgressIndicator())
-            : images.isEmpty
-            ? Center(
-                child: Text(
-                  AppLocale.scrapeMediaDownloadsFailed.getString(context),
-                ),
-              )
-            : Column(
-                children: [
-                  if (_providers.length > 2)
-                    Wrap(
-                      spacing: 6.r,
-                      children: [
-                        for (final provider in _providers)
-                          ChoiceChip(
-                            label: Text(
-                              provider == null
-                                  ? AppLocale.galleryAllProviders.getString(
-                                      context,
-                                    )
-                                  : _providerName(provider),
-                            ),
-                            selected: provider == _provider,
-                            onSelected: (_) => _selectProvider(provider),
-                          ),
-                      ],
+        child: Column(
+          children: [
+            TextField(
+              controller: _search,
+              focusNode: _searchFocus,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                labelText: AppLocale.scrapeSearchTitle.getString(context),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: AppLocale.resetToDefault.getString(context),
+                      onPressed: () {
+                        _search.text = widget.detectedTitle;
+                        _submit();
+                      },
+                      icon: const Icon(Icons.restore),
                     ),
-                  Wrap(
-                    spacing: 6.r,
-                    children: [
-                      for (final (index, category) in _categories.indexed)
-                        ChoiceChip(
-                          label: Text(_category(category)),
-                          selected: index == _categoryIndex,
-                          onSelected: (_) => _selectCategory(index),
-                        ),
-                    ],
-                  ),
-                  Expanded(
-                    child: Row(
+                    IconButton(
+                      tooltip: AppLocale.scrapeSearchTitle.getString(context),
+                      onPressed: _submit,
+                      icon: const Icon(Icons.search),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: images == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : images.isEmpty
+                  ? Center(
+                      child: Text(
+                        (_failed
+                                ? AppLocale.scrapeMediaDownloadsFailed
+                                : AppLocale.noGamesFoundFor)
+                            .getString(context)
+                            .replaceFirst('{name}', _search.text),
+                      ),
+                    )
+                  : Column(
                       children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: GridView.count(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              crossAxisCount: _columns,
-                              children: [
-                                for (final (index, candidate) in images.indexed)
-                                  InkWell(
-                                    key: _items[index],
-                                    onTap: () =>
-                                        setState(() => _selected = index),
-                                    child: Card(
-                                      color: index == _selected
-                                          ? Theme.of(context)
-                                                .colorScheme
-                                                .primaryContainer
-                                          : null,
-                                      child: Padding(
-                                        padding: EdgeInsets.all(4.r),
-                                        child: Column(
-                                          children: [
-                                            Expanded(
-                                              child: Image.memory(
-                                                candidate.bytes,
-                                                fit: BoxFit.contain,
-                                              ),
-                                            ),
-                                            Text(
-                                              _category(candidate.category),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            if (_current.contains(candidate))
-                                              Icon(
-                                                Icons.check_circle_outline,
-                                                size: 11.r,
-                                                semanticLabel: AppLocale
-                                                    .selected
-                                                    .getString(context),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
+                        if (_providers.length > 2)
+                          Wrap(
+                            spacing: 6.r,
+                            children: [
+                              for (final provider in _providers)
+                                ChoiceChip(
+                                  label: Text(
+                                    provider == null
+                                        ? AppLocale.galleryAllProviders
+                                              .getString(context)
+                                        : _providerName(provider),
                                   ),
-                              ],
-                            ),
+                                  selected: provider == _provider,
+                                  onSelected: (_) => _selectProvider(provider),
+                                ),
+                            ],
                           ),
+                        Wrap(
+                          spacing: 6.r,
+                          children: [
+                            for (final (index, category) in _categories.indexed)
+                              ChoiceChip(
+                                label: Text(_category(category)),
+                                selected: index == _categoryIndex,
+                                onSelected: (_) => _selectCategory(index),
+                              ),
+                          ],
                         ),
-                        SizedBox(width: 12.r),
                         Expanded(
-                          child: Column(
+                          child: Row(
                             children: [
                               Expanded(
-                                child: Image.memory(
-                                  images[_selected].bytes,
-                                  fit: BoxFit.contain,
+                                child: SingleChildScrollView(
+                                  child: GridView.count(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    crossAxisCount: _columns,
+                                    children: [
+                                      for (final (index, candidate)
+                                          in images.indexed)
+                                        InkWell(
+                                          key: _items[index],
+                                          onTap: () =>
+                                              setState(() => _selected = index),
+                                          child: Card(
+                                            color: index == _selected
+                                                ? Theme.of(context)
+                                                      .colorScheme
+                                                      .primaryContainer
+                                                : null,
+                                            child: Padding(
+                                              padding: EdgeInsets.all(4.r),
+                                              child: Column(
+                                                children: [
+                                                  Expanded(
+                                                    child: Image.memory(
+                                                      candidate.bytes,
+                                                      fit: BoxFit.contain,
+                                                      cacheWidth: 160,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    _category(
+                                                      candidate.category,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                  if (_pending[candidate
+                                                              .category] ==
+                                                          candidate ||
+                                                      (!_pending.containsKey(
+                                                            candidate.category,
+                                                          ) &&
+                                                          _current.contains(
+                                                            candidate,
+                                                          )))
+                                                    Icon(
+                                                      Icons
+                                                          .check_circle_outline,
+                                                      size: 11.r,
+                                                      semanticLabel: AppLocale
+                                                          .selected
+                                                          .getString(context),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              Text(
-                                '${_providerName(images[_selected].provider)} · ${_category(images[_selected].category)}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                images[_selected].title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                              SizedBox(width: 12.r),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: Image.memory(
+                                        images[_selected].bytes,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_providerName(images[_selected].provider)} · ${_category(images[_selected].category)}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      images[_selected].title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(AppLocale.cancel.getString(context)),
         ),
+        TextButton(
+          onPressed: images?.isNotEmpty == true ? _choose : null,
+          child: Text(AppLocale.select.getString(context)),
+        ),
         FilledButton(
-          onPressed: images?.isNotEmpty == true ? _apply : null,
-          child: Text(AppLocale.apply.getString(context)),
+          onPressed: _pending.isEmpty ? null : _apply,
+          child: Text(
+            '${AppLocale.apply.getString(context)} (${_pending.length})',
+          ),
         ),
       ],
     );

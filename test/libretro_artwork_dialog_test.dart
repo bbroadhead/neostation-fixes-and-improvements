@@ -45,8 +45,9 @@ void main() {
           bytes: bytes,
         );
         late Completer<void> decoded;
-        ArtworkPreview? selected;
+        List<ArtworkPreview>? selected;
         var closed = false;
+        final queries = <String>[];
         await tester.pumpWidget(
           ScreenUtilInit(
             designSize: const Size(640, 480),
@@ -57,10 +58,14 @@ void main() {
               home: Builder(
                 builder: (context) => TextButton(
                   onPressed: () async {
-                    selected = await showDialog<ArtworkPreview>(
+                    selected = await showDialog<List<ArtworkPreview>>(
                       context: context,
                       builder: (_) => ArtworkGalleryDialog(
-                        load: (_) async => [cover, shot],
+                        detectedTitle: "Detected",
+                        load: (query, _) async {
+                          queries.add(query);
+                          return [cover, shot];
+                        },
                         isCurrent: (image) async {
                           if (image == shot) decoded.complete();
                           return image == cover;
@@ -84,6 +89,19 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
+        await tester.tap(find.widgetWithText(TextButton, 'Select'));
+        if (apply) {
+          await tester.runAsync(() async {
+            decoded = Completer<void>();
+            await tester.enterText(find.byType(TextField), 'Regional title');
+            await tester.testTextInput.receiveAction(TextInputAction.search);
+            await tester.pump();
+            await decoded.future.timeout(const Duration(seconds: 5));
+          });
+          await tester.pumpAndSettle();
+          expect(queries, ['Detected', 'Regional title']);
+          expect(find.text('Apply (1)'), findsOneWidget);
+        }
         await tester.tap(find.widgetWithText(ChoiceChip, 'RetroAchievements'));
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.check_circle_outline), findsNothing);
@@ -92,13 +110,15 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Gameplay'), findsOneWidget);
         expect(find.text('Cover'), findsNothing);
-        await tester.tap(find.text(apply ? 'Apply' : 'Cancel'));
+        await tester.tap(find.widgetWithText(TextButton, 'Select'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(apply ? 'Apply (2)' : 'Cancel'));
         await tester.pumpAndSettle();
         await tester.runAsync(() async {
           await Future<void>.delayed(Duration.zero);
         });
         expect(closed, isTrue);
-        expect(selected, apply ? shot : isNull);
+        expect(selected, apply ? [cover, shot] : isNull);
       },
     );
   }

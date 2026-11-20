@@ -11,6 +11,7 @@ import '../../themes/corner_radii.dart';
 import '../../utils/centered_scroll_controller.dart';
 import '../../utils/game_utils.dart';
 import '../../providers/sqlite_config_provider.dart';
+import '../../providers/file_provider.dart';
 import '../../models/system_model.dart';
 import '../../models/game_model.dart';
 import '../../utils/rom_tree.dart';
@@ -32,6 +33,8 @@ import '../../widgets/system_logo_fallback.dart';
 /// to emulate console-like library navigation.
 class GameListView extends StatefulWidget {
   final SystemModel system;
+  final FileProvider? fileProvider;
+  final int artworkVersion;
   final List<GameModel> games;
   final int selectedIndex;
   final String listSize;
@@ -64,6 +67,8 @@ class GameListView extends StatefulWidget {
   const GameListView({
     super.key,
     required this.system,
+    this.fileProvider,
+    this.artworkVersion = 0,
     required this.games,
     required this.selectedIndex,
     this.listSize = 'S',
@@ -460,6 +465,10 @@ class GameListViewState extends State<GameListView>
                                           : Colors.redAccent,
                                     ),
                                   ),
+                                Padding(
+                                  padding: EdgeInsets.only(right: 4.r),
+                                  child: _gameIcon(game, titleFontSize),
+                                ),
                                 Expanded(
                                   child: RepaintBoundary(
                                     child: AnimatedDefaultTextStyle(
@@ -613,6 +622,25 @@ class GameListViewState extends State<GameListView>
         ),
         SizedBox(height: _bottomSlack.r),
       ],
+    );
+  }
+
+  Widget _gameIcon(GameModel game, double size) {
+    final system = _effectiveSystemFor(game);
+    final icon = game.getImagePath(
+      system.folderName,
+      'icons',
+      widget.fileProvider,
+    );
+    return SizedBox.square(
+      dimension: size,
+      child: Image.file(
+        File(icon),
+        key: ValueKey(widget.artworkVersion),
+        fit: BoxFit.contain,
+        cacheWidth: 64,
+        errorBuilder: (_, _, _) => Icon(Symbols.sports_esports, size: size),
+      ),
     );
   }
 

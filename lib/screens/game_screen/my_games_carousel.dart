@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -23,6 +22,7 @@ import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/widgets/achievements_badge.dart';
 import 'package:neostation/widgets/collection_badge.dart';
 import 'package:neostation/widgets/native_carousel.dart';
+import 'package:neostation/widgets/game_media_composite.dart';
 import 'package:neostation/utils/performance_mode.dart';
 import 'package:neostation/widgets/game_view_footer.dart';
 import 'package:neostation/constants/system_folder_names.dart';
@@ -46,17 +46,6 @@ class GamesCarousel extends StatefulWidget {
   final Set<String> scrapingGameRomnames;
   final Map<String, double> scrapeProgress;
   final int artworkVersion;
-
-  /// Clears artwork dimension caches after files are added or overwritten.
-  static void evictArtworkCaches(Iterable<String> paths) {
-    if (paths.isEmpty) {
-      _GamesCarouselState._imgSizeCache.clear();
-      return;
-    }
-    for (final path in paths) {
-      _GamesCarouselState._imgSizeCache.remove(path);
-    }
-  }
 
   /// Subfolder navigation: the first [folderCount] entries of [games] are folder
   /// placeholders rendered from [folderEntries]; tapping one calls
@@ -184,84 +173,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
   /// each folder card is computed once.
   final Map<String, List<File>> _folderCoverCache = {};
   int _lastBgIndex = -1;
-
-  static final Map<String, Size?> _imgSizeCache = {};
-
-  static Size? _readImageSize(String path) {
-    if (_imgSizeCache.containsKey(path)) return _imgSizeCache[path];
-    try {
-      final file = File(path);
-      if (!file.existsSync()) return null;
-      final raf = file.openSync();
-      try {
-        final header = Uint8List(24);
-        raf.readIntoSync(header);
-        if (header[0] == 0x89 &&
-            header[1] == 0x50 &&
-            header[2] == 0x4E &&
-            header[3] == 0x47) {
-          final w = _readInt32BE(header, 16);
-          final h = _readInt32BE(header, 20);
-          if (w > 0 && h > 0 && w < 10000 && h < 10000) {
-            final r = Size(w.toDouble(), h.toDouble());
-            _imgSizeCache[path] = r;
-            return r;
-          }
-        }
-        if (header[0] == 0xFF && header[1] == 0xD8) {
-          raf.setPositionSync(0);
-          final len = raf.lengthSync().clamp(0, 65536).toInt();
-          final buf = Uint8List(len);
-          raf.readIntoSync(buf);
-          int i = 2;
-          while (i < buf.length - 9) {
-            if (buf[i] != 0xFF) {
-              i++;
-              continue;
-            }
-            if (buf[i + 1] == 0xC0 || buf[i + 1] == 0xC2) {
-              final h = (buf[i + 5] << 8) | buf[i + 6];
-              final w = (buf[i + 7] << 8) | buf[i + 8];
-              if (w > 0 && h > 0 && w < 10000 && h < 10000) {
-                final r = Size(w.toDouble(), h.toDouble());
-                _imgSizeCache[path] = r;
-                return r;
-              }
-            }
-            i += ((buf[i + 2] << 8) | buf[i + 3]) + 2;
-          }
-        }
-      } finally {
-        raf.closeSync();
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  static int _readInt32BE(List<int> bytes, int offset) =>
-      (bytes[offset] << 24) |
-      (bytes[offset + 1] << 16) |
-      (bytes[offset + 2] << 8) |
-      bytes[offset + 3];
-
-  double? _boxAspectRatio(GameModel game) {
-    if (game.box2dAspectRatio != null && game.box2dAspectRatio!.isNotEmpty) {
-      final parts = game.box2dAspectRatio!.split('/');
-      if (parts.length == 2) {
-        final w = double.tryParse(parts[0]);
-        final h = double.tryParse(parts[1]);
-        if (w != null && h != null && w > 0 && h > 0) return w / h;
-      }
-    }
-    final boxPath = _resolveImagePath(game, 'box2d');
-    if (boxPath.isNotEmpty) {
-      final size = _readImageSize(boxPath);
-      if (size != null && size.width > 0 && size.height > 0) {
-        return size.width / size.height;
-      }
-    }
-    return null;
-  }
 
   static const String _favoritesLabel = '★';
 
@@ -855,121 +766,95 @@ class _GamesCarouselState extends State<GamesCarousel> {
       imageType,
       widget.fileProvider,
     );
-    if (File(path).existsSync()) return path;
-    return '';
+    return _fileExistsCache.putIfAbsent(path, () => File(path).existsSync())
+        ? path
+        : '';
   }
 
-  Widget _buildFanartCard(GameModel game, bool isSelected) {
+  Widget _buildGameCard(GameModel game, bool isFanart) {
     final theme = Theme.of(context);
-    final folder = _folderForGame(game);
-    final screenshotPath = game.getScreenshotPath(folder, widget.fileProvider);
-    final hasScreenshot = File(screenshotPath).existsSync();
-    final fanartPath = game.getImagePath(
-      folder,
-      'fanarts',
-      widget.fileProvider,
-    );
-    final hasFanart = File(fanartPath).existsSync();
-    final bgPath = hasFanart
-        ? fanartPath
-        : (hasScreenshot ? screenshotPath : '');
+    final bgPath = isFanart ? _resolveImagePath(game, 'fanarts') : '';
+    final radius = (isFanart ? 24 : 8).r;
+    final title = _resolveImagePath(game, 'title_screens');
+    final screenshot = _resolveImagePath(game, 'screenshots');
 
     return Container(
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.all(5.r),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24.r),
-        boxShadow: _performanceMode
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 8.r,
-                  offset: Offset(2.r, 2.r),
-                ),
-              ],
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(radius),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24.r),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (bgPath.isNotEmpty)
-              Image.file(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (bgPath.isNotEmpty)
+            Opacity(
+              opacity: 0.23,
+              child: Image.file(
                 File(bgPath),
-                key: ValueKey(bgPath),
                 fit: BoxFit.cover,
-                cacheWidth: performanceCacheWidth(
-                  1024,
-                  performanceMode: _performanceMode,
-                ),
-                errorBuilder: (ctx, e, s) => _buildFallbackCard(game, theme),
-              )
-            else
-              _buildFallbackCard(game, theme),
-            if (bgPath.isNotEmpty)
-              Container(
+                cacheWidth: 640,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+          Padding(
+            padding: EdgeInsets.only(bottom: 36.r),
+            child: GameMediaComposite(
+              key: ValueKey(widget.artworkVersion),
+              cover: _resolveImagePath(game, 'box2d'),
+              titleScreen: title,
+              screenshot: screenshot == title ? '' : screenshot,
+              icon: _resolveImagePath(game, 'icons'),
+              fallback: _buildFallbackCard(game, theme),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildWheelOverlay(game),
+          ),
+          if (game.isFavorite == true)
+            Positioned(
+              top: 8.r,
+              right: 8.r,
+              child: Container(
+                width: 32.r,
+                height: 32.r,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.6),
-                      Colors.black.withValues(alpha: 0.9),
-                    ],
-                    stops: const [0.0, 0.4, 0.7, 1.0],
-                  ),
+                  color: Colors.black.withValues(alpha: 0.45),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Symbols.favorite_rounded,
+                  size: 18.r,
+                  color: Colors.redAccent,
                 ),
               ),
+            ),
+          if (_collections?.isInAnyCollection(game.romPath) == true)
+            Positioned(
+              // Under the heart when there is one; the left corner belongs to
+              // the achievements badge.
+              top: (game.isFavorite == true ? 44.r : 8.r),
+              right: 8.r,
+              child: CollectionBadge(size: 32.r),
+            ),
+          if (_showAchievementsBadge && AchievementsBadge.showsFor(game))
+            Positioned(
+              top: 8.r,
+              left: 8.r,
+              child: AchievementsBadge(game: game),
+            ),
+          if (widget.scrapingGameRomnames.contains(game.romname))
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
-              child: _buildWheelOverlay(game),
+              child: _buildScrapeProgress(game),
             ),
-            if (game.isFavorite == true)
-              Positioned(
-                top: 8.r,
-                right: 8.r,
-                child: Container(
-                  width: 32.r,
-                  height: 32.r,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Symbols.favorite_rounded,
-                    size: 18.r,
-                    color: Colors.redAccent,
-                  ),
-                ),
-              ),
-            if (_collections?.isInAnyCollection(game.romPath) == true)
-              Positioned(
-                // Under the heart when there is one; the left corner belongs to
-                // the achievements badge.
-                top: (game.isFavorite == true ? 44.r : 8.r),
-                right: 8.r,
-                child: CollectionBadge(size: 32.r),
-              ),
-            if (_showAchievementsBadge && AchievementsBadge.showsFor(game))
-              Positioned(
-                top: 8.r,
-                left: 8.r,
-                child: AchievementsBadge(game: game),
-              ),
-            if (widget.scrapingGameRomnames.contains(game.romname))
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _buildScrapeProgress(game),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -1216,165 +1101,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildBoxCard(
-    GameModel game,
-    bool isSelected, {
-    GlobalKey? anchorKey,
-  }) {
-    final theme = Theme.of(context);
-    final boxPath = _resolveImagePath(game, 'box2d');
-    final hasBox = boxPath.isNotEmpty;
-    final ratio = _boxAspectRatio(game) ?? 1.0;
-
-    if (!hasBox) {
-      return Center(
-        child: Stack(
-          children: [
-            _buildBoxFallback(game, theme),
-            if (game.isFavorite == true)
-              Positioned(
-                top: 8.r,
-                right: 8.r,
-                child: Container(
-                  width: 32.r,
-                  height: 32.r,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Symbols.favorite_rounded,
-                    size: 18.r,
-                    color: Colors.redAccent,
-                  ),
-                ),
-              ),
-            if (_collections?.isInAnyCollection(game.romPath) == true)
-              Positioned(
-                // Under the heart when there is one; the left corner belongs to
-                // the achievements badge.
-                top: (game.isFavorite == true ? 44.r : 8.r),
-                right: 8.r,
-                child: CollectionBadge(size: 32.r),
-              ),
-            if (_showAchievementsBadge && AchievementsBadge.showsFor(game))
-              Positioned(
-                top: 8.r,
-                left: 8.r,
-                child: AchievementsBadge(game: game),
-              ),
-            if (widget.scrapingGameRomnames.contains(game.romname))
-              _buildScrapeProgress(game),
-            _menuAnchorBox(anchorKey),
-          ],
-        ),
-      );
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxW = constraints.maxWidth;
-        final maxH = constraints.maxHeight;
-
-        double cardW, cardH;
-        if (maxW / ratio <= maxH) {
-          cardW = maxW;
-          cardH = maxW / ratio;
-        } else {
-          cardH = maxH;
-          cardW = maxH * ratio;
-        }
-
-        return Center(
-          child: Container(
-            width: cardW,
-            height: cardH,
-            clipBehavior: Clip.antiAlias,
-            margin: EdgeInsets.all(5.r),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(8.r),
-              boxShadow: _performanceMode
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: isSelected ? 0.6 : 0.3,
-                        ),
-                        blurRadius: isSelected ? 12.r : 6.r,
-                        offset: Offset(2.r, 2.r),
-                      ),
-                    ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8.r),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.file(
-                    File(boxPath),
-                    key: ValueKey(boxPath),
-                    fit: BoxFit.cover,
-                    cacheWidth: performanceCacheWidth(
-                      1024,
-                      performanceMode: _performanceMode,
-                    ),
-                    errorBuilder: (ctx, e, s) => _buildBoxFallback(game, theme),
-                  ),
-                  if (game.isFavorite == true)
-                    Positioned(
-                      top: 8.r,
-                      right: 8.r,
-                      child: Container(
-                        width: 32.r,
-                        height: 32.r,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Symbols.favorite_rounded,
-                          size: 18.r,
-                          color: Colors.redAccent,
-                        ),
-                      ),
-                    ),
-                  if (_collections?.isInAnyCollection(game.romPath) == true)
-                    Positioned(
-                      // Under the heart when there is one; the left corner belongs to
-                      // the achievements badge.
-                      top: (game.isFavorite == true ? 44.r : 8.r),
-                      right: 8.r,
-                      child: CollectionBadge(size: 32.r),
-                    ),
-                  if (_showAchievementsBadge &&
-                      AchievementsBadge.showsFor(game))
-                    Positioned(
-                      top: 8.r,
-                      left: 8.r,
-                      child: AchievementsBadge(game: game),
-                    ),
-                  if (widget.scrapingGameRomnames.contains(game.romname))
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: _buildScrapeProgress(game),
-                    ),
-                  _menuAnchorBox(anchorKey),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildBoxFallback(GameModel game, ThemeData theme) {
-    return _buildFallbackCard(game, theme);
-  }
-
   @override
   Widget build(BuildContext context) {
     if (widget.games.isEmpty) {
@@ -1486,18 +1212,10 @@ class _GamesCarouselState extends State<GamesCarousel> {
                             _carouselKey.currentState?.animateToPage(index);
                           }
                         },
-                        child: isFanart
-                            ? _withMenuAnchor(
-                                _buildFanartCard(game, isCentred),
-                                isCentred,
-                              )
-                            : _buildBoxCard(
-                                game,
-                                isCentred,
-                                anchorKey: isCentred
-                                    ? widget.selectedItemKey
-                                    : null,
-                              ),
+                        child: _withMenuAnchor(
+                          _buildGameCard(game, isFanart),
+                          isCentred,
+                        ),
                       ),
                     );
                   },

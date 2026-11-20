@@ -646,7 +646,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
   void _invalidateArtworkCaches() {
     GamesGrid.evictArtworkCaches(const []);
-    GamesCarousel.evictArtworkCaches(const []);
     final imageCache = PaintingBinding.instance.imageCache;
     imageCache.clear();
     imageCache.clearLiveImages();
@@ -1798,6 +1797,8 @@ class _SystemGamesListState extends State<SystemGamesList> {
                 )
               : GameListView(
                   key: _gameListKey,
+                  artworkVersion: _artworkVersion,
+                  fileProvider: _fileProvider,
                   system: widget.system,
                   games: _games,
                   selectedIndex: _selectedGameIndex,
@@ -2221,7 +2222,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
           _fileProvider,
         );
         GamesGrid.evictArtworkCaches(artworkPaths);
-        GamesCarousel.evictArtworkCaches(artworkPaths);
         setState(() {
           _selectedGame = updatedGame;
           _artworkVersion++;
@@ -2257,15 +2257,20 @@ class _SystemGamesListState extends State<SystemGamesList> {
     if (systemId == null || romPath == null || _isScrapingSelectedGame) return;
     _isScrapingSelectedGame = true;
     try {
-      final selection = await showDialog<ArtworkPreview>(
+      final savedTitle = await ScraperRepository.getSearchTitle(romPath);
+      if (!mounted) return;
+      final detectedTitle = path.basenameWithoutExtension(game.romname);
+      final selection = await showDialog<List<ArtworkPreview>>(
         context: context,
         builder: (_) => ArtworkGalleryDialog(
+          detectedTitle: detectedTitle,
+          savedTitle: savedTitle,
           isCurrent: (image) async {
-            final selected = game.getArtworkOverridePath(
+            final selected = game.getImagePath(
+              game.systemFolderName ?? widget.system.folderName,
               image.category,
               _fileProvider,
             );
-            if (selected == null) return false;
             try {
               final file = File(selected);
               if (await file.length() != image.bytes.length) return false;
@@ -2274,8 +2279,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
               return false;
             }
           },
-          load: (cancelled) async {
-            final title = await ScraperRepository.getSearchTitle(romPath);
+          load: (title, cancelled) async {
             final verified =
                 await RetroAchievementsRepository.getVerifiedRomIdentity(
                   romPath,
@@ -2287,7 +2291,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
                 appSystemId: systemId,
                 romName: game.romname,
                 gameName: verified?.title ?? game.name,
-                searchTitle: title,
+                searchTitle: title == detectedTitle ? null : title,
                 shouldCancel: cancelled,
               ),
             ]);
@@ -2296,19 +2300,24 @@ class _SystemGamesListState extends State<SystemGamesList> {
         ),
       );
       if (selection == null || !mounted) return;
-      final target = game.getArtworkOverridePath(
-        selection.category,
-        _fileProvider,
-      );
-      if (target == null) return;
-      final decoded = await decodeImageFromList(selection.bytes);
-      decoded.dispose();
-      await writeFileAtomically(File(target), selection.bytes);
-      await evictScrapedArtwork([target]);
-      GamesGrid.evictArtworkCaches([target]);
-      GamesCarousel.evictArtworkCaches([target]);
-      if (!mounted) return;
-      await _handleGameUpdated();
+      final targets = <String>[];
+      try {
+        for (final image in selection) {
+          final target = game.getArtworkOverridePath(
+            image.category,
+            _fileProvider,
+          );
+          if (target == null) continue;
+          await writeFileAtomically(File(target), image.bytes);
+          targets.add(target);
+        }
+      } finally {
+        if (targets.isNotEmpty) {
+          await evictScrapedArtwork(targets);
+          GamesGrid.evictArtworkCaches(targets);
+          if (mounted) await _handleGameUpdated();
+        }
+      }
       if (!mounted) return;
       AppNotification.showNotification(
         context,

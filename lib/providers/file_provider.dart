@@ -92,6 +92,7 @@ class FileProvider extends ChangeNotifier {
     'box2d': ['covers', '3dboxes'],
     'wheels': ['marquees'],
     'screenshots': ['screenshots', 'titlescreens'],
+    'title_screens': ['titlescreens'],
     'fanarts': ['fanart'],
     'videos': ['videos'],
   };

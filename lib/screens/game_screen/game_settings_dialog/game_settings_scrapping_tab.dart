@@ -13,7 +13,6 @@ import 'package:neostation/models/system_model.dart';
 import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/repositories/scraper_repository.dart';
 import 'package:neostation/repositories/system_repository.dart';
-import 'package:neostation/screens/game_screen/my_games_carousel.dart';
 import 'package:neostation/screens/game_screen/my_games_grid.dart';
 import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/services/screenscraper_service.dart';
@@ -332,7 +331,6 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
       // Bust cached artwork so the fresh media shows up everywhere.
       await evictScrapedArtwork(_artworkPaths());
       GamesGrid.evictArtworkCaches(_artworkPaths());
-      GamesCarousel.evictArtworkCaches(_artworkPaths());
 
       if (mounted) {
         // The service reports its outcome as an AppLocale key, success
@@ -411,7 +409,6 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
   Future<void> _refreshArtwork(String path) async {
     await evictScrapedArtwork([path]);
     GamesGrid.evictArtworkCaches([path]);
-    GamesCarousel.evictArtworkCaches([path]);
     if (!mounted) return;
     setState(() {
       _thumbsVersion++;
