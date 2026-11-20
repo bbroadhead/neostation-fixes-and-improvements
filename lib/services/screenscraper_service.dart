@@ -29,6 +29,12 @@ import '../providers/scraping_provider.dart';
 import '../l10n/app_locale.dart';
 import '../widgets/scraping_summary_dialog.dart';
 
+typedef _ArtworkMedia = ({
+  List<dynamic> media,
+  String title,
+  Map<String, int> regions,
+});
+
 /// Why ScreenScraper refused a login attempt.
 ///
 /// Kept distinct from the raw HTTP status so the UI can explain the failure:
@@ -704,6 +710,14 @@ class ScreenScraperService {
     }
   }
 
+  static const _previewMediaTypes = {
+    'box2d': 'box2D',
+    'screenshots': 'ss',
+    'title_screens': 'sstitle',
+    'fanarts': 'fanart',
+    'wheels': 'wheel',
+  };
+
   /// Fetches preview media without changing the ROM's scraper association.
   static Future<List<ArtworkPreview>> artworkGallery({
     required String appSystemId,
@@ -713,25 +727,72 @@ class ScreenScraperService {
     required bool byName,
     required bool Function() shouldCancel,
   }) async {
+    final results = <ArtworkPreview>[];
+    final seen = <Uri>{};
+    await for (final entry in _artworkMedia(
+      appSystemId: appSystemId,
+      romName: romName,
+      romPath: romPath,
+      title: title,
+      byName: byName,
+      shouldCancel: shouldCancel,
+    )) {
+      results.addAll(
+        (await Future.wait([
+          for (final type in _previewMediaTypes.values)
+            _artworkGalleryImage(
+              entry.media,
+              type,
+              entry.title,
+              entry.regions,
+              seen,
+              shouldCancel,
+            ),
+        ])).nonNulls,
+      );
+    }
+    return shouldCancel() ? [] : results;
+  }
+
+  static Stream<_ArtworkMedia> _artworkMedia({
+    required String appSystemId,
+    required String romName,
+    required String romPath,
+    required String title,
+    required bool byName,
+    required bool Function() shouldCancel,
+    bool exactTitleOnly = false,
+    void Function()? onFailure,
+  }) async* {
     try {
-      if (await getSavedCredentials() == null) {
-        return [];
-      }
+      if (await getSavedCredentials() == null) return;
       final systemId = await _screenScraperSystemIdFor(appSystemId);
-      if (systemId == null || shouldCancel()) return [];
+      if (systemId == null || shouldCancel()) return;
       final identified = byName ? null : await getIdentifiedGameId(romPath);
-      final candidates = identified == null
-          ? (await searchGames(
-              appSystemId: appSystemId,
-              query: title,
-              shouldCancel: shouldCancel,
-            )).games
-          : [ScreenScraperGameCandidate(id: identified, name: title)];
+      final List<ScreenScraperGameCandidate> candidates;
+      if (identified != null) {
+        candidates = [ScreenScraperGameCandidate(id: identified, name: title)];
+      } else {
+        final result = await searchGames(
+          appSystemId: appSystemId,
+          query: title,
+          shouldCancel: shouldCancel,
+        );
+        if (result.failure != null && !shouldCancel()) onFailure?.call();
+        candidates = exactTitleOnly
+            ? result.games
+                  .where(
+                    (game) =>
+                        game.name.trim().toLowerCase() ==
+                        title.trim().toLowerCase(),
+                  )
+                  .toList()
+            : result.games;
+        if (exactTitleOnly && candidates.length != 1) return;
+      }
       final regions = await ScreenscraperRegionConfig.getRegionPriority();
-      final results = <ArtworkPreview>[];
-      final seen = <Uri>{};
       for (final candidate in candidates.take(byName ? 3 : 1)) {
-        if (shouldCancel()) break;
+        if (shouldCancel()) return;
         try {
           final info = await fetchGameInfo(
             systemId.toString(),
@@ -741,32 +802,21 @@ class ScreenScraperService {
             shouldCancel: shouldCancel,
           );
           final media = info?['gameInfo']?['medias'];
-          if (media is! List) continue;
-          results.addAll(
-            (await Future.wait([
-              for (final type in ['box2D', 'ss', 'sstitle', 'fanart', 'wheel'])
-                _artworkGalleryImage(
-                  media,
-                  type,
-                  candidate.name,
-                  regions,
-                  seen,
-                  shouldCancel,
-                ),
-            ])).nonNulls,
-          );
+          if (media is List) {
+            yield (media: media, title: candidate.name, regions: regions);
+          }
         } catch (error) {
           if (!shouldCancel()) {
-            _log.w('ScreenScraper gallery entry failed (${error.runtimeType})');
+            onFailure?.call();
+            _log.w('ScreenScraper artwork entry failed (${error.runtimeType})');
           }
         }
       }
-      return shouldCancel() ? [] : results;
     } catch (error) {
       if (!shouldCancel()) {
-        _log.w('ScreenScraper gallery unavailable (${error.runtimeType})');
+        onFailure?.call();
+        _log.w('ScreenScraper artwork unavailable (${error.runtimeType})');
       }
-      return [];
     }
   }
 
@@ -776,8 +826,9 @@ class ScreenScraperService {
     String title,
     Map<String, int> regions,
     Set<Uri> seen,
-    bool Function() shouldCancel,
-  ) async {
+    bool Function() shouldCancel, {
+    void Function()? onFailure,
+  }) async {
     try {
       final selected = ScreenscraperMediaResolver.selectBestMedia(
         media.whereType<Map<String, dynamic>>().toList(),
@@ -800,7 +851,10 @@ class ScreenScraperService {
         maxRetries: 1,
         shouldCancel: shouldCancel,
       );
-      if (response.statusCode != 200 || response.bodyBytes.isEmpty) return null;
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+        if (response.statusCode != 404 && !shouldCancel()) onFailure?.call();
+        return null;
+      }
       return (
         provider: ArtworkProvider.screenScraper,
         category: type == 'sstitle'
@@ -811,6 +865,7 @@ class ScreenScraperService {
       );
     } catch (error) {
       if (!shouldCancel()) {
+        onFailure?.call();
         _log.w('ScreenScraper gallery media failed (${error.runtimeType})');
       }
       return null;
@@ -1053,9 +1108,11 @@ class ScreenScraperService {
     );
     final failures = <String>{};
     var steamLookupFailed = false;
+    final lookupTitle =
+        searchTitle ??
+        (gameName?.trim().isNotEmpty == true ? gameName! : cleanTitle);
     final steam = SteamGridDbArtworkService(
-      searchTitle ??
-          (gameName?.trim().isNotEmpty == true ? gameName! : cleanTitle),
+      lookupTitle,
       shouldCancel: shouldCancel,
       onFailure: (category) {
         if (category == null) {
@@ -1087,6 +1144,42 @@ class ScreenScraperService {
       );
     }
 
+    var screenScraperLookupFailed = false;
+    final seenScreenScraperImages = <Uri>{};
+    bool cancelled() => shouldCancel?.call() ?? false;
+    Future<_ArtworkMedia?> lookupScreenScraperMedia() async {
+      await for (final entry in _artworkMedia(
+        appSystemId: appSystemId,
+        romName: romName,
+        romPath: romPath,
+        title: lookupTitle,
+        byName: searchTitle != null,
+        exactTitleOnly: true,
+        shouldCancel: cancelled,
+        onFailure: () => screenScraperLookupFailed = true,
+      )) {
+        return entry;
+      }
+      return null;
+    }
+
+    Future<_ArtworkMedia?>? screenScraperMedia;
+    Future<ArtworkPreview?> screenScraperFallback(String category) async {
+      final type = _previewMediaTypes[category];
+      if (type == null || cancelled()) return null;
+      final entry = await (screenScraperMedia ??= lookupScreenScraperMedia());
+      if (entry == null) return null;
+      return _artworkGalleryImage(
+        entry.media,
+        type,
+        entry.title,
+        entry.regions,
+        seenScreenScraperImages,
+        cancelled,
+        onFailure: () => failures.add(category),
+      );
+    }
+
     return LibretroThumbnailService.download(
       appSystemId: appSystemId,
       systemFolder: systemFolder,
@@ -1103,9 +1196,12 @@ class ScreenScraperService {
       shouldCancel: shouldCancel,
       onProgress: onProgress,
       preferred: preferred,
+      fallback: screenScraperFallback,
       onArtwork: onArtwork,
       providerFailed: (category) =>
           failures.contains(category) ||
+          (screenScraperLookupFailed &&
+              _previewMediaTypes.containsKey(category)) ||
           (steamLookupFailed &&
               SteamGridDbArtworkService.endpoints.containsKey(category)),
     );
@@ -1121,11 +1217,8 @@ class ScreenScraperService {
         romPath,
       );
       if (identity == null || (shouldCancel?.call() ?? false)) return [];
-      final key = await RetroAchievementsRepository.getRAApiKey();
-      if (key == null || key.trim().isEmpty) return [];
-      return await RetroAchievementsService.getArtworkPreviews(
+      return await retroAchievementsArtwork(
         identity.id,
-        apiKey: key,
         shouldCancel: shouldCancel,
         onFailure: onFailure,
       );
@@ -1141,6 +1234,24 @@ class ScreenScraperService {
       _log.w('RetroAchievements artwork lookup failed (${error.runtimeType})');
       return [];
     }
+  }
+
+  /// Fetches images for an identity chosen by the caller.
+  static Future<List<ArtworkPreview>> retroAchievementsArtwork(
+    int gameId, {
+    bool Function()? shouldCancel,
+    void Function(String category)? onFailure,
+  }) async {
+    final key = await RetroAchievementsRepository.getRAApiKey();
+    if (key == null || key.trim().isEmpty || (shouldCancel?.call() ?? false)) {
+      return [];
+    }
+    return RetroAchievementsService.getArtworkPreviews(
+      gameId,
+      apiKey: key,
+      shouldCancel: shouldCancel,
+      onFailure: onFailure,
+    );
   }
 
   /// Scrapes a single game by its filename and updates its local state.

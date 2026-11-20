@@ -82,6 +82,42 @@ void main() {
     },
   );
 
+  test(
+    'ScreenScraper fallback fills a missing category and is reused',
+    () async {
+      final fallbackCalls = <String>[];
+      Future<bool> scrape() => LibretroThumbnailService.download(
+        appSystemId: 'nes',
+        systemFolder: 'nes',
+        romName: 'Game & Watch (USA).nes',
+        enabledMediaTypes: ['box2D', 'wheel'],
+        catalog: Uri.parse('http://127.0.0.1:${server.port}'),
+        preferred: (_) => const Stream.empty(),
+        fallback: (category) async {
+          fallbackCalls.add(category);
+          return (
+            provider: ArtworkProvider.screenScraper,
+            category: category,
+            title: 'Game & Watch',
+            bytes: png,
+          );
+        },
+      );
+
+      expect(await scrape(), isTrue);
+      expect(fallbackCalls, ['wheels']);
+      final logo = File('${media.path}/nes/wheels/Game & Watch (USA).png');
+      expect(await logo.readAsBytes(), png);
+      expect(await ArtworkAssignmentService.readProvenance(logo, 'wheels'), (
+        source: ArtworkProvider.screenScraper,
+        manual: false,
+      ));
+      expect(await scrape(), isTrue);
+      expect(fallbackCalls, ['wheels']);
+      expect(hits, hasLength(1));
+    },
+  );
+
   test('a manual cover skips network downloads for the same slot', () async {
     const romPath = '/roms/nes/Game & Watch (USA).nes';
     final override = File(

@@ -209,6 +209,7 @@ class LibretroThumbnailService {
     Uri? catalog,
     bool Function()? shouldCancel,
     Stream<ArtworkPreview> Function(String category)? preferred,
+    Future<ArtworkPreview?> Function(String category)? fallback,
   }) async {
     final playlist = _playlists[appSystemId];
     if (playlist == null && preferred == null) return false;
@@ -282,6 +283,18 @@ class LibretroThumbnailService {
               onFailure: () => failed = true,
             );
             if (selected != null || (shouldCancel?.call() ?? false)) break;
+          }
+        }
+        if (shouldCancel?.call() ?? false) return available;
+        if (selected == null && fallback != null) {
+          final image = await fallback(folder);
+          if (image != null) {
+            if (image.category == folder &&
+                await ArtworkAssignmentService.isReadable(image)) {
+              selected = image;
+            } else {
+              failed = true;
+            }
           }
         }
         if (shouldCancel?.call() ?? false) return available;

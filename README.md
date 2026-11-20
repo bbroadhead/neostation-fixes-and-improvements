@@ -217,8 +217,10 @@ it. The runtime environment variable `STEAMGRIDDB_API_KEY` remains available
 when no saved key is set. Local artwork builds try
 SteamGridDB, then hash-verified RetroAchievements artwork, then Libretro for
 each missing category. SteamGridDB supplies portrait covers, backgrounds,
-logos, and icons. The existing ScreenScraper workflow remains available
-through its usual settings. Gallery selections and new automatic assignments
+logos, and icons. With a ScreenScraper account configured, this build also
+checks ScreenScraper for missing media after the other sources. It uses a
+saved game identification or a unique exact title match. Gallery selections
+and new automatic assignments
 record the source and category in a provenance file tied to the image bytes.
 
 The library scrape progress panel shows remaining games, images downloaded
@@ -241,8 +243,9 @@ label uses the stored RetroAchievements-format hash and console catalogue.
   cases where the catalogue has insufficient evidence.
 
 The **Cached catalogue** label identifies bundled or older catalogue data.
-The existing online catalogue refresh fetches games with achievements, so it
-can leave games without sets unverified. Changes to a scrape title or manual
+The online catalogue refresh includes games with zero achievements. A ROM
+without a matching RetroAchievements hash still needs evidence before NeoStation
+can label it **No Achievement Set**. Changes to a scrape title or manual
 achievement match do not change compatibility evidence.
 
 Game Details displays the current ROM hash and the configured system-specific

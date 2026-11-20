@@ -34,7 +34,6 @@ import '../../repositories/collection_repository.dart';
 import '../../repositories/retro_achievements_repository.dart';
 import '../../repositories/scraper_repository.dart';
 import '../../services/libretro_thumbnail_service.dart';
-import '../../services/retro_achievements_service.dart';
 import '../../services/screenscraper_service.dart';
 import '../../services/secondary_achievements_controller.dart';
 import '../../utils/gamepad_nav.dart';
@@ -2296,14 +2295,17 @@ class _SystemGamesListState extends State<SystemGamesList> {
         );
 
         Future<List<ArtworkPreview>> raArtwork() async {
-          if (!byName) {
-            return verified == null
-                ? []
-                : _loadRaArtwork(verified.id, cancelled);
-          }
-          final consoleId = system.raId;
-          if (consoleId == null || consoleId.isEmpty) return [];
           try {
+            if (!byName) {
+              return verified == null
+                  ? []
+                  : await ScreenScraperService.retroAchievementsArtwork(
+                      verified.id,
+                      shouldCancel: cancelled,
+                    );
+            }
+            final consoleId = system.raId;
+            if (consoleId == null || consoleId.isEmpty) return [];
             final matches =
                 await RetroAchievementsRepository.searchRaGamesByTitle(
                   consoleId,
@@ -2313,7 +2315,12 @@ class _SystemGamesListState extends State<SystemGamesList> {
             final results = <ArtworkPreview>[];
             for (final match in matches) {
               if (cancelled()) break;
-              results.addAll(await _loadRaArtwork(match.gameId, cancelled));
+              results.addAll(
+                await ScreenScraperService.retroAchievementsArtwork(
+                  match.gameId,
+                  shouldCancel: cancelled,
+                ),
+              );
             }
             return results;
           } catch (error) {
@@ -2412,24 +2419,6 @@ class _SystemGamesListState extends State<SystemGamesList> {
       );
     } finally {
       _isScrapingSelectedGame = false;
-    }
-  }
-
-  Future<List<ArtworkPreview>> _loadRaArtwork(
-    int verifiedGameId,
-    bool Function() cancelled,
-  ) async {
-    try {
-      final key = await RetroAchievementsRepository.getRAApiKey();
-      if (key == null || cancelled()) return [];
-      return await RetroAchievementsService.getArtworkPreviews(
-        verifiedGameId,
-        apiKey: key,
-        shouldCancel: cancelled,
-      );
-    } catch (error) {
-      _log.w('RA gallery unavailable (${error.runtimeType})');
-      return [];
     }
   }
 
