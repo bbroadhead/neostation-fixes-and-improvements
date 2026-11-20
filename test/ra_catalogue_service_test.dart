@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:neostation/data/datasources/sqlite_migrations.dart';
 import 'package:neostation/data/datasources/sqlite_service.dart';
 import 'package:neostation/repositories/retro_achievements_repository.dart';
+import 'package:neostation/models/ra_compatibility.dart';
 import 'package:neostation/services/ra_catalogue_service.dart';
 import 'package:neostation/services/game/game_session_manager.dart';
 import 'package:neostation/services/global_notification_service.dart';
@@ -139,19 +140,47 @@ void main() {
     );
   });
 
-  test(
-    'fetch includes hashes, achievement filter and correct console',
-    () async {
-      respond = (r) async {
-        expect(r.url.queryParameters, containsPair('i', '7'));
-        expect(r.url.queryParameters, containsPair('h', '1'));
-        expect(r.url.queryParameters, containsPair('f', '1'));
-        expect(r.url.queryParameters, containsPair('y', 'test'));
-        return http.Response(jsonEncode([game()]), 200);
-      };
-      await service.refresh(apiKey: 'test', now: now);
-    },
-  );
+  test('fetch includes hashes and titles without achievement sets', () async {
+    respond = (r) async {
+      expect(r.url.queryParameters, containsPair('i', '7'));
+      expect(r.url.queryParameters, containsPair('h', '1'));
+      expect(r.url.queryParameters, containsPair('f', '0'));
+      expect(r.url.queryParameters, containsPair('y', 'test'));
+      return http.Response(jsonEncode([game()]), 200);
+    };
+    await service.refresh(apiKey: 'test', now: now);
+  });
+
+  test('a zero-achievement hash is confirmed after refresh', () async {
+    respond = (_) async => http.Response(
+      jsonEncode([
+        {...game(), 'Title': 'No set yet', 'NumAchievements': 0},
+      ]),
+      200,
+    );
+
+    await service.refresh(apiKey: 'test', now: now);
+
+    final result = await RetroAchievementsRepository.getRomCompatibility(
+      '/new.nes',
+    );
+    expect(result.status, RaCompatibilityStatus.noAchievementSet);
+    expect(
+      await RetroAchievementsRepository.getIncompatibleRomPaths(() => false),
+      {'/new.nes'},
+    );
+
+    // Another dump with only a similar title is still unverified.
+    await db.execute(
+      "INSERT INTO user_roms (filename, rom_path, app_system_id, ra_hash) VALUES ('No set yet.nes', '/other.nes', 'nes', ?)",
+      ['11111111111111111111111111111111'],
+    );
+    expect(
+      (await RetroAchievementsRepository.getRomCompatibility('/other.nes'))
+          .status,
+      RaCompatibilityStatus.unknown,
+    );
+  });
 
   test('catalogue-only startup never hashes missing ROMs', () async {
     await db.execute(

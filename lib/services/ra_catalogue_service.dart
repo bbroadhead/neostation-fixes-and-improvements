@@ -38,7 +38,7 @@ class RaCatalogueService {
         {
           'y': apiKey,
           'i': '$consoleId',
-          'f': '1',
+          'f': '0',
           'h': '1',
           'o': '$offset',
           'c': '$pageSize',
