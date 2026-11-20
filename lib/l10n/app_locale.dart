@@ -1102,6 +1102,7 @@ mixin AppLocale {
   static const String noData = 'no_data';
   static const String viewMode = 'view_mode';
   static const String fileName = 'file_name';
+  static const String romFileFormat = 'rom_file_format';
   static const String date = 'date';
   static const String size = 'size';
   static const String grantPermission = 'grant_permission';

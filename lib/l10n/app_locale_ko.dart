@@ -737,6 +737,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.loading: '불러오는 중...',
   AppLocale.noData: '표시할 데이터가 없습니다',
   AppLocale.viewMode: '보기 모드',
+  AppLocale.romFileFormat: '파일 형식',
   AppLocale.fileName: '파일 이름',
   AppLocale.date: '날짜',
   AppLocale.size: '크기',

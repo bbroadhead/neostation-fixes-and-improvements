@@ -131,11 +131,19 @@ void main() {
       tester,
       screen: const Size(890, 400),
       cardHeight: 300,
-      game: _game.copyWith(systemRaId: '51'),
+      game: _game.copyWith(systemRaId: '51', idRa: 42, raNumAchievements: 8),
     );
     await tester.pumpAndSettle();
     expect(
       find.text('RetroAchievements · Supported · Cached catalogue'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('RetroAchievements · #42 · Achievements · 8'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('11111111111111111111111111111111'),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
@@ -157,6 +165,7 @@ void main() {
         );
 
         expect(find.text('Atari 7800'), findsOneWidget);
+        expect(find.text('File format · .a78'), findsOneWidget);
         expect(
           find.text(AppLocale.en[AppLocale.incompleteMetadata]! as String),
           findsNothing,

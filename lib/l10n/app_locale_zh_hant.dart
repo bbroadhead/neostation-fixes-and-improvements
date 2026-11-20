@@ -721,6 +721,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.loading: '正在載入...',
   AppLocale.noData: '沒有可用的資料',
   AppLocale.viewMode: '檢視模式',
+  AppLocale.romFileFormat: '檔案格式',
   AppLocale.fileName: '檔案名稱',
   AppLocale.date: '日期',
   AppLocale.size: '大小',

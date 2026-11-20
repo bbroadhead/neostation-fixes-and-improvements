@@ -786,6 +786,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.loading: 'Loading...',
   AppLocale.noData: 'No data available',
   AppLocale.viewMode: 'View Mode',
+  AppLocale.romFileFormat: 'File format',
   AppLocale.fileName: 'File Name',
   AppLocale.date: 'Date',
   AppLocale.size: 'Size',

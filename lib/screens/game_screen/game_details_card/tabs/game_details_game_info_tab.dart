@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/services/sfx_service.dart';
@@ -14,6 +15,7 @@ import '../../../../models/system_model.dart';
 import '../../../../models/game_model.dart';
 import '../../../../models/ra_compatibility.dart';
 import '../../../../providers/file_provider.dart';
+import '../../../../providers/collections_provider.dart';
 import '../../../../repositories/retro_achievements_repository.dart';
 import '../../../../services/ra_catalogue_service.dart';
 import '../../../../services/artwork_assignment_service.dart';
@@ -22,6 +24,8 @@ import '../../../../services/retro_achievements_service.dart';
 import '../../../../themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
 import '../../../../utils/game_utils.dart';
+import '../../../../utils/optimized_md5_utils.dart';
+import '../../../../utils/ra_compatibility_labels.dart';
 import '../widgets/panel_gate_highlight.dart';
 import '../widgets/scrolling_status_line.dart';
 
@@ -114,8 +118,24 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     return list;
   }
 
+  Future<int?>? _romSize;
+
+  Future<int?> _readRomSize(String romPath) async {
+    try {
+      final size = await OptimizedMd5Utils.getFileSize(romPath);
+      return size > 0 ? size : null;
+    } on FileSystemException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
+
   void _loadCompatibility() {
     final romPath = widget.game.romPath;
+    _romSize = romPath == null || romPath.isEmpty
+        ? null
+        : _readRomSize(romPath);
     _compatibility = romPath == null || widget.game.systemRaId == null
         ? null
         : RetroAchievementsRepository.getRomCompatibility(romPath);
@@ -128,7 +148,26 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     final policy = await RetroAchievementsHashService.policyForSystem(
       game.systemFolderName ?? widget.system.folderName,
     );
+    final path = game.romPath;
+    final cached =
+        game.raHash ??
+        (path == null
+            ? null
+            : await RetroAchievementsRepository.getRomRaHash(path));
+    if (cached != null && cached.isNotEmpty) {
+      return (cached, policy.algo.jsonName);
+    }
     final hash = await RetroAchievementsHashService.generateHashForGame(game);
+    if (hash != null &&
+        path != null &&
+        mounted &&
+        identical(widget.game, game)) {
+      setState(
+        () => _compatibility = RetroAchievementsRepository.getRomCompatibility(
+          path,
+        ),
+      );
+    }
     return (hash, policy.algo.jsonName);
   }
 
@@ -474,23 +513,13 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                     ? snapshot.data
                     : null;
                 final status = result?.status ?? RaCompatibilityStatus.unknown;
-                final (label, icon) = switch (status) {
-                  RaCompatibilityStatus.supported => (
-                    AppLocale.raCompatibilitySupported,
-                    Symbols.verified_rounded,
-                  ),
-                  RaCompatibilityStatus.differentRomRequired => (
-                    AppLocale.raCompatibilityDifferent,
+                final icon = switch (status) {
+                  RaCompatibilityStatus.supported => Symbols.verified_rounded,
+                  RaCompatibilityStatus.differentRomRequired =>
                     Symbols.swap_horiz_rounded,
-                  ),
-                  RaCompatibilityStatus.noAchievementSet => (
-                    AppLocale.raCompatibilityNoSet,
+                  RaCompatibilityStatus.noAchievementSet =>
                     Symbols.remove_circle_outline,
-                  ),
-                  RaCompatibilityStatus.unknown => (
-                    AppLocale.raCompatibilityUnknown,
-                    Symbols.help_outline,
-                  ),
+                  RaCompatibilityStatus.unknown => Symbols.help_outline,
                 };
                 final refreshedAt = result?.catalogueRefreshedAt;
                 final cached =
@@ -501,7 +530,7 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                 final source = AppLocale.raMatchNotificationTitle.getString(
                   context,
                 );
-                final description = label.getString(context);
+                final description = status.labelKey.getString(context);
                 final suffix = cached
                     ? ' · ${AppLocale.raCompatibilityCached.getString(context)}'
                     : '';
@@ -645,6 +674,10 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     final lastPlayed = game.lastPlayed;
     final playTime = game.playTime;
     final romHash = _romHash;
+    final romFormat = p.extension(game.romname).toLowerCase();
+    final collections = context.select<CollectionsProvider?, List<String>>(
+      (provider) => provider?.collectionNamesForRom(path) ?? const [],
+    );
     Widget label(String key) => Text(
       key.getString(context),
       style: TextStyle(fontSize: 12.r, fontWeight: FontWeight.bold),
@@ -675,7 +708,27 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
             if (path != null && path.isNotEmpty) ...[
               SizedBox(height: 8.r),
               label(AppLocale.romsLabel),
+              if (game.romname.isNotEmpty)
+                Text(
+                  '${AppLocale.fileName.getString(context)} · ${game.romname}',
+                ),
+              if (romFormat.isNotEmpty)
+                Text(
+                  '${AppLocale.romFileFormat.getString(context)} · $romFormat',
+                ),
               SelectableText(path, style: TextStyle(fontSize: 11.r)),
+              FutureBuilder<int?>(
+                future: _romSize,
+                builder: (context, snapshot) {
+                  final size = snapshot.data;
+                  if (size == null) return const SizedBox.shrink();
+                  final bytes = MaterialLocalizations.of(context)
+                      .formatDecimal(size);
+                  return Text(
+                    '${AppLocale.size.getString(context)} · $bytes B',
+                  );
+                },
+              ),
             ],
             FutureBuilder<List<(String, String?, bool?)>>(
               future: _media,
@@ -730,7 +783,32 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                   );
                 },
               ),
-            if (_compatibility != null) _buildSupportedFiles(),
+            if (_compatibility != null) ...[
+              FutureBuilder<RaCompatibility>(
+                future: _compatibility,
+                builder: (context, snapshot) {
+                  final id = snapshot.data?.gameId;
+                  if (id == null ||
+                      snapshot.connectionState != ConnectionState.done) {
+                    return const SizedBox.shrink();
+                  }
+                  final count = game.idRa == id ? game.raNumAchievements : null;
+                  return Text(
+                    [
+                      '${AppLocale.raMatchNotificationTitle.getString(context)} · #$id',
+                      if (count != null)
+                        '${AppLocale.achievements.getString(context)} · $count',
+                    ].join(' · '),
+                  );
+                },
+              ),
+              _buildSupportedFiles(),
+            ],
+            if (collections.isNotEmpty) ...[
+              SizedBox(height: 8.r),
+              label(AppLocale.collections),
+              Text(collections.join(', ')),
+            ],
             if (game.isFavorite == true) label(AppLocale.favorite),
             if (lastPlayed != null) ...[
               label(AppLocale.lastPlayed),

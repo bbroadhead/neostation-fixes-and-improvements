@@ -214,6 +214,14 @@ class CollectionsProvider extends ChangeNotifier with WidgetsBindingObserver {
       romPath.isNotEmpty &&
       _memberRomPaths.contains(romPath);
 
+  /// Names from the current manual and smart collection snapshot.
+  List<String> collectionNamesForRom(String? romPath) => [
+    if (romPath != null)
+      for (final collection in _collections)
+        if (_collectionPaths[collection.id]?.contains(romPath) ?? false)
+          collection.name,
+  ];
+
   /// Returns the collection with [id], or null if it is not loaded.
   CollectionModel? byId(String id) {
     for (final collection in _collections) {

@@ -796,6 +796,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.loading: 'Загрузка...',
   AppLocale.noData: 'Данные отсутствуют',
   AppLocale.viewMode: 'Режим просмотра',
+  AppLocale.romFileFormat: 'Формат файла',
   AppLocale.fileName: 'Имя файла',
   AppLocale.date: 'Дата',
   AppLocale.size: 'Размер',

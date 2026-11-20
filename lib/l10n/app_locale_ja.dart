@@ -734,6 +734,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.loading: '読み込み中...',
   AppLocale.noData: 'データがありません',
   AppLocale.viewMode: '表示モード',
+  AppLocale.romFileFormat: 'ファイル形式',
   AppLocale.fileName: 'ファイル名',
   AppLocale.date: '日付',
   AppLocale.size: 'サイズ',

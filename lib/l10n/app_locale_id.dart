@@ -791,6 +791,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.loading: 'Memuat...',
   AppLocale.noData: 'Tidak ada data tersedia',
   AppLocale.viewMode: 'Mode Tampilan',
+  AppLocale.romFileFormat: 'Format berkas',
   AppLocale.fileName: 'Nama File',
   AppLocale.date: 'Tanggal',
   AppLocale.size: 'Ukuran',

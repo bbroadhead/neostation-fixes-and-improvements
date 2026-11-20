@@ -811,6 +811,7 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.loading: 'Chargement...',
   AppLocale.noData: 'Aucune donnée disponible',
   AppLocale.viewMode: 'Mode de Vue',
+  AppLocale.romFileFormat: 'Format du fichier',
   AppLocale.fileName: 'Nom du Fichier',
   AppLocale.date: 'Date',
   AppLocale.size: 'Taille',
