@@ -13,12 +13,14 @@ class SteamGridDbArtworkService {
     this.title, {
     this.shouldCancel,
     this.onFailure,
+    this.allowPartialMatch = false,
     String? apiKey,
     this.client,
   }) : _key = (apiKey ?? Platform.environment['STEAMGRIDDB_API_KEY'] ?? '')
            .trim();
 
   final String title;
+  final bool allowPartialMatch;
   final bool Function()? shouldCancel;
   final void Function(String? category)? onFailure;
   late final _game = _findGame();
@@ -74,22 +76,22 @@ class SteamGridDbArtworkService {
     caseSensitive: false,
   );
 
-  Future<int?> _findGame() async {
+  Future<({int id, String name})?> _findGame() async {
     final searchTitle = title.trim().replaceFirst(_dumpSuffix, '').trim();
     if (_key.isEmpty || searchTitle.isEmpty) return null;
     try {
       final query = searchTitle.toLowerCase();
-      final matches = (await _request(['search', 'autocomplete', searchTitle]))
-          .whereType<Map>()
-          .where(
-            (game) =>
-                game['name'] is String &&
-                (game['name'] as String).trim().toLowerCase() == query,
-          )
-          .map((game) => game['id'])
-          .whereType<int>()
-          .toSet();
-      return matches.length == 1 ? matches.single : null;
+      final entries = await _request(['search', 'autocomplete', searchTitle]);
+      final matches = {
+        for (final game in entries.whereType<Map>())
+          if (game['id'] is int && game['name'] is String)
+            (id: game['id'] as int, name: (game['name'] as String).trim()),
+      };
+      final exact = matches.where((game) => game.name.toLowerCase() == query);
+      if (exact.length == 1) return exact.single;
+      return allowPartialMatch
+          ? (exact.firstOrNull ?? matches.firstOrNull)
+          : null;
     } catch (error) {
       if (!(shouldCancel?.call() ?? false)) onFailure?.call(null);
       _log.w('SteamGridDB title lookup failed (${error.runtimeType})');
@@ -107,7 +109,7 @@ class SteamGridDbArtworkService {
     if (game == null) return [];
     try {
       final assets =
-          (await _request([endpoint, 'game', '$game']))
+          (await _request([endpoint, 'game', '${game.id}']))
               .whereType<Map>()
               .where(
                 (asset) =>
@@ -152,7 +154,7 @@ class SteamGridDbArtworkService {
             images.add((
               provider: ArtworkProvider.steamGridDb,
               category: category,
-              title: title,
+              title: game.name,
               bytes: response.bodyBytes,
             ));
           } else if (response.statusCode != 404) {

@@ -879,6 +879,7 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.description: 'Descripción',
   AppLocale.screenshot: 'Captura de pantalla',
   AppLocale.fanart: 'Fanart',
+  AppLocale.artworkLogo: 'Logotipo',
   AppLocale.wheel: 'Wheel',
   AppLocale.boxart: 'Carátula',
   AppLocale.change: 'Cambiar',

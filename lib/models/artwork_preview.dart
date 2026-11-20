@@ -3,7 +3,8 @@ import 'dart:typed_data';
 enum ArtworkProvider {
   steamGridDb('SteamGridDB'),
   retroAchievements('RetroAchievements'),
-  libretro('Libretro');
+  libretro('Libretro'),
+  screenScraper('ScreenScraper');
 
   const ArtworkProvider(this.displayName);
 

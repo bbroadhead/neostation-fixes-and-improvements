@@ -96,6 +96,13 @@ class LibretroThumbnailService {
     );
     final base = catalog ?? Uri.https('thumbnails.libretro.com', '/');
     final labels = _labels(stem, gameName, searchTitle);
+    if (searchTitle != null) {
+      final query = searchTitle.trim().toLowerCase();
+      // The thumbnail filenames can include region and revision suffixes.
+      labels.addAll(
+        [stem, gameName].where((label) => label.toLowerCase().contains(query)),
+      );
+    }
     final candidates = await Future.wait([
       for (final type in _folders.entries)
         for (final label in labels)

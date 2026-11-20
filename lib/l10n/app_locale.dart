@@ -836,6 +836,7 @@ mixin AppLocale {
   static const String screenshot = 'screenshot';
   static const String fanart = 'fanart';
   static const String wheel = 'wheel';
+  static const String artworkLogo = 'artwork_logo';
   static const String boxart = 'boxart';
   static const String change = 'change';
   static const String metadataSaved = 'metadata_saved';

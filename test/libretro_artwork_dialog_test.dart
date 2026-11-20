@@ -48,6 +48,7 @@ void main() {
         List<ArtworkPreview>? selected;
         var closed = false;
         final queries = <String>[];
+        final nameQueries = <String>[];
         await tester.pumpWidget(
           ScreenUtilInit(
             designSize: const Size(640, 480),
@@ -61,9 +62,13 @@ void main() {
                     selected = await showDialog<List<ArtworkPreview>>(
                       context: context,
                       builder: (_) => ArtworkGalleryDialog(
-                        detectedTitle: "Detected",
+                        detectedTitle: 'Detected',
                         load: (query, _) async {
                           queries.add(query);
+                          return [cover, shot];
+                        },
+                        search: (query, _) async {
+                          nameQueries.add(query);
                           return [cover, shot];
                         },
                         isCurrent: (image) async {
@@ -99,12 +104,18 @@ void main() {
             await decoded.future.timeout(const Duration(seconds: 5));
           });
           await tester.pumpAndSettle();
-          expect(queries, ['Detected', 'Regional title']);
+          expect(queries, ['Detected']);
+          expect(nameQueries, ['Regional title']);
           expect(find.text('Apply (1)'), findsOneWidget);
         }
         await tester.tap(find.widgetWithText(ChoiceChip, 'RetroAchievements'));
         await tester.pumpAndSettle();
         expect(find.byIcon(Icons.check_circle_outline), findsNothing);
+        final logo = find.widgetWithText(ChoiceChip, 'Logo');
+        await tester.tap(logo);
+        await tester.pumpAndSettle();
+        expect(find.text('Gameplay'), findsNothing);
+        expect(logo, findsOneWidget);
         final filter = find.widgetWithText(ChoiceChip, 'Screenshot');
         await tester.tap(filter);
         await tester.pumpAndSettle();

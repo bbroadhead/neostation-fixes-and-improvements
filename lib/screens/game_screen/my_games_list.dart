@@ -53,6 +53,7 @@ import '../../models/artwork_preview.dart';
 import '../../models/database_game_model.dart';
 import '../../utils/rom_tree.dart';
 import '../../utils/game_list_size.dart';
+import '../../utils/effective_system.dart';
 import 'game_details_card/game_details_card_list.dart';
 import 'game_details_card/detail_tab.dart';
 import 'game_details_card/dialogs/screenscraper_match_picker_dialog.dart';
@@ -2272,6 +2273,78 @@ class _SystemGamesListState extends State<SystemGamesList> {
       final savedTitle = await ScraperRepository.getSearchTitle(romPath);
       if (!mounted) return;
       final detectedTitle = path.basenameWithoutExtension(game.romname);
+      final system = resolveEffectiveSystem(
+        listSystem: widget.system,
+        game: game,
+        detectedSystems: _configProvider.detectedSystems,
+      );
+      Future<List<ArtworkPreview>> loadGallery(
+        String title,
+        bool Function() cancelled, {
+        required bool byName,
+      }) async {
+        final verified =
+            await RetroAchievementsRepository.getVerifiedRomIdentity(romPath);
+        if (cancelled()) return [];
+        final lookupTitle = byName
+            ? title
+            : verified?.title ?? (game.name.trim().isEmpty ? title : game.name);
+        final steam = SteamGridDbArtworkService(
+          lookupTitle,
+          shouldCancel: cancelled,
+          allowPartialMatch: byName,
+        );
+
+        Future<List<ArtworkPreview>> raArtwork() async {
+          if (!byName) {
+            return verified == null
+                ? []
+                : _loadRaArtwork(verified.id, cancelled);
+          }
+          final consoleId = system.raId;
+          if (consoleId == null || consoleId.isEmpty) return [];
+          try {
+            final matches =
+                await RetroAchievementsRepository.searchRaGamesByTitle(
+                  consoleId,
+                  title,
+                  limit: 3,
+                );
+            final results = <ArtworkPreview>[];
+            for (final match in matches) {
+              if (cancelled()) break;
+              results.addAll(await _loadRaArtwork(match.gameId, cancelled));
+            }
+            return results;
+          } catch (error) {
+            _log.w('RA gallery title search failed (${error.runtimeType})');
+            return [];
+          }
+        }
+
+        final results = await Future.wait([
+          raArtwork(),
+          ScreenScraperService.artworkGallery(
+            appSystemId: systemId,
+            romName: game.romname,
+            romPath: romPath,
+            title: lookupTitle,
+            byName: byName,
+            shouldCancel: cancelled,
+          ),
+          for (final category in SteamGridDbArtworkService.endpoints.keys)
+            steam.inCategory(category),
+          LibretroThumbnailService.gallery(
+            appSystemId: systemId,
+            romName: game.romname,
+            gameName: verified?.title ?? game.name,
+            searchTitle: byName ? title : null,
+            shouldCancel: cancelled,
+          ),
+        ]);
+        return results.expand((images) => images).toList();
+      }
+
       final selection = await showDialog<List<ArtworkPreview>>(
         context: context,
         builder: (_) => ArtworkGalleryDialog(
@@ -2291,30 +2364,13 @@ class _SystemGamesListState extends State<SystemGamesList> {
               return false;
             }
           },
-          load: (title, cancelled) async {
-            final verified =
-                await RetroAchievementsRepository.getVerifiedRomIdentity(
-                  romPath,
-                );
-            if (cancelled()) return [];
-            final steam = SteamGridDbArtworkService(
-              title == detectedTitle ? verified?.title ?? game.name : title,
-              shouldCancel: cancelled,
-            );
-            final results = await Future.wait([
-              for (final category in SteamGridDbArtworkService.endpoints.keys)
-                steam.inCategory(category),
-              if (verified != null) _loadRaArtwork(verified.id, cancelled),
-              LibretroThumbnailService.gallery(
-                appSystemId: systemId,
-                romName: game.romname,
-                gameName: verified?.title ?? game.name,
-                searchTitle: title == detectedTitle ? null : title,
-                shouldCancel: cancelled,
-              ),
-            ]);
-            return results.expand((images) => images).toList();
-          },
+          load: (title, cancelled) => loadGallery(
+            title,
+            cancelled,
+            byName: savedTitle != null && title == savedTitle,
+          ),
+          search: (title, cancelled) =>
+              loadGallery(title, cancelled, byName: true),
         ),
       );
       if (selection == null || !mounted) return;

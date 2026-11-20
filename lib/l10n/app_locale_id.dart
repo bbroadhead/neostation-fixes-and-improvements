@@ -876,6 +876,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.description: 'Deskripsi',
   AppLocale.screenshot: 'Tangkapan layar',
   AppLocale.fanart: 'Fanart',
+  AppLocale.artworkLogo: 'Logo',
   AppLocale.wheel: 'Wheel',
   AppLocale.boxart: 'Boxart',
   AppLocale.change: 'Ubah',

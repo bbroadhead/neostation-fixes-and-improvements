@@ -818,6 +818,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.description: '説明',
   AppLocale.screenshot: 'スクリーンショット',
   AppLocale.fanart: 'ファンアート',
+  AppLocale.artworkLogo: 'ロゴ',
   AppLocale.wheel: 'ホイール',
   AppLocale.boxart: 'ボックスアート',
   AppLocale.change: '変更',

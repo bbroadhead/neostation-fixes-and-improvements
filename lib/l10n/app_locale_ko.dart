@@ -821,6 +821,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.description: '설명',
   AppLocale.screenshot: '스크린샷',
   AppLocale.fanart: '팬아트',
+  AppLocale.artworkLogo: '로고',
   AppLocale.wheel: '휠',
   AppLocale.boxart: '박스아트',
   AppLocale.change: '변경',

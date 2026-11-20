@@ -704,6 +704,119 @@ class ScreenScraperService {
     }
   }
 
+  /// Fetches preview media without changing the ROM's scraper association.
+  static Future<List<ArtworkPreview>> artworkGallery({
+    required String appSystemId,
+    required String romName,
+    required String romPath,
+    required String title,
+    required bool byName,
+    required bool Function() shouldCancel,
+  }) async {
+    try {
+      if (await getSavedCredentials() == null) {
+        return [];
+      }
+      final systemId = await _screenScraperSystemIdFor(appSystemId);
+      if (systemId == null || shouldCancel()) return [];
+      final identified = byName ? null : await getIdentifiedGameId(romPath);
+      final candidates = identified == null
+          ? (await searchGames(
+              appSystemId: appSystemId,
+              query: title,
+              shouldCancel: shouldCancel,
+            )).games
+          : [ScreenScraperGameCandidate(id: identified, name: title)];
+      final regions = await ScreenscraperRegionConfig.getRegionPriority();
+      final results = <ArtworkPreview>[];
+      final seen = <Uri>{};
+      for (final candidate in candidates.take(byName ? 3 : 1)) {
+        if (shouldCancel()) break;
+        try {
+          final info = await fetchGameInfo(
+            systemId.toString(),
+            romName,
+            appSystemId: appSystemId,
+            manualGameId: candidate.id,
+            shouldCancel: shouldCancel,
+          );
+          final media = info?['gameInfo']?['medias'];
+          if (media is! List) continue;
+          results.addAll(
+            (await Future.wait([
+              for (final type in ['box2D', 'ss', 'sstitle', 'fanart', 'wheel'])
+                _artworkGalleryImage(
+                  media,
+                  type,
+                  candidate.name,
+                  regions,
+                  seen,
+                  shouldCancel,
+                ),
+            ])).nonNulls,
+          );
+        } catch (error) {
+          if (!shouldCancel()) {
+            _log.w('ScreenScraper gallery entry failed (${error.runtimeType})');
+          }
+        }
+      }
+      return shouldCancel() ? [] : results;
+    } catch (error) {
+      if (!shouldCancel()) {
+        _log.w('ScreenScraper gallery unavailable (${error.runtimeType})');
+      }
+      return [];
+    }
+  }
+
+  static Future<ArtworkPreview?> _artworkGalleryImage(
+    List<dynamic> media,
+    String type,
+    String title,
+    Map<String, int> regions,
+    Set<Uri> seen,
+    bool Function() shouldCancel,
+  ) async {
+    try {
+      final selected = ScreenscraperMediaResolver.selectBestMedia(
+        media.whereType<Map<String, dynamic>>().toList(),
+        type,
+        regionPriority: regions,
+      );
+      final uri = Uri.tryParse(selected?['url']?.toString() ?? '');
+      if (uri == null ||
+          shouldCancel() ||
+          !const {'http', 'https'}.contains(uri.scheme) ||
+          uri.userInfo.isNotEmpty ||
+          (uri.host != 'screenscraper.fr' &&
+              !uri.host.endsWith('.screenscraper.fr')) ||
+          !seen.add(uri)) {
+        return null;
+      }
+      final response = await ScreenscraperClient.httpGetWithRetry(
+        uri.replace(scheme: 'https'),
+        timeout: const Duration(seconds: 12),
+        maxRetries: 1,
+        shouldCancel: shouldCancel,
+      );
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) return null;
+      return (
+        provider: ArtworkProvider.screenScraper,
+        category: type == 'sstitle'
+            ? 'title_screens'
+            : ScreenscraperMediaResolver.mapMediaTypeToFolder(type),
+        title: title,
+        bytes: response.bodyBytes,
+      );
+    } catch (error) {
+      if (!shouldCancel()) {
+        _log.w('ScreenScraper gallery media failed (${error.runtimeType})');
+      }
+      return null;
+    }
+  }
+
   /// Maps a raw API response to the NeoStation metadata schema.
   ///
   /// Handles language localization priority and region-based selection
@@ -1212,6 +1325,7 @@ class ScreenScraperService {
   static Future<ScreenScraperSearchResult> searchGames({
     required String appSystemId,
     required String query,
+    bool Function()? shouldCancel,
   }) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return const ScreenScraperSearchResult.success([]);
@@ -1243,6 +1357,7 @@ class ScreenScraperService {
       final response = await ScreenscraperClient.httpGetWithRetry(
         url,
         headers: {'User-Agent': 'NeoStation/1.0', 'Accept': 'application/json'},
+        shouldCancel: shouldCancel,
       );
 
       // Nothing by that name is an ordinary outcome, not a fault.

@@ -880,6 +880,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.description: 'Описание',
   AppLocale.screenshot: 'Скриншот',
   AppLocale.fanart: 'Фанарт',
+  AppLocale.artworkLogo: 'Логотип',
   AppLocale.wheel: 'Wheel',
   AppLocale.boxart: 'Обложка',
   AppLocale.change: 'Изменить',

@@ -888,6 +888,7 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.description: 'Descrição',
   AppLocale.screenshot: 'Captura de tela',
   AppLocale.fanart: 'Fanart',
+  AppLocale.artworkLogo: 'Logotipo',
   AppLocale.wheel: 'Wheel',
   AppLocale.boxart: 'Arte de capa',
   AppLocale.change: 'Alterar',

@@ -11,6 +11,7 @@ class ArtworkGalleryDialog extends StatefulWidget {
   const ArtworkGalleryDialog({
     super.key,
     required this.load,
+    this.search,
     required this.detectedTitle,
     this.savedTitle,
     required this.isCurrent,
@@ -19,6 +20,7 @@ class ArtworkGalleryDialog extends StatefulWidget {
   final String detectedTitle;
   final String? savedTitle;
   final Future<List<ArtworkPreview>> Function(String, bool Function()) load;
+  final Future<List<ArtworkPreview>> Function(String, bool Function())? search;
   final Future<bool> Function(ArtworkPreview) isCurrent;
 
   @override
@@ -54,7 +56,7 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
 
   List<String> get _categories => [
     '',
-    ...?_source?.map((image) => image.category).toSet(),
+    ...{...?_source?.map((image) => image.category), 'wheels'},
   ];
 
   List<ArtworkPreview>? get _visible {
@@ -103,10 +105,10 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
 
   void _submit() {
     _searchFocus.unfocus();
-    _load(_search.text.trim());
+    _load(_search.text.trim(), byName: true);
   }
 
-  Future<void> _load(String query) async {
+  Future<void> _load(String query, {bool byName = false}) async {
     final request = ++_request;
     bool cancelled() => !mounted || request != _request;
     setState(() {
@@ -119,7 +121,10 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
       _provider = null;
     });
     try {
-      final results = await widget.load(
+      final loader = byName && query.isNotEmpty
+          ? widget.search ?? widget.load
+          : widget.load;
+      final results = await loader(
         query.isEmpty ? widget.detectedTitle : query,
         cancelled,
       );
@@ -212,7 +217,7 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
     'box2d' => AppLocale.boxart.getString(context),
     'screenshots' => AppLocale.screenshot.getString(context),
     'icons' => AppLocale.galleryGameIcon.getString(context),
-    'wheels' => AppLocale.wheel.getString(context),
+    'wheels' => AppLocale.artworkLogo.getString(context),
     'fanarts' => AppLocale.fanart.getString(context),
     _ => AppLocale.libretroTitleScreen.getString(context),
   };
@@ -223,8 +228,8 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
     return AlertDialog(
       title: Text(AppLocale.scrapingMedia.getString(context)),
       content: SizedBox(
-        width: 420.r,
-        height: 235.r,
+        width: 560.r,
+        height: 290.r,
         child: Column(
           children: [
             TextField(
@@ -241,7 +246,8 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
                       tooltip: AppLocale.resetToDefault.getString(context),
                       onPressed: () {
                         _search.text = widget.detectedTitle;
-                        _submit();
+                        _searchFocus.unfocus();
+                        _load(widget.detectedTitle);
                       },
                       icon: const Icon(Icons.restore),
                     ),
@@ -257,7 +263,7 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
             Expanded(
               child: images == null
                   ? const Center(child: CircularProgressIndicator())
-                  : images.isEmpty
+                  : _images!.isEmpty
                   ? Center(
                       child: Text(
                         (_failed
@@ -269,7 +275,7 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
                     )
                   : Column(
                       children: [
-                        if (_providers.length > 2)
+                        if (_providers.length > 1)
                           Wrap(
                             spacing: 6.r,
                             children: [
@@ -297,100 +303,109 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
                               ),
                           ],
                         ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: SingleChildScrollView(
-                                  child: GridView.count(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    crossAxisCount: _columns,
-                                    children: [
-                                      for (final (index, candidate)
-                                          in images.indexed)
-                                        InkWell(
-                                          key: _items[index],
-                                          onTap: () =>
-                                              setState(() => _selected = index),
-                                          child: Card(
-                                            color: index == _selected
-                                                ? Theme.of(context)
-                                                      .colorScheme
-                                                      .primaryContainer
-                                                : null,
-                                            child: Padding(
-                                              padding: EdgeInsets.all(4.r),
-                                              child: Column(
-                                                children: [
-                                                  Expanded(
-                                                    child: Image.memory(
-                                                      candidate.bytes,
-                                                      fit: BoxFit.contain,
-                                                      cacheWidth: 160,
+                        if (images.isEmpty)
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                AppLocale.searchNoResults.getString(context),
+                              ),
+                            ),
+                          ),
+                        if (images.isNotEmpty)
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    child: GridView.count(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      crossAxisCount: _columns,
+                                      children: [
+                                        for (final (index, candidate)
+                                            in images.indexed)
+                                          InkWell(
+                                            key: _items[index],
+                                            onTap: () => setState(
+                                              () => _selected = index,
+                                            ),
+                                            child: Card(
+                                              color: index == _selected
+                                                  ? Theme.of(context)
+                                                        .colorScheme
+                                                        .primaryContainer
+                                                  : null,
+                                              child: Padding(
+                                                padding: EdgeInsets.all(4.r),
+                                                child: Column(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Image.memory(
+                                                        candidate.bytes,
+                                                        fit: BoxFit.contain,
+                                                        cacheWidth: 160,
+                                                      ),
                                                     ),
-                                                  ),
-                                                  Text(
-                                                    _category(
-                                                      candidate.category,
+                                                    Text(
+                                                      '${_providerName(candidate.provider)} · ${_category(candidate.category)}',
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                  if (_pending[candidate
-                                                              .category] ==
-                                                          candidate ||
-                                                      (!_pending.containsKey(
-                                                            candidate.category,
-                                                          ) &&
-                                                          _current.contains(
-                                                            candidate,
-                                                          )))
-                                                    Icon(
-                                                      Icons
-                                                          .check_circle_outline,
-                                                      size: 11.r,
-                                                      semanticLabel: AppLocale
-                                                          .selected
-                                                          .getString(context),
-                                                    ),
-                                                ],
+                                                    if (_pending[candidate
+                                                                .category] ==
+                                                            candidate ||
+                                                        (!_pending.containsKey(
+                                                              candidate
+                                                                  .category,
+                                                            ) &&
+                                                            _current.contains(
+                                                              candidate,
+                                                            )))
+                                                      Icon(
+                                                        Icons
+                                                            .check_circle_outline,
+                                                        size: 11.r,
+                                                        semanticLabel: AppLocale
+                                                            .selected
+                                                            .getString(context),
+                                                      ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 12.r),
+                                Expanded(
+                                  child: Column(
+                                    children: [
+                                      Expanded(
+                                        child: Image.memory(
+                                          images[_selected].bytes,
+                                          fit: BoxFit.contain,
                                         ),
+                                      ),
+                                      Text(
+                                        '${_providerName(images[_selected].provider)} · ${_category(images[_selected].category)}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        images[_selected].title,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ],
                                   ),
                                 ),
-                              ),
-                              SizedBox(width: 12.r),
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      child: Image.memory(
-                                        images[_selected].bytes,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${_providerName(images[_selected].provider)} · ${_category(images[_selected].category)}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      images[_selected].title,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
                       ],
                     ),
             ),

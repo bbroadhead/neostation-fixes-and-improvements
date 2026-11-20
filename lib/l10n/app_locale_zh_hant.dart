@@ -804,6 +804,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.description: '描述',
   AppLocale.screenshot: '截圖',
   AppLocale.fanart: '同人圖',
+  AppLocale.artworkLogo: '標誌',
   AppLocale.wheel: '標誌圖',
   AppLocale.boxart: '封面圖',
   AppLocale.change: '更改',

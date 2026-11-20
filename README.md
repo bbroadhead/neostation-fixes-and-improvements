@@ -204,10 +204,12 @@ Search with Enter or the search button. With a controller, use Y to focus
 the query field and A to submit. The reset icon restores the detected title.
 Gallery queries leave the library display name and saved scrape title intact.
 
-Libretro searches by the gallery query. RetroAchievements contributes cover,
-gameplay, title-screen, and icon artwork for the verified ROM hash, independent
-of the query. This identity check keeps a similarly named game's media from
-being attached automatically.
+The gallery shows RetroAchievements results first, followed by ScreenScraper,
+SteamGridDB, and Libretro results when those sources have artwork. Use the
+**Logo** category to pick a game logo independently of the icon. The default
+lookup uses the verified RetroAchievements ROM match when available. A
+submitted title searches each available provider by name. Choosing artwork
+from those results leaves the ROM's verified identity unchanged.
 
 For SteamGridDB, set the runtime environment variable
 `STEAMGRIDDB_API_KEY` for the NeoStation process. Local artwork builds try
