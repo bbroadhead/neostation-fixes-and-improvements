@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -14,6 +16,7 @@ import '../../../../models/ra_compatibility.dart';
 import '../../../../providers/file_provider.dart';
 import '../../../../repositories/retro_achievements_repository.dart';
 import '../../../../services/ra_catalogue_service.dart';
+import '../../../../services/artwork_assignment_service.dart';
 import '../../../../services/retroachievements_hash_service.dart';
 import '../../../../services/retro_achievements_service.dart';
 import '../../../../themes/chrome_surface.dart';
@@ -71,6 +74,44 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
       gameId,
       apiKey: apiKey,
     );
+  }
+
+  late Future<List<(String, String?, bool?)>> _media;
+
+  Future<List<(String, String?, bool?)>> _loadMedia() async {
+    final game = widget.game;
+    final list = <(String, String?, bool?)>[];
+    for (final (category, label) in const [
+      ('box2d', AppLocale.boxart),
+      ('title_screens', AppLocale.libretroTitleScreen),
+      ('screenshots', AppLocale.screenshot),
+      ('wheels', AppLocale.wheel),
+      ('icons', AppLocale.galleryGameIcon),
+      ('fanarts', AppLocale.fanart),
+    ]) {
+      final file = File(
+        game.getImagePath(
+          game.systemFolderName ?? widget.system.folderName,
+          category,
+          widget.fileProvider,
+        ),
+      );
+      if (!await file.exists()) continue;
+      final record = await ArtworkAssignmentService.readProvenance(
+        file,
+        category,
+      );
+      final override = game.getArtworkOverridePath(
+        category,
+        widget.fileProvider,
+      );
+      list.add((
+        label,
+        record?.source.displayName,
+        file.path == override ? true : record?.manual,
+      ));
+    }
+    return list;
   }
 
   void _loadCompatibility() {
@@ -148,6 +189,7 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   void initState() {
     super.initState();
     _loadCompatibility();
+    _media = _loadMedia();
     _refreshDrivability();
   }
 
@@ -218,6 +260,10 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   void didUpdateWidget(GameDetailsGameInfoTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.game != widget.game) _loadCompatibility();
+    if (oldWidget.game != widget.game ||
+        (oldWidget.isScrapingGame && !widget.isScrapingGame)) {
+      _media = _loadMedia();
+    }
 
     // A new game, or a scrape landing on this one, is a new description: what
     // there is to drive has to be measured again.
@@ -631,6 +677,34 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
               label(AppLocale.romsLabel),
               SelectableText(path, style: TextStyle(fontSize: 11.r)),
             ],
+            FutureBuilder<List<(String, String?, bool?)>>(
+              future: _media,
+              builder: (context, snapshot) {
+                final assignments = snapshot.data;
+                if (assignments == null || assignments.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: 8.r),
+                    label(AppLocale.media),
+                    for (final (category, source, manual) in assignments)
+                      Text(
+                        [
+                          category.getString(context),
+                          ?source,
+                          if (manual != null)
+                            (manual
+                                    ? AppLocale.mediaManual
+                                    : AppLocale.mediaAutomatic)
+                                .getString(context),
+                        ].join(' · '),
+                      ),
+                  ],
+                );
+              },
+            ),
             if (romHash != null)
               FutureBuilder<(String?, String)>(
                 future: romHash,

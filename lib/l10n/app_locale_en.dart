@@ -641,6 +641,8 @@ const Map<String, dynamic> appLocaleEn = {
 
   AppLocale.scraping: 'Scraping',
   AppLocale.scrapeMode: 'Scrape Mode',
+  AppLocale.mediaManual: 'Manual',
+  AppLocale.mediaAutomatic: 'Automatic',
   AppLocale.media: 'Media',
   AppLocale.language: 'Language',
   AppLocale.languageSub: 'Select preferred language for game metadata',

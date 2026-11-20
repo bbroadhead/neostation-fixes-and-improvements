@@ -595,6 +595,8 @@ const Map<String, dynamic> appLocaleJa = {
 
   AppLocale.scraping: 'スクレイピング',
   AppLocale.scrapeMode: 'スクレイピングモード',
+  AppLocale.mediaManual: '手動',
+  AppLocale.mediaAutomatic: '自動',
   AppLocale.media: 'メディア',
   AppLocale.language: '言語',
   AppLocale.languageSub: 'メタデータの優先言語',

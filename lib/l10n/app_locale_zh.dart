@@ -582,6 +582,8 @@ const Map<String, dynamic> appLocaleZh = {
 
   AppLocale.scraping: '抓取',
   AppLocale.scrapeMode: '抓取模式',
+  AppLocale.mediaManual: '手动',
+  AppLocale.mediaAutomatic: '自动',
   AppLocale.media: '媒体',
   AppLocale.language: '语言',
   AppLocale.languageSub: '为游戏元数据选择首选语言',

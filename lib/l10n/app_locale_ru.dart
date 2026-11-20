@@ -648,6 +648,8 @@ const Map<String, dynamic> appLocaleRu = {
 
   AppLocale.scraping: 'Скрапинг',
   AppLocale.scrapeMode: 'Режим скрапинга',
+  AppLocale.mediaManual: 'Вручную',
+  AppLocale.mediaAutomatic: 'Автоматически',
   AppLocale.media: 'Медиа',
   AppLocale.language: 'Язык',
   AppLocale.languageSub: 'Выберите предпочтительный язык для метаданных',

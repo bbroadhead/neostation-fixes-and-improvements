@@ -679,6 +679,8 @@ mixin AppLocale {
   static const String scrapingMedia = 'scraping_media';
   static const String scrapeMode = 'scrape_mode';
   static const String media = 'media';
+  static const String mediaManual = 'media_manual';
+  static const String mediaAutomatic = 'media_automatic';
   static const String language = 'language';
   static const String languageSub = 'language_sub';
   static const String preferredLanguage = 'preferred_language';

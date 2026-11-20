@@ -657,6 +657,8 @@ const Map<String, dynamic> appLocaleFr = {
 
   AppLocale.scraping: 'Scraping',
   AppLocale.scrapeMode: 'Mode de Scraping',
+  AppLocale.mediaManual: 'Manuelle',
+  AppLocale.mediaAutomatic: 'Automatique',
   AppLocale.media: 'Médias',
   AppLocale.language: 'Langue',
   AppLocale.languageSub: 'Langue préférée pour les métadonnées',

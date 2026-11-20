@@ -598,6 +598,8 @@ const Map<String, dynamic> appLocaleKo = {
 
   AppLocale.scraping: '게임 정보 가져오기',
   AppLocale.scrapeMode: '가져오기 방식',
+  AppLocale.mediaManual: '수동',
+  AppLocale.mediaAutomatic: '자동',
   AppLocale.media: '미디어',
   AppLocale.language: '언어',
   AppLocale.languageSub: '게임 정보에 사용할 언어를 선택합니다',
