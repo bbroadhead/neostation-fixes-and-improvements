@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
@@ -70,6 +71,7 @@ void main() {
     required List<String> selected,
     required List<int> confirmed,
     List<String>? options,
+    List<GameModel>? games,
   }) async {
     await tester.pumpWidget(
       MediaQuery(
@@ -96,7 +98,7 @@ void main() {
               child: Scaffold(
                 body: GameListView(
                   system: _system,
-                  games: _games,
+                  games: games ?? _games,
                   selectedIndex: selectedIndex,
                   systemColor: Colors.pink,
                   onGameSelected: (g) => selected.add(g.romname),
@@ -123,6 +125,31 @@ void main() {
   /// otherwise outlives the widget tree and trips the pending-timer invariant.
   Future<void> drain(WidgetTester tester) =>
       tester.pump(const Duration(milliseconds: 500));
+
+  testWidgets('the favorites divider sits below the last grouped favorite', (
+    tester,
+  ) async {
+    await pumpList(
+      tester,
+      selectedIndex: 0,
+      selected: [],
+      confirmed: [],
+      games: [
+        _games[0].copyWith(isFavorite: true),
+        _games[1].copyWith(isFavorite: true),
+        _games[2],
+      ],
+    );
+
+    final divider = find.byType(Divider);
+    expect(divider, findsOneWidget);
+    expect(find.byIcon(Symbols.favorite_rounded), findsNothing);
+    expect(
+      tester.getBottomLeft(divider).dy,
+      closeTo(tester.getBottomLeft(rowFor('A Link to the Past')).dy, 0.01),
+    );
+    await drain(tester);
+  });
 
   testWidgets('tapping an unselected row selects it without confirming', (
     tester,

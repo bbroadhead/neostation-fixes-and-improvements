@@ -337,6 +337,12 @@ class GameListViewState extends State<GameListView>
     final titleFontSize = GameListSize.getFontSize(widget.listSize).r;
     final totalItemHeight = itemHeight;
     final gameIconSize = (itemHeight - 4.r) * 0.9;
+    // New favorites can stay in place until the list is reopened.
+    var favoritesEnd = widget.folderCount;
+    while (favoritesEnd < widget.games.length &&
+        widget.games[favoritesEnd].isFavorite == true) {
+      favoritesEnd++;
+    }
     _centeredScrollController.setItemExtent(totalItemHeight, paddingTop: 2.r);
 
     return Column(
@@ -455,17 +461,6 @@ class GameListViewState extends State<GameListView>
                             alignment: Alignment.centerLeft,
                             child: Row(
                               children: [
-                                if (game.isFavorite == true)
-                                  Container(
-                                    margin: EdgeInsets.only(right: 4.r),
-                                    child: Icon(
-                                      Symbols.favorite_rounded,
-                                      size: titleFontSize,
-                                      color: isSelected
-                                          ? theme.colorScheme.onPrimary
-                                          : Colors.redAccent,
-                                    ),
-                                  ),
                                 Padding(
                                   padding: EdgeInsets.only(right: 6.r),
                                   child: _gameIcon(game, gameIconSize),
@@ -551,13 +546,7 @@ class GameListViewState extends State<GameListView>
                                     margin: EdgeInsets.only(left: 4.r),
                                   ),
                                 // Collection mark, between the cloud glyph and
-                                // the achievements trophy. The favourite heart
-                                // stays on the left of the name: it is the one
-                                // mark the user sets on the game itself, while
-                                // these three report what the game belongs to,
-                                // what it is matched against and what the cloud
-                                // has of it, so they cluster together at the
-                                // end of the row.
+                                // the achievements trophy.
                                 if (_collections?.isInAnyCollection(
                                       game.romPath,
                                     ) ==
@@ -605,6 +594,18 @@ class GameListViewState extends State<GameListView>
                         fit: StackFit.passthrough,
                         children: [
                           row,
+                          if (index == favoritesEnd - 1 &&
+                              favoritesEnd < widget.games.length)
+                            Positioned(
+                              left: 8.r,
+                              right: 8.r,
+                              bottom: 0,
+                              child: Divider(
+                                height: 1.r,
+                                thickness: 1.r,
+                                color: theme.colorScheme.outline,
+                              ),
+                            ),
                           Positioned.fill(
                             child: IgnorePointer(
                               child: SizedBox.expand(
