@@ -6,11 +6,13 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/data/datasources/sqlite_service.dart';
 import 'package:neostation/l10n/app_locale.dart';
+import 'package:neostation/models/artwork_scrape_event.dart';
 import 'package:neostation/providers/scraping_provider.dart';
 import 'package:neostation/repositories/scraper_repository.dart';
 import 'package:neostation/services/credential_store.dart';
 import 'package:neostation/services/screenscraper/media_resolver.dart';
 import 'package:neostation/services/screenscraper_service.dart';
+import 'package:neostation/services/scrape_batch_checkpoint.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database_test_helper.dart';
@@ -416,6 +418,92 @@ void main() {
         expect(mediaRequests, isEmpty);
       },
     );
+
+    testWidgets(
+      'a retry selects the requested ROM and keeps successful media',
+      (tester) async {
+        final context = await unmountedContext(tester);
+        final provider = ScrapingProvider();
+        addTearDown(provider.dispose);
+        await tester.runAsync(() async {
+          await db.execute(
+            "INSERT INTO user_roms (app_system_id, filename, rom_path) "
+            "VALUES ('nes', 'Other.nes', '/roms/nes/Other.nes')",
+          );
+          await ScraperRepository.saveEnabledMediaTypes(['ss', 'box2D']);
+          gameMedia = [('ss', 'art'), ('box-2D', 'missing')];
+          final result = await ScreenScraperService.startMetadataScraping(
+            context,
+            provider,
+            retryRomPaths: {'/roms/nes/Game.nes'},
+          );
+          expect(result, isTrue);
+          expect(provider.totalGames, 1);
+          expect(provider.remainingGames, 0);
+          expect(provider.imagesDownloaded, 1);
+          expect(provider.imagesAssigned, 1);
+          expect(provider.issues.single.romPath, '/roms/nes/Game.nes');
+          expect(
+            provider.issues.single.categories['box2d'],
+            ArtworkScrapeEvent.unavailable,
+          );
+
+          mediaRequests.clear();
+          gameMedia = [('ss', 'art'), ('box-2D', 'cover')];
+          await ScreenScraperService.startMetadataScraping(
+            context,
+            provider,
+            retryRomPaths: {'/roms/nes/Game.nes'},
+          );
+          expect(mediaRequests, ['cover']);
+          expect(
+            await File('${media.path}/nes/box2d/Game.png').exists(),
+            isTrue,
+          );
+          expect(
+            await File('${media.path}/nes/box2d/Other.png').exists(),
+            isFalse,
+          );
+        });
+      },
+    );
+
+    testWidgets('a new session resumes the ROMs left in the checkpoint', (
+      tester,
+    ) async {
+      final context = await unmountedContext(tester);
+      final provider = ScrapingProvider();
+      addTearDown(provider.dispose);
+      await tester.runAsync(() async {
+        await db.execute(
+          "INSERT INTO user_roms (app_system_id, filename, rom_path) "
+          "VALUES ('nes', 'Other.nes', '/roms/nes/Other.nes')",
+        );
+        await ScraperRepository.saveEnabledMediaTypes(['ss']);
+        final checkpoint = ScrapeBatchCheckpoint(
+          File('${media.path}/.scrape-batch-screenscraper-new.jsonl'),
+        );
+        await checkpoint.begin({'/roms/nes/Game.nes', '/roms/nes/Other.nes'});
+        await checkpoint.recordCompleted(['/roms/nes/Game.nes']);
+        gameMedia = [('ss', 'art')];
+
+        expect(
+          await ScreenScraperService.startMetadataScraping(context, provider),
+          isTrue,
+        );
+        expect(provider.totalGames, 1);
+        expect(mediaRequests, ['art']);
+        expect(
+          await File('${media.path}/nes/screenshots/Other.png').exists(),
+          isTrue,
+        );
+        expect(
+          await File('${media.path}/nes/screenshots/Game.png').exists(),
+          isFalse,
+        );
+        expect(await checkpoint.remaining(), isNull);
+      });
+    });
 
     testWidgets('a game whose media all download is fully scraped', (
       tester,

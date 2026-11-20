@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../models/artwork_scrape_event.dart';
+
 /// Defines the operational status of an individual scraping thread.
 enum ThreadStatus {
   /// The thread is waiting for a new task.
@@ -134,6 +136,56 @@ class ScrapingProvider extends ChangeNotifier {
   /// Increments after a completed scrape writes new artwork to disk.
   int _artworkRevision = 0;
 
+  int _imagesDownloaded = 0;
+  int _imagesAssigned = 0;
+  int _imagesSkippedManual = 0;
+  final _issues = <String, ScrapeIssue>{};
+
+  int get imagesDownloaded => _imagesDownloaded;
+  int get imagesAssigned => _imagesAssigned;
+  int get imagesSkippedManual => _imagesSkippedManual;
+  int get remainingGames =>
+      (_totalGames - _processedGames).clamp(0, _totalGames);
+  List<ScrapeIssue> get issues => List.unmodifiable(_issues.values);
+
+  void recordArtwork(
+    String romPath,
+    String name,
+    String category,
+    ArtworkScrapeEvent event,
+  ) {
+    switch (event) {
+      case ArtworkScrapeEvent.downloaded:
+        _imagesDownloaded++;
+      case ArtworkScrapeEvent.assigned:
+        _imagesAssigned++;
+      case ArtworkScrapeEvent.skippedManual:
+        _imagesSkippedManual++;
+      case ArtworkScrapeEvent.unavailable:
+      case ArtworkScrapeEvent.failed:
+        final previous = _issues[romPath];
+        _issues[romPath] = (
+          romPath: romPath,
+          name: name,
+          categories: Map.unmodifiable({
+            ...?previous?.categories,
+            category: event,
+          }),
+          gameFailed: previous?.gameFailed ?? false,
+        );
+    }
+    notifyListeners();
+  }
+
+  void recordGameFailure(String romPath, String name) {
+    _issues[romPath] = (
+      romPath: romPath,
+      name: name,
+      categories: _issues[romPath]?.categories ?? const {},
+      gameFailed: true,
+    );
+  }
+
   bool get isScraping => _isScraping;
   int get totalRequests => _totalRequests;
   int get maxDailyRequests => _maxDailyRequests;
@@ -163,6 +215,10 @@ class ScrapingProvider extends ChangeNotifier {
     _processedGames = 0;
     _successfulGames = 0;
     _failedGames = 0;
+    _imagesDownloaded = 0;
+    _imagesAssigned = 0;
+    _imagesSkippedManual = 0;
+    _issues.clear();
     _maxThreads = maxThreads ?? 4;
     _startTime = DateTime.now();
     _estimatedTimeRemaining = null;

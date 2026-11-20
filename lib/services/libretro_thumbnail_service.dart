@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:path/path.dart' as path;
 
 import '../models/artwork_preview.dart';
+import '../models/artwork_scrape_event.dart';
 import '../models/game_model.dart';
 import 'artwork_assignment_service.dart';
 import 'logger_service.dart';
@@ -108,8 +109,9 @@ class LibretroThumbnailService {
     String playlist,
     MapEntry<String, String> type,
     String title,
-    bool Function()? shouldCancel,
-  ) async {
+    bool Function()? shouldCancel, {
+    void Function()? onFailure,
+  }) async {
     try {
       final response = await ScreenscraperClient.httpGetWithRetry(
         _artworkUrl(base, playlist, type.value, title),
@@ -118,12 +120,14 @@ class LibretroThumbnailService {
       );
       if (response.statusCode == 404) return null;
       if (response.statusCode != 200) {
+        onFailure?.call();
         _log.w(
           'Libretro ${type.value} HTTP ${response.statusCode} for "$title"',
         );
         return null;
       }
       if (!await _isDecodablePng(response.bodyBytes)) {
+        onFailure?.call();
         _log.w('Libretro ${type.value} invalid PNG for "$title"');
         return null;
       }
@@ -134,6 +138,7 @@ class LibretroThumbnailService {
         bytes: response.bodyBytes,
       );
     } catch (error) {
+      if (!(shouldCancel?.call() ?? false)) onFailure?.call();
       _log.w('Libretro preview ${type.value}: ${error.runtimeType}');
       return null;
     }
@@ -192,6 +197,8 @@ class LibretroThumbnailService {
     String? searchTitle,
     bool forceOverwrite = false,
     void Function(double)? onProgress,
+    ArtworkScrapeObserver? onArtwork,
+    bool Function(String category)? providerFailed,
     Uri? catalog,
     bool Function()? shouldCancel,
     Stream<ArtworkPreview> Function(String category)? preferred,
@@ -241,17 +248,20 @@ class LibretroThumbnailService {
       final hasManual = await manual?.exists() ?? false;
       final cached = hasManual || await _hasLocalArtwork(file);
       available = available || cached;
+      if (hasManual) onArtwork?.call(folder, ArtworkScrapeEvent.skippedManual);
       if (!hasManual && (!cached || forceOverwrite)) {
         ArtworkPreview? selected;
+        var failed = false;
         await for (final image
             in preferred?.call(folder) ??
                 const Stream<ArtworkPreview>.empty()) {
           if (shouldCancel?.call() ?? false) return available;
-          if (image.category == folder &&
-              await ArtworkAssignmentService.isReadable(image)) {
+          if (image.category != folder) continue;
+          if (await ArtworkAssignmentService.isReadable(image)) {
             selected = image;
             break;
           }
+          failed = true;
         }
         final libretroFolder = _folders[type];
         if (selected == null && playlist != null && libretroFolder != null) {
@@ -262,12 +272,22 @@ class LibretroThumbnailService {
               MapEntry(type, libretroFolder),
               label,
               shouldCancel,
+              onFailure: () => failed = true,
             );
             if (selected != null || (shouldCancel?.call() ?? false)) break;
           }
         }
         if (shouldCancel?.call() ?? false) return available;
+        if (selected == null && !cached) {
+          onArtwork?.call(
+            folder,
+            failed || (providerFailed?.call(folder) ?? false)
+                ? ArtworkScrapeEvent.failed
+                : ArtworkScrapeEvent.unavailable,
+          );
+        }
         if (selected != null) {
+          onArtwork?.call(folder, ArtworkScrapeEvent.downloaded);
           if ((await manual?.exists() ?? false) ||
               (!forceOverwrite && await _hasLocalArtwork(file))) {
             available = true;
@@ -279,7 +299,9 @@ class LibretroThumbnailService {
                 manual: false,
               );
               available = true;
+              onArtwork?.call(folder, ArtworkScrapeEvent.assigned);
             } on FileSystemException catch (error) {
+              onArtwork?.call(folder, ArtworkScrapeEvent.failed);
               _log.w('Artwork $folder for "$romName": ${error.runtimeType}');
             }
           }

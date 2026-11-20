@@ -691,6 +691,13 @@ mixin AppLocale {
   static const String regionError = 'region_error';
   static const String systems = 'systems';
   static const String screenscraper = 'screenscraper';
+  static const String scrapeBatchRemaining = 'scrape_batch_remaining';
+  static const String scrapeBatchDownloaded = 'scrape_batch_downloaded';
+  static const String scrapeBatchAssigned = 'scrape_batch_assigned';
+  static const String scrapeBatchManual = 'scrape_batch_manual';
+  static const String scrapeBatchIncomplete = 'scrape_batch_incomplete';
+  static const String scrapeBatchFailed = 'scrape_batch_failed';
+  static const String scrapeBatchUnavailable = 'scrape_batch_unavailable';
   static const String totalGames = 'total_games';
   static const String successFailed = 'success_failed';
   static const String request = 'request';

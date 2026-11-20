@@ -22,6 +22,7 @@ bool _sessionRunning = false;
 Future<void> startScrapeSession(
   BuildContext context, {
   VoidCallback? onFinished,
+  Set<String>? retryRomPaths,
 }) async {
   if (_sessionRunning) return;
   _sessionRunning = true;
@@ -92,10 +93,21 @@ Future<void> startScrapeSession(
       context,
       scrapingProvider,
       shouldCancel: () => !scrapingProvider.isScraping,
+      retryRomPaths: retryRomPaths,
+      onRetry: (paths) {
+        if (context.mounted) {
+          startScrapeSession(
+            context,
+            onFinished: onFinished,
+            retryRomPaths: paths,
+          );
+        }
+      },
     );
 
     if (scrapingSuccess) {
-      if (scrapingProvider.successfulGames > 0) {
+      if (scrapingProvider.successfulGames > 0 ||
+          scrapingProvider.imagesAssigned > 0) {
         scrapingProvider.markArtworkUpdated();
       }
       final summary = scrapingProvider.totalGames > 0

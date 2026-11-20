@@ -4,6 +4,8 @@ import 'package:path/path.dart' as path;
 import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/utils/atomic_file_writer.dart';
 
+import '../../models/artwork_scrape_event.dart';
+import '../../models/game_model.dart';
 import 'region_config.dart';
 import 'rom_hasher.dart';
 import 'media_resolver.dart';
@@ -34,6 +36,7 @@ class ScreenscraperMediaDownloader {
     bool forceOverwrite = false,
     int? maxDailyRequests,
     bool Function()? shouldCancel,
+    void Function(ArtworkScrapeEvent)? onArtwork,
   }) async {
     try {
       final fullPath = path.join(userDataDir, relativePath);
@@ -55,7 +58,10 @@ class ScreenscraperMediaDownloader {
           !contentType.startsWith('text/html') &&
           !contentType.contains('json')) {
         // A file left half-written would count as downloaded from then on.
+        if (shouldCancel?.call() ?? false) return false;
+        onArtwork?.call(ArtworkScrapeEvent.downloaded);
         await writeFileAtomically(file, response.bodyBytes);
+        onArtwork?.call(ArtworkScrapeEvent.assigned);
         if (forceOverwrite) {
           final stem = path.withoutExtension(fullPath);
           for (final extension in ['png', 'jpg', 'jpeg', 'webp', 'mp4']) {
@@ -67,6 +73,11 @@ class ScreenscraperMediaDownloader {
         }
         return true;
       } else {
+        onArtwork?.call(
+          response.statusCode == 404
+              ? ArtworkScrapeEvent.unavailable
+              : ArtworkScrapeEvent.failed,
+        );
         _log.e(
           'ScreenScraper artwork HTTP ${response.statusCode}: $relativePath',
         );
@@ -78,6 +89,9 @@ class ScreenscraperMediaDownloader {
       // Every later request would be refused too; the caller says why.
       rethrow;
     } catch (e) {
+      if (!(shouldCancel?.call() ?? false)) {
+        onArtwork?.call(ArtworkScrapeEvent.failed);
+      }
       _log.e('ScreenScraper artwork $relativePath: ${e.runtimeType}');
       return false;
     }
@@ -100,54 +114,88 @@ class ScreenscraperMediaDownloader {
     List<String>? allowedMediaTypes,
     bool forceOverwrite = false,
     int? maxDailyRequests,
+    String? romPath,
+    ArtworkScrapeObserver? onArtwork,
   }) async {
-    if (medias.isEmpty) {
+    if (medias.isEmpty && onArtwork == null && romPath == null) {
       return {'success': true, 'cancelled': false};
     }
-
     final userDataDir = await ScreenscraperMediaResolver.getMediaDirectory();
     final regionPriority = await ScreenscraperRegionConfig.getRegionPriority();
     final mediaTypes =
         allowedMediaTypes ?? ['fanart', 'ss', 'video', 'wheel', 'box2D'];
 
-    final downloadTasks = <Map<String, dynamic>>[];
-    for (final mediaType in mediaTypes) {
+    final romBaseName = await ScreenscraperRomHasher.getCleanRomName(
+      romName,
+      appSystemId,
+    );
+    final downloadTasks =
+        <({String url, String relativePath, String category, bool image})>[];
+    for (final mediaType in mediaTypes.toSet()) {
+      if (shouldCancel?.call() ?? false) {
+        return {'success': false, 'cancelled': true};
+      }
+      final folder = ScreenscraperMediaResolver.mapMediaTypeToFolder(mediaType);
+      final image = mediaType != 'video';
+      if (image &&
+          romPath != null &&
+          await File(
+            GameModel.artworkOverridePathForRom(
+              romPath,
+              folder,
+              mediaDirectory: userDataDir,
+            ),
+          ).exists()) {
+        onArtwork?.call(folder, ArtworkScrapeEvent.skippedManual);
+        continue;
+      }
       final bestMedia = ScreenscraperMediaResolver.selectBestMedia(
         medias,
         mediaType,
         preferredLanguage: preferredLanguage,
         regionPriority: regionPriority,
       );
-      if (bestMedia != null) {
-        final folderName = ScreenscraperMediaResolver.mapMediaTypeToFolder(
-          mediaType,
-        );
-        final romBaseName = await ScreenscraperRomHasher.getCleanRomName(
-          romName,
-          appSystemId,
-        );
-        // The extension comes from the API response; accept only a plain
-        // extension so it can't carry a path out of the media folder.
-        final format = bestMedia['format']?.toString() ?? 'png';
-        if (!_safeExtension.hasMatch(format)) {
-          _log.w('Skipping $mediaType for $romName: unexpected format');
-          continue;
+      if (bestMedia == null) {
+        final stem = path.join(userDataDir, systemFolder, folder, romBaseName);
+        var cached = false;
+        for (final extension in const [
+          'png',
+          'jpg',
+          'jpeg',
+          'webp',
+          'mp4',
+          'webm',
+        ]) {
+          if (await File('$stem.$extension').exists()) {
+            cached = true;
+            break;
+          }
         }
-        final fileName = '$romBaseName.$format';
-        final relativePath = '$systemFolder/$folderName/$fileName';
-
-        downloadTasks.add({
-          'url': bestMedia['url'].toString(),
-          'relativePath': relativePath,
-        });
+        if (!cached) onArtwork?.call(folder, ArtworkScrapeEvent.unavailable);
+        continue;
       }
+      final format = bestMedia['format']?.toString() ?? 'png';
+      if (!_safeExtension.hasMatch(format)) {
+        _log.w('Skipping $mediaType for $romName: unexpected format');
+        onArtwork?.call(folder, ArtworkScrapeEvent.failed);
+        continue;
+      }
+      downloadTasks.add((
+        url: bestMedia['url'].toString(),
+        relativePath: '$systemFolder/$folder/$romBaseName.$format',
+        category: folder,
+        image: image,
+      ));
     }
 
     if (downloadTasks.isEmpty) {
       return {'success': true, 'cancelled': false};
     }
 
-    final batches = <List<Map<String, dynamic>>>[];
+    final batches =
+        <
+          List<({String url, String relativePath, String category, bool image})>
+        >[];
     for (var i = 0; i < downloadTasks.length; i += maxThreads) {
       final end = (i + maxThreads < downloadTasks.length)
           ? i + maxThreads
@@ -168,12 +216,19 @@ class ScreenscraperMediaDownloader {
       final results = await Future.wait(
         batch.map(
           (task) => _downloadMediaFileSmart(
-            task['url'],
-            task['relativePath'],
+            task.url,
+            task.relativePath,
             userDataDir,
             forceOverwrite: forceOverwrite,
             maxDailyRequests: maxDailyRequests,
             shouldCancel: shouldCancel,
+            onArtwork: (event) {
+              if (task.image ||
+                  event == ArtworkScrapeEvent.failed ||
+                  event == ArtworkScrapeEvent.unavailable) {
+                onArtwork?.call(task.category, event);
+              }
+            },
           ),
         ),
       );

@@ -1,204 +1,171 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../l10n/app_locale.dart';
-import '../utils/gamepad_nav.dart';
+import '../models/artwork_scrape_event.dart';
 import '../services/game_service.dart';
+import '../utils/gamepad_nav.dart';
 
-/// Specialized dialog content providing gamepad-friendly navigation for
-/// scraping session summaries.
-///
-/// Extracted verbatim from `ScreenScraperService`'s private
-/// `_ScrapingSummaryDialogContent` so the service file stays lean; behavior and
-/// layout are unchanged.
 class ScrapingSummaryDialog extends StatefulWidget {
-  final int totalGames;
-  final int successfulGames;
-  final int failedGames;
-  final String elapsedTime;
-
   const ScrapingSummaryDialog({
     super.key,
     required this.totalGames,
     required this.successfulGames,
     required this.failedGames,
     required this.elapsedTime,
+    required this.imagesDownloaded,
+    required this.imagesAssigned,
+    required this.imagesSkippedManual,
+    required this.issues,
+    this.canRetry = false,
   });
+
+  final int totalGames;
+  final int successfulGames;
+  final int failedGames;
+  final String elapsedTime;
+  final int imagesDownloaded;
+  final int imagesAssigned;
+  final int imagesSkippedManual;
+  final List<ScrapeIssue> issues;
+  final bool canRetry;
 
   @override
   State<ScrapingSummaryDialog> createState() => _ScrapingSummaryDialogState();
 }
 
 class _ScrapingSummaryDialogState extends State<ScrapingSummaryDialog> {
-  late GamepadNavigation _gamepadNav;
+  static const _layer = 'scraping_summary_dialog';
+  final _issueScroll = ScrollController();
+  late final GamepadNavigation _gamepadNav;
+
+  bool get _canRetry => widget.canRetry && widget.issues.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _gamepadNav = GamepadNavigation(
-      onSelectItem: () => Navigator.of(context).pop(),
-      onBack: () => Navigator.of(context).pop(),
+      onSelectItem: _close,
+      onBack: _close,
+      onXButton: _canRetry ? _retry : null,
+      onNavigateUp: () => _scroll(-1),
+      onNavigateDown: () => _scroll(1),
     );
     _gamepadNav.initialize();
     GamepadNavigationManager.pushLayer(
-      'scraping_summary_dialog',
-      onActivate: () => _gamepadNav.activate(),
-      onDeactivate: () => _gamepadNav.deactivate(),
+      _layer,
+      onActivate: _gamepadNav.activate,
+      onDeactivate: _gamepadNav.deactivate,
     );
+  }
+
+  void _close() => Navigator.of(context).pop(false);
+  void _retry() => Navigator.of(context).pop(true);
+
+  void _scroll(int direction) {
+    if (!_issueScroll.hasClients) return;
+    final position = _issueScroll.position;
+    final target = (position.pixels + direction * 40.r).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    _issueScroll.jumpTo(target);
   }
 
   @override
   void dispose() {
-    GamepadNavigationManager.popLayer('scraping_summary_dialog');
+    GamepadNavigationManager.popLayer(_layer);
     _gamepadNav.dispose();
+    _issueScroll.dispose();
     super.dispose();
   }
 
+  String _category(String category) => switch (category) {
+    'box2d' => AppLocale.boxart,
+    'title_screens' => AppLocale.libretroTitleScreen,
+    'screenshots' => AppLocale.screenshot,
+    'wheels' => AppLocale.wheel,
+    'icons' => AppLocale.galleryGameIcon,
+    'fanarts' => AppLocale.fanart,
+    'videos' => AppLocale.scrapeVideo,
+    _ => AppLocale.media,
+  };
+
   @override
   Widget build(BuildContext context) {
-    final rate = widget.totalGames > 0
-        ? ((widget.successfulGames / widget.totalGames) * 100).toStringAsFixed(
-            1,
-          )
-        : '0.0';
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-      child: Container(
-        constraints: BoxConstraints(maxWidth: 240.w),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
-            width: 1.r,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.6),
-              blurRadius: 10.r,
-              spreadRadius: 1.r,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12.r),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(vertical: 8.h),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).scaffoldBackgroundColor
-                      .withValues(alpha: 0.2),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(context).colorScheme.outline
-                          .withValues(alpha: 0.1),
-                      width: 1.r,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Symbols.check_circle_rounded,
-                      size: 16.r,
-                      color: Colors.green,
-                    ),
-                    SizedBox(width: 6.w),
-                    Text(
-                      'Scraping Finished',
-                      style: TextStyle(
-                        fontSize: 13.r,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
+    final theme = Theme.of(context);
+    final stats = [
+      (AppLocale.totalGames, '${widget.totalGames}'),
+      (
+        AppLocale.successFailed,
+        '${widget.successfulGames} / ${widget.failedGames}',
+      ),
+      (AppLocale.scrapeBatchDownloaded, '${widget.imagesDownloaded}'),
+      (AppLocale.scrapeBatchAssigned, '${widget.imagesAssigned}'),
+      (AppLocale.scrapeBatchManual, '${widget.imagesSkippedManual}'),
+    ];
+    return AlertDialog(
+      title: Text(AppLocale.scrapingCompleted.getString(context)),
+      content: SizedBox(
+        width: 300.r,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (label, value) in stats)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(child: Text(label.getString(context))),
+                  Text(value),
+                ],
               ),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-                child: Column(
-                  children: [
-                    _buildCompactStatRow('Games', widget.totalGames.toString()),
-                    SizedBox(height: 4.h),
-                    _buildCompactStatRow(
-                      'Success',
-                      '${widget.successfulGames} ($rate%)',
-                      valueColor: Colors.green,
-                    ),
-                    SizedBox(height: 4.h),
-                    _buildCompactStatRow(
-                      'Failed',
-                      widget.failedGames.toString(),
-                      valueColor: widget.failedGames > 0
-                          ? Colors.orange
-                          : Theme.of(context).colorScheme.onSurface,
-                    ),
-                    SizedBox(height: 4.h),
-                    _buildCompactStatRow(
-                      'Duration',
-                      widget.elapsedTime,
-                      valueColor: Theme.of(context).colorScheme.primary,
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(left: 12.r, right: 12.r, bottom: 10.r),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 32.h,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                    ),
-                    child: Text(
-                      AppLocale.ok.getString(context),
-                      style: TextStyle(
-                        fontSize: 12.r,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+            Text(widget.elapsedTime, style: theme.textTheme.bodySmall),
+            if (widget.issues.isNotEmpty) ...[
+              const Divider(),
+              Text(AppLocale.scrapeBatchIncomplete.getString(context)),
+              SizedBox(
+                height: 120.r,
+                child: Scrollbar(
+                  controller: _issueScroll,
+                  child: ListView.builder(
+                    controller: _issueScroll,
+                    shrinkWrap: true,
+                    itemCount: widget.issues.length,
+                    itemBuilder: (context, index) {
+                      final issue = widget.issues[index];
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(issue.name),
+                        subtitle: Text(
+                          [
+                            if (issue.gameFailed)
+                              AppLocale.scrapeBatchFailed.getString(context),
+                            for (final item in issue.categories.entries)
+                              '${_category(item.key).getString(context)} · ${(item.value == ArtworkScrapeEvent.failed ? AppLocale.scrapeBatchFailed : AppLocale.scrapeBatchUnavailable).getString(context)}',
+                          ].join('\n'),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
             ],
-          ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildCompactStatRow(String label, String value, {Color? valueColor}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.r,
-            color: Theme.of(context).colorScheme.onSurface,
+      actions: [
+        if (_canRetry)
+          TextButton.icon(
+            onPressed: _retry,
+            icon: const Icon(Icons.refresh),
+            label: Text('X · ${AppLocale.retry.getString(context)}'),
           ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 11.r,
-            fontWeight: FontWeight.bold,
-            color: valueColor ?? Theme.of(context).colorScheme.onSurface,
-          ),
+        FilledButton(
+          onPressed: _close,
+          child: Text(AppLocale.ok.getString(context)),
         ),
       ],
     );

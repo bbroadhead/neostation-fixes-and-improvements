@@ -416,10 +416,22 @@ class RetroAchievementsService {
     required String apiKey,
     http.Client? client,
     bool Function()? shouldCancel,
+    void Function(String category)? onFailure,
   }) async {
     final response = await _getScrapeSummary(verifiedGameId, apiKey, client);
     final title = response['Title'];
-    if (title is! String || (shouldCancel?.call() ?? false)) return [];
+    if (shouldCancel?.call() ?? false) return [];
+    if (title is! String) {
+      for (final category in const [
+        'box2d',
+        'screenshots',
+        'title_screens',
+        'icons',
+      ]) {
+        onFailure?.call(category);
+      }
+      return [];
+    }
     final imagePath = RegExp(r'^/Images/[0-9]+\.png$');
     final results = await Future.wait([
       for (final (field, category) in const [
@@ -436,7 +448,7 @@ class RetroAchievementsService {
                         path != response['GameIcon'] &&
                         path != response['ImageTitle'] &&
                         path != response['ImageIngame'])))
-          _getArtworkPreview(path, category, title, client),
+          _getArtworkPreview(path, category, title, client, onFailure),
     ]);
     return (shouldCancel?.call() ?? false) ? [] : results.nonNulls.toList();
   }
@@ -446,13 +458,17 @@ class RetroAchievementsService {
     String category,
     String title,
     http.Client? client,
+    void Function(String category)? onFailure,
   ) async {
     try {
       final uri = Uri.https('media.retroachievements.org', path);
       final response = await (client?.get(uri) ?? http.get(uri)).timeout(
         const Duration(seconds: 10),
       );
-      if (response.statusCode != 200 || response.bodyBytes.isEmpty) return null;
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+        if (response.statusCode != 404) onFailure?.call(category);
+        return null;
+      }
       return (
         provider: ArtworkProvider.retroAchievements,
         category: category,
@@ -460,6 +476,7 @@ class RetroAchievementsService {
         bytes: response.bodyBytes,
       );
     } catch (error) {
+      onFailure?.call(category);
       _log.w('RA artwork $category unavailable (${error.runtimeType})');
       return null;
     }

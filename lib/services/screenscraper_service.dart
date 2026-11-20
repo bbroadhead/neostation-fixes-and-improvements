@@ -16,6 +16,8 @@ import 'rom_fingerprint_service.dart';
 import 'libretro_thumbnail_service.dart';
 import 'steam_grid_db_artwork_service.dart';
 import '../models/artwork_preview.dart';
+import '../models/artwork_scrape_event.dart';
+import 'scrape_batch_checkpoint.dart';
 import 'libretro_metadata_service.dart';
 import 'screenscraper/region_config.dart';
 import 'screenscraper/rom_hasher.dart';
@@ -930,15 +932,25 @@ class ScreenScraperService {
     bool forceOverwrite = false,
     bool Function()? shouldCancel,
     void Function(double)? onProgress,
+    ArtworkScrapeObserver? onArtwork,
   }) async {
     final cleanTitle = await ScreenscraperRomHasher.getCleanRomName(
       romName,
       appSystemId,
     );
+    final failures = <String>{};
+    var steamLookupFailed = false;
     final steam = SteamGridDbArtworkService(
       searchTitle ??
           (gameName?.trim().isNotEmpty == true ? gameName! : cleanTitle),
       shouldCancel: shouldCancel,
+      onFailure: (category) {
+        if (category == null) {
+          steamLookupFailed = true;
+        } else {
+          failures.add(category);
+        }
+      },
     );
     Future<List<ArtworkPreview>>? verifiedArtwork;
     Stream<ArtworkPreview> preferred(String category) async* {
@@ -955,6 +967,7 @@ class ScreenScraperService {
       final images = await (verifiedArtwork ??= _verifiedRaArtwork(
         romPath,
         shouldCancel,
+        failures.add,
       ));
       yield* Stream.fromIterable(
         images.where((image) => image.category == category),
@@ -977,12 +990,18 @@ class ScreenScraperService {
       shouldCancel: shouldCancel,
       onProgress: onProgress,
       preferred: preferred,
+      onArtwork: onArtwork,
+      providerFailed: (category) =>
+          failures.contains(category) ||
+          (steamLookupFailed &&
+              SteamGridDbArtworkService.endpoints.containsKey(category)),
     );
   }
 
   static Future<List<ArtworkPreview>> _verifiedRaArtwork(
     String romPath,
     bool Function()? shouldCancel,
+    void Function(String category) onFailure,
   ) async {
     try {
       final identity = await RetroAchievementsRepository.getVerifiedRomIdentity(
@@ -995,8 +1014,17 @@ class ScreenScraperService {
         identity.id,
         apiKey: key,
         shouldCancel: shouldCancel,
+        onFailure: onFailure,
       );
     } catch (error) {
+      for (final category in const [
+        'box2d',
+        'screenshots',
+        'title_screens',
+        'icons',
+      ]) {
+        onFailure(category);
+      }
       _log.w('RetroAchievements artwork lookup failed (${error.runtimeType})');
       return [];
     }
@@ -1336,6 +1364,8 @@ class ScreenScraperService {
     BuildContext context,
     ScrapingProvider scrapingProvider, {
     bool Function()? shouldCancel,
+    Set<String>? retryRomPaths,
+    void Function(Set<String>)? onRetry,
   }) async {
     if (_isMetadataScrapingRunning) return false;
     _isMetadataScrapingRunning = true;
@@ -1363,31 +1393,48 @@ class ScreenScraperService {
           ? 'all'
           : scraperConfig['scrape_mode'].toString();
 
+      final mediaRoot = await ScreenscraperMediaResolver.getMediaDirectory();
+      final checkpoint = ScrapeBatchCheckpoint(
+        File(
+          path.join(
+            mediaRoot,
+            '.scrape-batch-${libretro != null ? 'artwork' : 'screenscraper'}-${scrapeMode == 'all' ? 'all' : 'new'}.jsonl',
+          ),
+        ),
+      );
+      final resumePaths = retryRomPaths ?? await checkpoint.remaining();
+
       final systemMappings = libretro != null
           ? await ScraperRepository.getLibraryScrapeSystems()
           : await getSystemMappings();
       if (systemMappings.isEmpty) return libretro != null;
 
-      final systemsWithRoms = <Map<String, dynamic>>[];
-      int totalGamesToProcess = 0;
-
+      final allRomsToProcess = <Map<String, dynamic>>[];
       for (final systemMapping in systemMappings) {
         final appSystemId = systemMapping['app_system_id'].toString();
-        final count = await ScraperRepository.getRomCountForScraping(
+        final roms = await ScraperRepository.getRomsForScraping(
           appSystemId,
-          scrapeMode,
+          resumePaths == null ? scrapeMode : 'all',
         );
-        if (count > 0) {
-          systemsWithRoms.add(systemMapping);
-          totalGamesToProcess += count;
+        for (final rom in roms) {
+          if (resumePaths != null && !resumePaths.contains(rom['rom_path'])) {
+            continue;
+          }
+          allRomsToProcess.add({
+            ...rom,
+            'system_id': appSystemId,
+            'screenscraper_system_id': systemMapping['screenscraper_system_id'],
+            'system_name': systemMapping['real_name'],
+            'system_folder': systemMapping['primary_folder_name'],
+          });
         }
       }
-
-      if (systemsWithRoms.isEmpty) {
+      final totalGamesToProcess = allRomsToProcess.length;
+      if (totalGamesToProcess == 0) {
+        await checkpoint.clear();
         scrapingProvider.stopScraping();
         return true;
       }
-
       scrapingProvider.updateProgress(
         totalGames: totalGamesToProcess,
         processedGames: 0,
@@ -1395,24 +1442,9 @@ class ScreenScraperService {
         failedGames: 0,
       );
 
-      final allRomsToProcess = <Map<String, dynamic>>[];
-      for (final systemMapping in systemsWithRoms) {
-        final appSystemId = systemMapping['app_system_id'].toString();
-        final romsQueryResult = await ScraperRepository.getRomsForScraping(
-          appSystemId,
-          scrapeMode,
-        );
-
-        for (final rom in romsQueryResult) {
-          final copy = Map<String, dynamic>.from(rom);
-          copy['system_id'] = appSystemId;
-          copy['screenscraper_system_id'] =
-              systemMapping['screenscraper_system_id'];
-          copy['system_name'] = systemMapping['real_name'];
-          copy['system_folder'] = systemMapping['primary_folder_name'];
-          allRomsToProcess.add(copy);
-        }
-      }
+      await checkpoint.begin({
+        for (final rom in allRomsToProcess) rom['rom_path'].toString(),
+      });
 
       int totalProcessedGames = 0;
       int totalSuccessfulGames = 0;
@@ -1460,20 +1492,32 @@ class ScreenScraperService {
               shouldCancel: shouldCancel,
               scraperConfig: scraperConfig,
               libretro: libretro,
+              retrying: resumePaths != null,
             ),
           );
         }
 
         final results = await Future.wait(batchFutures);
+        var stopped = false;
+        final completedPaths = <String>[];
         for (var i = 0; i < results.length; i++) {
+          if (results[i]['cancelled'] == true) {
+            stopped = true;
+            continue;
+          }
+          completedPaths.add(batch[i]['rom_path'].toString());
           totalProcessedGames++;
           if (results[i]['success'] == true) {
             totalSuccessfulGames++;
-          } else if (results[i]['cancelled'] == true) {
-            scrapingProvider.stopScraping();
-            return false;
           } else {
             totalFailedGames++;
+            _log.w(
+              "Scraping failed: ${batch[i]['system_name']} / ${batch[i]['filename']}",
+            );
+            scrapingProvider.recordGameFailure(
+              batch[i]['rom_path'].toString(),
+              batch[i]['filename'].toString(),
+            );
           }
 
           scrapingProvider.markThreadCompleted(i + 1);
@@ -1484,11 +1528,17 @@ class ScreenScraperService {
             failedGames: totalFailedGames,
           );
         }
+        await checkpoint.recordCompleted(completedPaths);
+        if (stopped) {
+          scrapingProvider.stopScraping();
+          return false;
+        }
         if (batches.length > 1) {
           await Future.delayed(const Duration(milliseconds: 200));
         }
       }
 
+      await checkpoint.clear();
       if (context.mounted) {
         _showScrapingSummaryDialog(
           context,
@@ -1496,7 +1546,8 @@ class ScreenScraperService {
           successfulGames: totalSuccessfulGames,
           failedGames: totalFailedGames,
           elapsedTime: '${DateTime.now().difference(startTime).inSeconds}s',
-          totalRequests: 0,
+          scrapingProvider: scrapingProvider,
+          onRetry: onRetry,
         );
       }
 
@@ -1531,11 +1582,19 @@ class ScreenScraperService {
     required bool Function()? shouldCancel,
     required Map<String, dynamic> scraperConfig,
     required LibretroMetadataService? libretro,
+    required bool retrying,
   }) async {
     try {
       final filename = rom['filename'].toString();
       final romPath = rom['rom_path'].toString();
       final titleName = rom['title_name']?.toString();
+      void onArtwork(String category, ArtworkScrapeEvent event) {
+        scrapingProvider.recordArtwork(romPath, filename, category, event);
+        if (event == ArtworkScrapeEvent.unavailable ||
+            event == ArtworkScrapeEvent.failed) {
+          _log.w('Artwork ${event.name}: $systemName / $filename / $category');
+        }
+      }
 
       scrapingProvider.updateThreadProgress(
         threadId: threadId,
@@ -1583,6 +1642,7 @@ class ScreenScraperService {
               titleName,
           searchTitle: searchTitle,
           shouldCancel: shouldCancel,
+          onArtwork: onArtwork,
         );
         final cancelled = shouldCancel?.call() ?? false;
         return {
@@ -1739,8 +1799,11 @@ class ScreenScraperService {
             allowedMediaTypes: allowedTypes,
             maxDailyRequests: maxDailyRequests,
             forceOverwrite:
-                manualGameId != null ||
-                scraperConfig['scrape_mode'].toString() == 'all',
+                !retrying &&
+                (manualGameId != null ||
+                    scraperConfig['scrape_mode'].toString() == 'all'),
+            romPath: romPath,
+            onArtwork: onArtwork,
           );
           if (res['cancelled'] == true) {
             return {
@@ -1850,9 +1913,11 @@ class ScreenScraperService {
     required int successfulGames,
     required int failedGames,
     required String elapsedTime,
-    required int totalRequests,
+    required ScrapingProvider scrapingProvider,
+    void Function(Set<String>)? onRetry,
   }) async {
-    await showDialog(
+    final issues = scrapingProvider.issues;
+    final retry = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
       builder: (BuildContext context) => ScrapingSummaryDialog(
@@ -1860,7 +1925,15 @@ class ScreenScraperService {
         successfulGames: successfulGames,
         failedGames: failedGames,
         elapsedTime: elapsedTime,
+        imagesDownloaded: scrapingProvider.imagesDownloaded,
+        imagesAssigned: scrapingProvider.imagesAssigned,
+        imagesSkippedManual: scrapingProvider.imagesSkippedManual,
+        issues: issues,
+        canRetry: onRetry != null,
       ),
     );
+    if (retry == true) {
+      onRetry?.call(issues.map((issue) => issue.romPath).toSet());
+    }
   }
 }

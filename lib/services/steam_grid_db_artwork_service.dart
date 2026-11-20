@@ -12,6 +12,7 @@ class SteamGridDbArtworkService {
   SteamGridDbArtworkService(
     this.title, {
     this.shouldCancel,
+    this.onFailure,
     String? apiKey,
     this.client,
   }) : _key = (apiKey ?? Platform.environment['STEAMGRIDDB_API_KEY'] ?? '')
@@ -19,6 +20,7 @@ class SteamGridDbArtworkService {
 
   final String title;
   final bool Function()? shouldCancel;
+  final void Function(String? category)? onFailure;
   late final _game = _findGame();
   static final _log = LoggerService.instance;
 
@@ -89,6 +91,7 @@ class SteamGridDbArtworkService {
           .toSet();
       return matches.length == 1 ? matches.single : null;
     } catch (error) {
+      if (!(shouldCancel?.call() ?? false)) onFailure?.call(null);
       _log.w('SteamGridDB title lookup failed (${error.runtimeType})');
       return null;
     }
@@ -152,13 +155,17 @@ class SteamGridDbArtworkService {
               title: title,
               bytes: response.bodyBytes,
             ));
+          } else if (response.statusCode != 404) {
+            onFailure?.call(category);
           }
         } catch (error) {
+          if (!(shouldCancel?.call() ?? false)) onFailure?.call(category);
           _log.w('SteamGridDB asset failed (${error.runtimeType})');
         }
       }
       return images;
     } catch (error) {
+      if (!(shouldCancel?.call() ?? false)) onFailure?.call(category);
       _log.w('SteamGridDB $category lookup failed (${error.runtimeType})');
       return [];
     }

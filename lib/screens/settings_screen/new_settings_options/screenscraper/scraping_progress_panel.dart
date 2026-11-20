@@ -73,6 +73,23 @@ class ScrapingProgressPanel extends StatelessWidget {
             ),
           ],
         ),
+        SizedBox(height: 6.r),
+        Wrap(
+          spacing: 12.r,
+          runSpacing: 3.r,
+          children: [
+            for (final (label, value) in [
+              (AppLocale.scrapeBatchRemaining, provider.remainingGames),
+              (AppLocale.scrapeBatchDownloaded, provider.imagesDownloaded),
+              (AppLocale.scrapeBatchAssigned, provider.imagesAssigned),
+              (AppLocale.scrapeBatchManual, provider.imagesSkippedManual),
+            ])
+              Text(
+                '${label.getString(context)} · $value',
+                style: theme.textTheme.bodySmall,
+              ),
+          ],
+        ),
         SizedBox(height: 8.r),
         LayoutBuilder(
           builder: (context, constraints) {

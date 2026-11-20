@@ -217,6 +217,12 @@ logos, and icons. The existing ScreenScraper workflow remains available
 through its usual settings. Gallery selections and new automatic assignments
 record the source and category in a provenance file tied to the image bytes.
 
+The library scrape progress panel shows remaining games, images downloaded
+for assignment, images assigned, and manually assigned images skipped. The
+completion summary lists incomplete games by media category. Choose **Retry**
+or press **X** to run another pass on those ROMs. Restart an interrupted
+library scrape in the same mode to resume from the persisted checkpoint.
+
 ### RetroAchievements compatibility
 
 Game Details shows a compatibility label for ROMs on mapped systems. The
