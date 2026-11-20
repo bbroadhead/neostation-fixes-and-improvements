@@ -72,6 +72,20 @@ void main() {
       expect(spec.iconData, isNotNull);
     });
 
+    test('Settings remains accessible after hiding every eligible tab', () {
+      var config = const ConfigModel();
+      for (final tab in hidableNavTabs()) {
+        config = navTabSpec(tab).withHidden!(config, true);
+      }
+      expect(hidableNavTabs(), isNot(contains(NavTab.settings)));
+      expect(visibleNavTabs(config), contains(NavTab.settings));
+      expect(visibleNavTabs(config), isNot(contains(NavTab.discovery)));
+      for (final tab in hidableNavTabs()) {
+        config = navTabSpec(tab).withHidden!(config, false);
+      }
+      expect(visibleNavTabs(config), containsAll(hidableNavTabs()));
+    });
+
     test('the toggle round trips through the spec', () {
       final spec = navTabSpec(NavTab.discovery);
       final hidden = spec.withHidden!(const ConfigModel(), true);
