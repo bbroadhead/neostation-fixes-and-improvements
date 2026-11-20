@@ -10,6 +10,64 @@ import '../models/database_game_model.dart';
 class CollectionRepository {
   const CollectionRepository._();
 
+  static const retroAchievementsIncompatibleId =
+      '44ec1024-90ab-4edf-9071-0bcb2ed89725';
+
+  /// Atomically replaces membership for the generated collection using its
+  /// reserved id. User collections can have the same display name.
+  static Future<bool> updateRetroAchievementsIncompatible(
+    Set<String> romPaths,
+  ) async {
+    final db = await SqliteService.getDatabase();
+    const id = retroAchievementsIncompatibleId;
+    const name = 'RetroAchievements Incompatible';
+    return db.transaction((txn) async {
+      final collections = await txn.rawQuery(
+        'SELECT name FROM user_collections WHERE id = ?',
+        [id],
+      );
+      if (collections.isEmpty) {
+        await txn.rawInsert(
+          '''
+          INSERT INTO user_collections (id, name, sort_order)
+          SELECT ?, ?, COALESCE(MAX(sort_order), -1) + 1 FROM user_collections
+        ''',
+          [id, name],
+        );
+      }
+      final before = await txn.rawQuery(
+        'SELECT rom_path FROM user_collection_items WHERE collection_id = ?',
+        [id],
+      );
+      if (collections.isNotEmpty &&
+          collections.first['name'] == name &&
+          before.length == romPaths.length &&
+          before.every((row) => romPaths.contains(row['rom_path']))) {
+        return false;
+      }
+      final batch = txn.batch();
+      batch.rawUpdate(
+        'UPDATE user_collections SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [name, id],
+      );
+      batch.rawDelete(
+        'DELETE FROM user_collection_items WHERE collection_id = ?',
+        [id],
+      );
+      for (final (order, path) in romPaths.indexed) {
+        batch.rawInsert(
+          '''
+          INSERT INTO user_collection_items (collection_id, rom_path, sort_order)
+          SELECT ?, rom_path, ? FROM user_roms WHERE rom_path = ?
+        ''',
+          [id, order, path],
+        );
+      }
+      await batch.commit(noResult: true);
+      return true;
+    });
+  }
+
   /// Returns every collection row with its membership count.
   static Future<List<Map<String, Object?>>> getCollections() =>
       SqliteService.getCollections();

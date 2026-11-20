@@ -16,11 +16,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database_test_helper.dart';
 
-/// An unscraped game's info panel shows an "Incomplete Metadata" notice above
-/// the game's name and ROM filename. On a short landscape phone the room
-/// between the header and that identity footer is less than the notice needs,
-/// and the notice (a centred column) used to spill out over the footer, so the
-/// explanation was drawn straight across the name and filename.
 final _system = SystemModel(
   id: 'atari7800',
   folderName: 'atari7800',
@@ -105,14 +100,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
-  Rect notice(WidgetTester tester) => tester
-      .getRect(find.text(AppLocale.en[AppLocale.incompleteMetadata]! as String))
-      .expandToInclude(
-        tester.getRect(
-          find.text(AppLocale.en[AppLocale.scrapeToDownload]! as String),
-        ),
-      );
-
   testWidgets('a verified ROM shows its compatibility in Game Details', (
     tester,
   ) async {
@@ -158,24 +145,26 @@ void main() {
     ('a landscape phone', const Size(890, 400), 300.0),
     ('a handheld', const Size(1920, 1080), 1000.0),
   ]) {
-    testWidgets('the notice stays clear of the name and filename on $label', (
-      tester,
-    ) async {
-      await mountPanel(tester, screen: screen, cardHeight: cardHeight);
+    testWidgets(
+      'available metadata stays clear of the identity footer on $label',
+      (tester) async {
+        await mountPanel(tester, screen: screen, cardHeight: cardHeight);
 
-      final name = tester.getRect(find.text('Mario Bros.'));
-      final file = tester.getRect(find.text(_game.romname));
-      final shown = notice(tester);
+        final name = tester.getRect(find.text('Mario Bros.'));
+        final file = tester.getRect(find.text(_game.romname));
+        final shown = tester.getRect(
+          find.text(AppLocale.en[AppLocale.gameInfo]! as String),
+        );
 
-      expect(tester.takeException(), isNull);
-      expect(shown.bottom, lessThanOrEqualTo(name.top));
-      expect(shown.overlaps(file), isFalse);
-
-      // Scaling down must not cost the notice its centring: the panel's
-      // column hands this band a loose width, so a bare FittedBox shrank to
-      // the notice and sat against the left edge.
-      final panel = tester.getRect(find.byType(GameDetailsGameInfoTab));
-      expect(shown.center.dx, moreOrLessEquals(panel.center.dx, epsilon: 1));
-    });
+        expect(find.text('Atari 7800'), findsOneWidget);
+        expect(
+          find.text(AppLocale.en[AppLocale.incompleteMetadata]! as String),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+        expect(shown.bottom, lessThanOrEqualTo(name.top));
+        expect(shown.overlaps(file), isFalse);
+      },
+    );
   }
 }

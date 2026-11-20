@@ -235,6 +235,32 @@ class RetroAchievementsRepository {
     );
   }
 
+  /// Uses the same evidence as Game Details for the generated collection.
+  static Future<Set<String>?> getIncompatibleRomPaths(
+    bool Function() isCancelled,
+  ) async {
+    final db = await SqliteService.getDatabase();
+    final roms = await db.rawQuery('''
+      SELECT r.rom_path
+      FROM user_roms r
+      JOIN app_systems s ON s.id = r.app_system_id
+      WHERE CAST(s.ra_id AS INTEGER) > 0 AND LENGTH(r.ra_hash) = 32
+      ORDER BY r.rom_path
+    ''');
+    final incompatible = <String>{};
+    for (final (index, row) in roms.indexed) {
+      if (index % 32 == 0) await Future<void>.delayed(Duration.zero);
+      if (isCancelled()) return null;
+      final path = row['rom_path'] as String;
+      final status = (await getRomCompatibility(path)).status;
+      if (status == RaCompatibilityStatus.differentRomRequired ||
+          status == RaCompatibilityStatus.noAchievementSet) {
+        incompatible.add(path);
+      }
+    }
+    return incompatible;
+  }
+
   /// Title of the exact ROM dump in the local RetroAchievements catalogue.
   /// A manual or filename association alone cannot supply this title.
   static Future<({int id, String title})?> getVerifiedRomIdentity(

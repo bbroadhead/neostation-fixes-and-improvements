@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../repositories/retro_achievements_repository.dart';
+import '../repositories/collection_repository.dart';
 import 'global_notification_service.dart';
 import 'logger_service.dart';
 import 'retroachievements_hash_service.dart';
@@ -288,9 +289,30 @@ class RaLibraryMatchRunner {
       final cancelled =
           _pauseRequested || lookup.cancelled || (hashPass?.cancelled ?? false);
       final examined = lookup.total + (hashPass?.total ?? 0);
-      if (catalogueChanged) await onCatalogueChanged?.call();
+      var collectionChanged = false;
+      if (!cancelled && (runLookup || hashPass != null)) {
+        try {
+          final paths =
+              await RetroAchievementsRepository.getIncompatibleRomPaths(
+                () => _pauseRequested,
+              );
+          if (paths != null && !_pauseRequested) {
+            collectionChanged =
+                await CollectionRepository.updateRetroAchievementsIncompatible(
+                  paths,
+                );
+          }
+        } catch (error) {
+          _log.w(
+            'Could not update the RA incompatible collection: ${error.runtimeType}',
+          );
+        }
+      }
+      if (catalogueChanged || collectionChanged) {
+        await onCatalogueChanged?.call();
+      }
 
-      if (cancelled) {
+      if (cancelled || _pauseRequested) {
         _finish(
           title: strings.title,
           message: strings.paused.replaceFirst('{matched}', matched.toString()),
@@ -339,7 +361,7 @@ class RaLibraryMatchRunner {
         );
       }
 
-      return cancelled;
+      return cancelled || _pauseRequested;
     } catch (e, stackTrace) {
       _log.e(
         'Failed to re-match RetroAchievements: $e',

@@ -433,6 +433,9 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.raFixMatchUseAutomatic: 'Gunakan pencocokan otomatis',
   AppLocale.raFixMatchUpdated: 'Kecocokan game diperbarui.',
   AppLocale.raFixMatchAchievements: '{count} prestasi',
+  AppLocale.raSupportedFiles: 'Berkas gim yang didukung',
+  AppLocale.raSupportedFilesUnavailable:
+      'Hash gim yang didukung tidak tersedia',
   AppLocale.raHash: 'Hash RA',
   AppLocale.notifications: 'Notifikasi',
   AppLocale.clearAll: 'Hapus semua',

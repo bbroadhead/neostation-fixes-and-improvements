@@ -344,6 +344,48 @@ class RetroAchievementsService {
     );
   }
 
+  /// Returns the hashes linked to the identified game by RetroAchievements.
+  /// A null result means the data could not be retrieved.
+  static Future<List<({String hash, String name})>?> getSupportedGameFiles(
+    int gameId, {
+    required String apiKey,
+    http.Client? client,
+  }) {
+    final key = resolveApiKey(apiKey);
+    if (key.isEmpty) return Future.value(null);
+    final url = Uri.parse('$_baseUrl/API_GetGameHashes.php')
+        .replace(queryParameters: {'i': '$gameId', 'y': key});
+    const headers = {
+      'User-Agent': 'NeoStation/1.0',
+      'Accept': 'application/json',
+    };
+    return _fetchWithCache<List<({String hash, String name})>?>(
+      cacheKey: 'supported_game_files_$gameId',
+      send: () => client == null
+          ? http.get(url, headers: headers)
+          : client.get(url, headers: headers),
+      parse: (response) {
+        if (response is! Map || response['Results'] is! List) {
+          throw const FormatException('Invalid supported game files response');
+        }
+        final hashes = <String, String>{};
+        for (final entry in (response['Results'] as List).whereType<Map>()) {
+          final hash = entry['MD5'];
+          if (hash is! String || !RegExp(r'^[0-9a-fA-F]{32}$').hasMatch(hash)) {
+            continue;
+          }
+          final name = entry['Name'];
+          hashes[hash.toLowerCase()] = name is String ? name : '';
+        }
+        return [
+          for (final entry in hashes.entries)
+            (hash: entry.key, name: entry.value),
+        ];
+      },
+      onMiss: (_) => null,
+    );
+  }
+
   /// Retrieves public game metadata through the signed-in user's API key.
   static Future<Map<String, Object?>> getGameSummary(
     int gameId, {

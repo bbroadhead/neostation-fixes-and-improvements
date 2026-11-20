@@ -399,6 +399,8 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.raFixMatchUseAutomatic: '自動照合を使う',
   AppLocale.raFixMatchUpdated: 'ゲームの照合を更新しました。',
   AppLocale.raFixMatchAchievements: '実績 {count} 個',
+  AppLocale.raSupportedFiles: '対応ゲームファイル',
+  AppLocale.raSupportedFilesUnavailable: '対応するゲームのハッシュは取得できません',
   AppLocale.raHash: 'RA ハッシュ',
   AppLocale.notifications: '通知',
   AppLocale.clearAll: 'すべてクリア',

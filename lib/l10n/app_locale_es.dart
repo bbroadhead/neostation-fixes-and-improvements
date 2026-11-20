@@ -436,6 +436,9 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.raFixMatchUseAutomatic: 'Usar emparejamiento automático',
   AppLocale.raFixMatchUpdated: 'Emparejamiento actualizado.',
   AppLocale.raFixMatchAchievements: '{count} logros',
+  AppLocale.raSupportedFiles: 'Archivos de juego compatibles',
+  AppLocale.raSupportedFilesUnavailable:
+      'Los hashes de juego compatibles no están disponibles',
   AppLocale.raHash: 'Hash de RA',
   AppLocale.notifications: 'Notificaciones',
   AppLocale.clearAll: 'Borrar todo',

@@ -434,6 +434,9 @@ mixin AppLocale {
 
   /// Label for the RetroAchievements ROM hash shown on the achievements panel.
   static const String raHash = 'ra_hash';
+  static const String raSupportedFiles = 'ra_supported_files';
+  static const String raSupportedFilesUnavailable =
+      'ra_supported_files_unavailable';
 
   // ---------------------------------------------------------------------------
   // Notification center

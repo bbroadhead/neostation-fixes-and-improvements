@@ -440,6 +440,9 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.raFixMatchUseAutomatic: 'Utiliser l’association automatique',
   AppLocale.raFixMatchUpdated: 'Association mise à jour.',
   AppLocale.raFixMatchAchievements: '{count} succès',
+  AppLocale.raSupportedFiles: 'Fichiers de jeu pris en charge',
+  AppLocale.raSupportedFilesUnavailable:
+      'Les empreintes de jeu prises en charge sont indisponibles',
   AppLocale.raHash: 'Empreinte RA',
   AppLocale.notifications: 'Notifications',
   AppLocale.clearAll: 'Tout effacer',

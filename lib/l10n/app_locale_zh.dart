@@ -388,6 +388,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.raFixMatchUseAutomatic: '使用自动匹配',
   AppLocale.raFixMatchUpdated: '已更新游戏匹配。',
   AppLocale.raFixMatchAchievements: '{count} 个成就',
+  AppLocale.raSupportedFiles: '支持的游戏文件',
+  AppLocale.raSupportedFilesUnavailable: '无法获取受支持的游戏哈希',
   AppLocale.raHash: 'RA 哈希',
   AppLocale.notifications: '通知',
   AppLocale.clearAll: '清除全部',

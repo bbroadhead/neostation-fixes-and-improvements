@@ -437,6 +437,8 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.raFixMatchUseAutomatic: 'Использовать автоматическое сопоставление',
   AppLocale.raFixMatchUpdated: 'Сопоставление обновлено.',
   AppLocale.raFixMatchAchievements: 'достижений: {count}',
+  AppLocale.raSupportedFiles: 'Поддерживаемые файлы игры',
+  AppLocale.raSupportedFilesUnavailable: 'Поддерживаемые хеши игры недоступны',
   AppLocale.raHash: 'Хеш RA',
   AppLocale.notifications: 'Уведомления',
   AppLocale.clearAll: 'Очистить все',

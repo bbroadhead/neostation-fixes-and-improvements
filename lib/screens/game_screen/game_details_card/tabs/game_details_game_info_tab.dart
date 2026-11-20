@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -13,7 +14,8 @@ import '../../../../models/ra_compatibility.dart';
 import '../../../../providers/file_provider.dart';
 import '../../../../repositories/retro_achievements_repository.dart';
 import '../../../../services/ra_catalogue_service.dart';
-import '../../../../services/screenscraper_service.dart';
+import '../../../../services/retroachievements_hash_service.dart';
+import '../../../../services/retro_achievements_service.dart';
 import '../../../../themes/chrome_surface.dart';
 import '../../../../themes/corner_radii.dart';
 import '../../../../utils/game_utils.dart';
@@ -53,12 +55,40 @@ class GameDetailsGameInfoTab extends StatefulWidget {
 
 class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
   Future<RaCompatibility>? _compatibility;
+  Future<(String?, String)>? _romHash;
+  Future<List<({String hash, String name})>?>? _supportedFiles;
+
+  void _requestSupportedFiles(int gameId) {
+    setState(() => _supportedFiles = _loadSupportedFiles(gameId));
+  }
+
+  Future<List<({String hash, String name})>?> _loadSupportedFiles(
+    int gameId,
+  ) async {
+    final apiKey = await RetroAchievementsRepository.getRAApiKey();
+    if (apiKey == null) return null;
+    return RetroAchievementsService.getSupportedGameFiles(
+      gameId,
+      apiKey: apiKey,
+    );
+  }
 
   void _loadCompatibility() {
     final romPath = widget.game.romPath;
     _compatibility = romPath == null || widget.game.systemRaId == null
         ? null
         : RetroAchievementsRepository.getRomCompatibility(romPath);
+    _romHash = _compatibility == null ? null : _loadHash();
+    _supportedFiles = null;
+  }
+
+  Future<(String?, String)> _loadHash() async {
+    final game = widget.game;
+    final policy = await RetroAchievementsHashService.policyForSystem(
+      game.systemFolderName ?? widget.system.folderName,
+    );
+    final hash = await RetroAchievementsHashService.generateHashForGame(game);
+    return (hash, policy.algo.jsonName);
   }
 
   /// App language code -> the key the scraper files that language under.
@@ -241,7 +271,7 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
         description == AppLocale.noDescription.getString(context) ||
         description.trim().isEmpty;
 
-    final List<Widget> headerFacts = showScrapeView || widget.isScrapingGame
+    final List<Widget> headerFacts = widget.isScrapingGame
         ? const []
         : _buildHeaderFacts();
 
@@ -336,21 +366,7 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                 ),
               ),
 
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.all(8.r),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // While scraping, the card lays ScrapingProgressPanel over
-                      // this whole region — every tab gets the same feedback, so
-                      // this tab no longer draws its own copy.
-                      return showScrapeView
-                          ? _buildNonScrapedView()
-                          : _buildScrapedView();
-                    },
-                  ),
-                ),
-              ),
+              Expanded(child: _buildMetadata(showDescription: !showScrapeView)),
 
               _buildIdentityFooter(),
             ],
@@ -474,79 +490,6 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     );
   }
 
-  /// The "Incomplete Metadata" notice, scaled down to fit when it has to.
-  ///
-  /// Since the identity footer joined the panel, the room between the header
-  /// and the footer on a short landscape phone is less than the notice's
-  /// natural height. As a bare centred column it overflowed both ways and drew
-  /// its explanation straight across the game's name and filename; scaling it
-  /// down keeps every line of it readable and inside its own band.
-  ///
-  /// The [Center] stays: the panel's column hands this band a loose width, and
-  /// a bare [FittedBox] shrinks to the notice and sits against the left edge.
-  Widget _buildNonScrapedView() {
-    return Center(
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              AppLocale.incompleteMetadata.getString(context),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 20.r,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 12.r),
-            SizedBox(
-              width: 300.r,
-              child: Text(
-                AppLocale.scrapeToDownload.getString(context),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface
-                      .withValues(alpha: 0.7),
-                  fontSize: 12.r,
-                  height: 1.5,
-                ),
-              ),
-            ),
-            SizedBox(height: 32.r),
-            FutureBuilder<bool>(
-              future: ScreenScraperService.canScrapeArtwork(),
-              builder: (context, snapshot) {
-                if (widget.system.folderName == 'android-apps') {
-                  return Text(
-                    AppLocale.scrapingUnavailableAndroid.getString(context),
-                    style: TextStyle(fontSize: 10.r, color: Colors.grey),
-                  );
-                }
-                final hasCredentials = snapshot.data ?? false;
-                if (!hasCredentials) {
-                  return Text(
-                    AppLocale.loginToScrape.getString(context),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 10.r,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  );
-                }
-
-                return const SizedBox.shrink();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Height of the header's fact strip. Fixed, because the marquee inside it
-  /// needs a bounded box to measure its overflow against.
   double get _headerFactsHeight => 16.r;
 
   /// The scraped facts, in the order they are read.
@@ -583,52 +526,150 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     ];
   }
 
-  /// The description pane.
-  ///
-  /// It used to scroll itself on a timer, which meant the text was moving
-  /// under the reader and there was no way to hold it still or go back a
-  /// paragraph. It stays put now: a finger drags it, and the D-pad steps it
-  /// once the panel has been activated.
-  Widget _buildDescription(String text) {
-    return SingleChildScrollView(
-      controller: _descriptionController,
-      physics: const BouncingScrollPhysics(),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-          fontSize: 11.r,
-          height: 1.6,
-        ),
-      ),
+  Widget _buildSupportedFiles() {
+    return FutureBuilder<RaCompatibility>(
+      future: _compatibility,
+      builder: (context, snapshot) {
+        final result = snapshot.data;
+        if (snapshot.connectionState != ConnectionState.done ||
+            result == null ||
+            result.status == RaCompatibilityStatus.supported) {
+          return const SizedBox.shrink();
+        }
+        final gameId = result.gameId;
+        if (gameId == null) {
+          return Text(AppLocale.raSupportedFilesUnavailable.getString(context));
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextButton(
+              onPressed: () => _requestSupportedFiles(gameId),
+              child: Text(
+                '${AppLocale.raSupportedFiles.getString(context)} · #$gameId',
+              ),
+            ),
+            if (_supportedFiles != null)
+              FutureBuilder<List<({String hash, String name})>?>(
+                future: _supportedFiles,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const LinearProgressIndicator();
+                  }
+                  final files = snapshot.data;
+                  if (files == null || files.isEmpty) {
+                    return Text(
+                      AppLocale.raSupportedFilesUnavailable.getString(context),
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final file in files)
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: SelectableText(file.hash),
+                          subtitle: file.name.isEmpty ? null : Text(file.name),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.copy),
+                            tooltip: file.hash,
+                            onPressed: () => Clipboard.setData(
+                              ClipboardData(text: file.hash),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildScrapedView() {
-    final descriptions = widget.game.descriptions;
-
-    if (descriptions == null || descriptions.isEmpty) {
-      return Padding(
-        padding: EdgeInsets.all(12.r),
-        child: _buildDescription(
-          GameUtils.cleanupDescription(widget.description),
-        ),
-      );
-    }
-
-    // One language, resolved from the app's. The strip of chips that used to
-    // sit under this text is gone with it: it offered a choice the user had
-    // already made in Settings, and it cost the description a band of height
-    // on every game that happened to be scraped more than once.
-    final activeDesc = widget.game.getDescriptionForLanguage(
+  Widget _buildMetadata({required bool showDescription}) {
+    final game = widget.game;
+    final theme = Theme.of(context);
+    final description = game.getDescriptionForLanguage(
       _descriptionLanguage(context),
     );
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12.r),
-      child: _buildDescription(
-        GameUtils.cleanupDescription(
-          activeDesc.isNotEmpty ? activeDesc : widget.description,
+    final path = game.romPath;
+    final lastPlayed = game.lastPlayed;
+    final playTime = game.playTime;
+    final romHash = _romHash;
+    Widget label(String key) => Text(
+      key.getString(context),
+      style: TextStyle(fontSize: 12.r, fontWeight: FontWeight.bold),
+    );
+    return SingleChildScrollView(
+      controller: _descriptionController,
+      padding: EdgeInsets.symmetric(horizontal: 12.r, vertical: 4.r),
+      child: DefaultTextStyle(
+        style: TextStyle(
+          fontSize: 11.r,
+          height: 1.45,
+          color: theme.colorScheme.onSurface,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            label(AppLocale.gameInfo),
+            Text(game.systemRealName ?? widget.system.realName),
+            if (game.titleName case final String internalTitle
+                when internalTitle.isNotEmpty && internalTitle != game.name)
+              Text(internalTitle),
+            if (showDescription)
+              Text(
+                GameUtils.cleanupDescription(
+                  description.isNotEmpty ? description : widget.description,
+                ),
+              ),
+            if (path != null && path.isNotEmpty) ...[
+              SizedBox(height: 8.r),
+              label(AppLocale.romsLabel),
+              SelectableText(path, style: TextStyle(fontSize: 11.r)),
+            ],
+            if (romHash != null)
+              FutureBuilder<(String?, String)>(
+                future: romHash,
+                builder: (context, snapshot) {
+                  final (hash, algorithm) = snapshot.data ?? (null, '');
+                  if (hash == null) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 8.r),
+                      label(AppLocale.raMatchNotificationTitle),
+                      SelectableText(
+                        'MD5 · $algorithm\n$hash',
+                        style: TextStyle(fontSize: 11.r),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.copy),
+                        tooltip: hash,
+                        onPressed: () =>
+                            Clipboard.setData(ClipboardData(text: hash)),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            if (_compatibility != null) _buildSupportedFiles(),
+            if (game.isFavorite == true) label(AppLocale.favorite),
+            if (lastPlayed != null) ...[
+              label(AppLocale.lastPlayed),
+              Text(
+                MaterialLocalizations.of(context)
+                    .formatMediumDate(lastPlayed.toLocal()),
+              ),
+            ],
+            if (playTime != null && playTime > 0) ...[
+              label(AppLocale.playTime),
+              Text(GameUtils.formatPlayTime(playTime)),
+            ],
+          ],
         ),
       ),
     );

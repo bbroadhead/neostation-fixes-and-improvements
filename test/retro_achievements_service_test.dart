@@ -14,6 +14,45 @@ void main() {
   SharedPreferences.setMockInitialValues({});
 
   group('RetroAchievementsService', () {
+    test(
+      'retrieves only valid supported hashes and preserves release names',
+      () async {
+        final cache = await Directory.systemTemp.createTemp('ra-files-test');
+        RetroAchievementsCache.setDirectoryForTesting(cache.path);
+        addTearDown(() async {
+          RetroAchievementsCache.setDirectoryForTesting(null);
+          await cache.delete(recursive: true);
+        });
+        final client = MockClient((request) async {
+          expect(request.url.path, '/API/API_GetGameHashes.php');
+          expect(request.url.queryParameters, {'i': '42', 'y': 'test-key'});
+          return http.Response(
+            '{"Results":[{"MD5":"invalid"},{"MD5":"1BC674BE034E43C96B86487AC69D9293",'
+            '"Name":"Game (Europe) (Rev 1).md"}]}',
+            200,
+          );
+        });
+        final files = await RetroAchievementsService.getSupportedGameFiles(
+          42,
+          apiKey: 'test-key',
+          client: client,
+        );
+        expect(files, [
+          (
+            hash: '1bc674be034e43c96b86487ac69d9293',
+            name: 'Game (Europe) (Rev 1).md',
+          ),
+        ]);
+        expect(
+          await RetroAchievementsService.getSupportedGameFiles(
+            42,
+            apiKey: 'test-key',
+            client: MockClient((_) async => http.Response('', 503)),
+          ),
+          files,
+        );
+      },
+    );
     test('artwork uses documented categories and sends credentials only to the API', () async {
       final cache = await Directory.systemTemp.createTemp('ra-artwork-test');
       RetroAchievementsCache.setDirectoryForTesting(cache.path);

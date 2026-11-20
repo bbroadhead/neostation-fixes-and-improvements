@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/data/datasources/sqlite_service.dart';
+import 'package:neostation/data/datasources/sqlite_migrations.dart';
 import 'package:neostation/models/ra_hash_policy.dart';
 import 'package:neostation/models/ra_compatibility.dart';
 import 'package:neostation/repositories/retro_achievements_repository.dart';
+import 'package:neostation/repositories/collection_repository.dart';
 
 import 'database_test_helper.dart';
 
@@ -69,6 +71,78 @@ void main() {
       ''');
         expect((await classify()).status, RaCompatibilityStatus.unknown);
         expect(await RetroAchievementsRepository.getManualRomRaGameId(rom), 99);
+      },
+    );
+
+    test(
+      'regenerates incompatibility membership without editing user collections',
+      () async {
+        await db.execute(SqliteMigrations.createUserCollectionsTableSql);
+        await db.execute(SqliteMigrations.createUserCollectionItemsTableSql);
+        const supported = '11111111111111111111111111111111';
+        const noSet = '22222222222222222222222222222222';
+        const mismatch = '33333333333333333333333333333333';
+        const needsOther = '/roms/nes/Zelda.nes';
+        const withoutSet = '/roms/nes/Other.nes';
+        const unverified = '/roms/nes/Unknown.nes';
+        await db.execute(
+          '''
+        INSERT INTO app_ra_game_list (game_id, title, console_id, hash, num_achievements)
+        VALUES (42, 'Zelda', '7', ?, 23), (43, 'Other', '7', ?, 0)
+      ''',
+          [supported, noSet],
+        );
+        await db.execute(
+          '''
+        INSERT INTO app_ra_catalogue_sync (console_id, refreshed_at, match_pending)
+        VALUES (7, ?, 0)
+      ''',
+          [DateTime.now().toUtc().toIso8601String()],
+        );
+        for (final (name, path, hash) in [
+          ('Zelda.nes', needsOther, mismatch),
+          ('Other.nes', withoutSet, noSet),
+          ('Unknown.nes', unverified, mismatch),
+        ]) {
+          await db.execute(
+            '''
+          INSERT INTO user_roms (filename, rom_path, app_system_id, ra_hash)
+          VALUES (?, ?, 'nes', ?)
+        ''',
+            [name, path, hash],
+          );
+        }
+        const id = CollectionRepository.retroAchievementsIncompatibleId;
+        await CollectionRepository.insertCollection(
+          id: 'user',
+          name: 'RetroAchievements Incompatible',
+        );
+        await CollectionRepository.addRomToCollection('user', unverified);
+
+        Future<bool> update() async =>
+            CollectionRepository.updateRetroAchievementsIncompatible(
+              (await RetroAchievementsRepository.getIncompatibleRomPaths(
+                () => false,
+              ))!,
+            );
+        expect(await update(), isTrue);
+        var members = await CollectionRepository.getMemberPathsByCollection();
+        expect(members[id], {needsOther, withoutSet});
+        expect(members['user'], {unverified});
+        expect(await update(), isFalse);
+
+        await RetroAchievementsRepository.updateRomRaHash(
+          needsOther,
+          supported,
+        );
+        expect(await update(), isTrue);
+        members = await CollectionRepository.getMemberPathsByCollection();
+        expect(members[id], {withoutSet});
+        expect(members['user'], {unverified});
+        expect(
+          await RetroAchievementsRepository.getIncompatibleRomPaths(() => true),
+          isNull,
+        );
       },
     );
 

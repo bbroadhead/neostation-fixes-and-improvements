@@ -398,6 +398,8 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.raFixMatchUseAutomatic: '자동 매칭 사용',
   AppLocale.raFixMatchUpdated: '게임 매칭을 업데이트했습니다.',
   AppLocale.raFixMatchAchievements: '업적 {count}개',
+  AppLocale.raSupportedFiles: '지원되는 게임 파일',
+  AppLocale.raSupportedFilesUnavailable: '지원되는 게임 해시를 가져올 수 없습니다',
   AppLocale.raHash: 'RA 해시',
   AppLocale.notifications: '알림',
   AppLocale.clearAll: '모두 지우기',

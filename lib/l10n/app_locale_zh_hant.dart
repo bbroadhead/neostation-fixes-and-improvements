@@ -388,6 +388,8 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.raFixMatchUseAutomatic: '使用自動比對',
   AppLocale.raFixMatchUpdated: '已更新遊戲比對。',
   AppLocale.raFixMatchAchievements: '{count} 個成就',
+  AppLocale.raSupportedFiles: '支援的遊戲檔案',
+  AppLocale.raSupportedFilesUnavailable: '無法取得受支援的遊戲雜湊',
   AppLocale.raHash: 'RA 雜湊',
   AppLocale.notifications: '通知',
   AppLocale.clearAll: '清除全部',
