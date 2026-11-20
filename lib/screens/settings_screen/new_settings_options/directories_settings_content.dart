@@ -1,6 +1,10 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as paths;
+import 'package:neostation/models/system_model.dart';
+import 'package:neostation/providers/sqlite_database_provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localization/flutter_localization.dart';
@@ -10,6 +14,8 @@ import 'package:neostation/widgets/confirm_action_dialog.dart';
 import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/services/esde_import_service.dart';
+import 'package:neostation/services/gamepad/gamepad_navigation_manager.dart';
+import 'package:neostation/utils/gamepad_nav.dart';
 import 'package:neostation/services/global_notification_service.dart';
 import 'package:neostation/repositories/config_repository.dart';
 import 'package:neostation/services/config_service.dart';
@@ -141,6 +147,17 @@ class DirectoriesSettingsContentState
       'action': 'add_rom',
     });
 
+    if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+      _directoryItems.addAll([
+        {'title': AppLocale.scanOneRom, 'subtitle': '', 'action': 'scan_file'},
+        {
+          'title': AppLocale.scanRomDirectory,
+          'subtitle': '',
+          'action': 'scan_folder',
+        },
+      ]);
+    }
+
     // 3..n+2: Individual ROM folders (removable)
     for (final path in _currentRomFolders) {
       _directoryItems.add({
@@ -232,6 +249,13 @@ class DirectoriesSettingsContentState
       case 'add_rom':
         await _selectRomFolder();
         break;
+      case 'scan_file':
+      case 'scan_folder':
+        await _importRomSelection(
+          configProvider,
+          folder: action == 'scan_folder',
+        );
+        break;
       case 'remove_rom':
         await _removeRomFolder(item['path'] as String);
         break;
@@ -244,6 +268,109 @@ class DirectoriesSettingsContentState
       case 'esde_reset':
         await _resetEsdeImport();
         break;
+    }
+  }
+
+  Future<void> _importRomSelection(
+    SqliteConfigProvider provider, {
+    required bool folder,
+  }) async {
+    if (_addingRomFolder || provider.isScanning || provider.isSilentScanning) {
+      return;
+    }
+    _addingRomFolder = true;
+    try {
+      final extensions = provider.availableSystems
+          .expand((system) => system.extensions)
+          .map((extension) => extension.toLowerCase())
+          .toSet()
+          .toList();
+      final selection = folder
+          ? await TvDirectoryPicker.pickDirectory(context)
+          : Platform.isLinux
+          ? await TvDirectoryPicker.showFilePicker(
+              context,
+              extensions: extensions,
+            )
+          : (await FilePicker.pickFile(
+              type: FileType.custom,
+              allowedExtensions: extensions,
+            ))?.path;
+      if (!mounted || selection == null) return;
+      final extension = paths
+          .extension(selection)
+          .toLowerCase()
+          .replaceFirst('.', '');
+      final systems =
+          provider.availableSystems
+              .where(
+                (system) =>
+                    system.extensions.isNotEmpty &&
+                    (folder ||
+                        system.extensions.any(
+                          (value) => value.toLowerCase() == extension,
+                        )),
+              )
+              .toList()
+            ..sort(
+              (a, b) =>
+                  a.realName.toLowerCase().compareTo(b.realName.toLowerCase()),
+            );
+      final folderParts = paths
+          .split(folder ? selection : paths.dirname(selection))
+          .map((part) => part.toLowerCase())
+          .toSet();
+      final inferred = systems
+          .where(
+            (system) => [
+              system.folderName,
+              ...system.folders,
+            ].any((alias) => folderParts.contains(alias.toLowerCase())),
+          )
+          .toList();
+      final SystemModel? system;
+      if (systems.isEmpty) {
+        AppNotification.showNotification(
+          context,
+          AppLocale.noGamesAvailable.getString(context),
+          type: NotificationType.info,
+        );
+        return;
+      } else if (systems.length == 1 || inferred.length == 1) {
+        system = systems.length == 1 ? systems.single : inferred.single;
+      } else {
+        system = await showDialog<SystemModel>(
+          context: context,
+          builder: (_) => _RomImportSystemDialog(systems: systems),
+        );
+      }
+      if (!mounted || system == null) return;
+      final database = context.read<SqliteDatabaseProvider>();
+      final added = await provider.importRomSelection(
+        system,
+        selection,
+        folder: folder,
+      );
+      if (added > 0) await database.refresh();
+      if (!mounted) return;
+      AppNotification.showNotification(
+        context,
+        AppLocale.gamesCount
+            .getString(context)
+            .replaceFirst('{count}', '$added'),
+        type: NotificationType.info,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      AppNotification.showNotification(
+        context,
+        AppLocale.errorScanningSystem
+            .getString(context)
+            .replaceFirst('{error}', error.runtimeType.toString()),
+        type: NotificationType.error,
+      );
+    } finally {
+      _addingRomFolder = false;
     }
   }
 
@@ -1290,6 +1417,9 @@ class DirectoriesSettingsContentState
         return Symbols.folder_special_rounded;
       case 'rescan':
         return Symbols.refresh_rounded;
+      case 'scan_file':
+        return Symbols.insert_drive_file_rounded;
+      case 'scan_folder':
       case 'add_rom':
         return Symbols.folder_rounded;
       case 'remove_rom':
@@ -1445,6 +1575,93 @@ class DirectoriesSettingsContentState
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RomImportSystemDialog extends StatefulWidget {
+  const _RomImportSystemDialog({required this.systems});
+
+  final List<SystemModel> systems;
+
+  @override
+  State<_RomImportSystemDialog> createState() => _RomImportSystemDialogState();
+}
+
+class _RomImportSystemDialogState extends State<_RomImportSystemDialog> {
+  late final _layer = 'rom_import_system#${identityHashCode(this)}';
+  late final GamepadNavigation _navigation;
+  final _controller = ScrollController();
+  static const _rowHeight = 48.0;
+  int _selected = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _navigation = GamepadNavigation(
+      onNavigateUp: () => _move(-1),
+      onNavigateDown: () => _move(1),
+      onSelectItem: () => Navigator.of(context).pop(widget.systems[_selected]),
+      onBack: () => Navigator.of(context).pop(),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _navigation.initialize();
+      GamepadNavigationManager.pushLayer(
+        _layer,
+        onActivate: _navigation.activate,
+        onDeactivate: _navigation.deactivate,
+      );
+    });
+  }
+
+  void _move(int step) {
+    setState(() => _selected = (_selected + step) % widget.systems.length);
+    if (!_controller.hasClients) return;
+    final position = _controller.position;
+    final top = _selected * _rowHeight;
+    if (top < position.pixels) {
+      _controller.jumpTo(top);
+    } else if (top + _rowHeight >
+        position.pixels + position.viewportDimension) {
+      _controller.jumpTo(
+        (top + _rowHeight - position.viewportDimension).clamp(
+          0,
+          position.maxScrollExtent,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    GamepadNavigationManager.popLayer(_layer);
+    _navigation.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(AppLocale.scanRomSystem.getString(context)),
+      content: SizedBox(
+        width: 360.r,
+        height: 240.r,
+        child: ListView.builder(
+          controller: _controller,
+          itemExtent: _rowHeight,
+          itemCount: widget.systems.length,
+          itemBuilder: (context, index) {
+            final system = widget.systems[index];
+            return ListTile(
+              title: Text(system.realName),
+              selected: index == _selected,
+              onTap: () => Navigator.of(context).pop(system),
+            );
+          },
+        ),
       ),
     );
   }

@@ -1176,6 +1176,9 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.systemsUpdateSyncing: 'Синхронизация базы данных систем...',
   AppLocale.waitingForRomStorage: 'Ожидание хранилища ROM ({attempt}/{max})...',
   AppLocale.updatingSystemsList: 'Обновление списка систем...',
+  AppLocale.scanOneRom: 'Сканировать ROM',
+  AppLocale.scanRomDirectory: 'Сканировать папку ROM',
+  AppLocale.scanRomSystem: 'Выбрать систему',
   AppLocale.romsScanned: 'ROM просканированы',
   AppLocale.errorScanningRoms: 'Ошибка при сканировании ROM',
   AppLocale.romStorageNotReady:

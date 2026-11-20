@@ -1180,6 +1180,9 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.waitingForRomStorage:
       'Menunggu penyimpanan ROM ({attempt}/{max})...',
   AppLocale.updatingSystemsList: 'Memperbarui daftar sistem...',
+  AppLocale.scanOneRom: 'Pindai ROM',
+  AppLocale.scanRomDirectory: 'Pindai folder ROM',
+  AppLocale.scanRomSystem: 'Pilih sistem',
   AppLocale.romsScanned: 'ROM selesai dipindai',
   AppLocale.errorScanningRoms: 'Kesalahan saat memindai ROM',
   AppLocale.romStorageNotReady:

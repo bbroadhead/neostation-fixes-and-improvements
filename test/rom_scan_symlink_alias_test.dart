@@ -66,6 +66,43 @@ void main() {
   }
 
   group('ROM scan across symlinked alias folders', () {
+    test(
+      'targeted file and folder imports survive another library scan',
+      () async {
+        final root = await createAliasedRomTree(['Regular.rvz']);
+        final extra = await Directory.systemTemp.createTemp('targeted_roms_');
+        addTearDown(() => extra.delete(recursive: true));
+        final solo = File('${extra.path}/Solo.rvz')..writeAsStringSync('solo');
+        final folder = Directory('${extra.path}/extras')..createSync();
+        File('${folder.path}/Another.rvz').writeAsStringSync('another');
+
+        expect(
+          await SqliteDatabaseService.importRomSelection(
+            gcSystem,
+            solo.path,
+            folder: false,
+            ignoreHiddenFiles: true,
+          ),
+          1,
+        );
+        expect(
+          await SqliteDatabaseService.importRomSelection(
+            gcSystem,
+            folder.path,
+            folder: true,
+            ignoreHiddenFiles: true,
+          ),
+          1,
+        );
+
+        await SqliteDatabaseService.scanSystemRoms(gcSystem, [root.path]);
+        expect(
+          (await romRows()).map((row) => row['filename']),
+          unorderedEquals(['Regular.rvz', 'Solo.rvz', 'Another.rvz']),
+        );
+      },
+    );
+
     test('stores one row per physical file, at the real path', () async {
       final root = await createAliasedRomTree(['18 Wheeler.rvz']);
 

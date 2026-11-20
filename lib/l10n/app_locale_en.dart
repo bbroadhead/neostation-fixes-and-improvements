@@ -1170,6 +1170,9 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.waitingForRomStorage:
       'Waiting for ROM storage ({attempt}/{max})...',
   AppLocale.updatingSystemsList: 'Updating systems list...',
+  AppLocale.scanOneRom: 'Scan a ROM',
+  AppLocale.scanRomDirectory: 'Scan a folder of ROMs',
+  AppLocale.scanRomSystem: 'Select a system',
   AppLocale.romsScanned: 'ROMs scanned',
   AppLocale.errorScanningRoms: 'Error scanning ROMs',
   AppLocale.romStorageNotReady:

@@ -1413,6 +1413,38 @@ extension SqliteConfigScanning on SqliteConfigProvider {
     }
   }
 
+  Future<int> importRomSelection(
+    SystemModel system,
+    String selection, {
+    required bool folder,
+  }) async {
+    if (_isScanning || _isSilentScanning) return 0;
+    _setScanning(true);
+    try {
+      final added = await SqliteDatabaseService.importRomSelection(
+        system,
+        selection,
+        folder: folder,
+        ignoreHiddenFiles: _config.ignoreHiddenFiles,
+      );
+      if (added > 0) {
+        await SystemRepository.addDetectedSystem(system.id!, system.folderName);
+        final all = await SystemRepository.getSystemByFolderName(
+          SystemFolderNames.all,
+        );
+        if (all?.id case final String id) {
+          await SystemRepository.addDetectedSystem(id, SystemFolderNames.all);
+        }
+        await _loadDetectedSystems();
+        _notify();
+      }
+      return added;
+    } finally {
+      _scanCompleted = true;
+      _setScanning(false);
+    }
+  }
+
   /// Public method to refresh detected systems from the database.
   ///
   /// Called after external changes (e.g., toggling a favorite) that may affect

@@ -15,6 +15,7 @@ import 'dart:isolate';
 import 'dart:convert';
 
 import 'package:path/path.dart' as path;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
@@ -153,6 +154,75 @@ class SqliteDatabaseService {
         systemName: system.realName,
       );
     });
+  }
+
+  static const _directImportsKey = 'direct_rom_import_paths';
+
+  /// Indexes only the selected desktop file or directory.
+  static Future<int> importRomSelection(
+    SystemModel system,
+    String selection, {
+    required bool folder,
+    required bool ignoreHiddenFiles,
+  }) async {
+    final id = system.id;
+    if (id == null) return 0;
+    final extensions = (await SqliteService.getExtensionsForSystem(id))
+        .map((extension) => extension.toLowerCase())
+        .toSet();
+    final List<RomEntry> entries;
+    if (folder) {
+      entries = system.folderName == 'ps3'
+          ? await scanPs3Path(
+              selection,
+              extensions,
+              true,
+              ignoreHiddenFiles: ignoreHiddenFiles,
+            )
+          : await scanStandardPath(
+              selection,
+              extensions,
+              true,
+              ignoreHiddenFiles: ignoreHiddenFiles,
+            );
+    } else {
+      final file = File(selection);
+      final extension = path.extension(selection).toLowerCase();
+      if (!extensions.contains(extension.replaceFirst('.', '')) ||
+          !await file.exists()) {
+        return 0;
+      }
+      entries = [
+        RomEntry(
+          path: file.path,
+          filename: path.basename(file.path),
+          size: await file.length(),
+        ),
+      ];
+    }
+
+    final playable = extensions.contains('m3u')
+        ? await _filterM3uReferencedFiles(entries, false)
+        : entries;
+    if (playable.isEmpty) return 0;
+    final existing = await (await SqliteService.getDatabase()).rawQuery(
+      'SELECT rom_path FROM user_roms WHERE app_system_id = ?',
+      [id],
+    );
+    final duplicates = await _findNewDuplicatePaths(
+      playable,
+      existing.map((row) => row['rom_path'] as String).toSet(),
+    );
+    final candidates = _filterDeduplicatedRoms(playable)
+        .where((entry) => !duplicates.contains(entry.path))
+        .toList();
+    final prefs = await SharedPreferences.getInstance();
+    final registered = (prefs.getStringList(_directImportsKey) ?? []).toSet();
+    final before = await SqliteService.getRomCountForSystem(id);
+    await _batchInsertRoms(system.folderName, candidates);
+    registered.addAll(candidates.map((rom) => rom.path));
+    await prefs.setStringList(_directImportsKey, registered.toList());
+    return (await SqliteService.getRomCountForSystem(id)) - before;
   }
 
   /// Orchestrates the physical directory scan and database synchronization logic.
@@ -905,11 +975,14 @@ class SqliteDatabaseService {
         return (removed: 0, knownPaths: <String>{});
       }
 
+      final prefs = await SharedPreferences.getInstance();
+      final directImports = (prefs.getStringList(_directImportsKey) ?? [])
+          .toSet();
       final knownPaths = <String>{};
       final romsToDelete = <String>[];
       for (final rom in existingRoms) {
         final path = rom['rom_path'].toString();
-        if (existingRomPaths.contains(path)) {
+        if (existingRomPaths.contains(path) || directImports.contains(path)) {
           knownPaths.add(path);
         } else if (!offlineRoots.any((root) => isRomPathUnder(path, root))) {
           romsToDelete.add(path);
