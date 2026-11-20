@@ -209,6 +209,14 @@ gameplay, title-screen, and icon artwork for the verified ROM hash, independent
 of the query. This identity check keeps a similarly named game's media from
 being attached automatically.
 
+For SteamGridDB, set the runtime environment variable
+`STEAMGRIDDB_API_KEY` for the NeoStation process. Local artwork builds try
+SteamGridDB, then hash-verified RetroAchievements artwork, then Libretro for
+each missing category. SteamGridDB supplies portrait covers, backgrounds,
+logos, and icons. The existing ScreenScraper workflow remains available
+through its usual settings. Gallery selections and new automatic assignments
+record the source and category in a provenance file tied to the image bytes.
+
 ### RetroAchievements compatibility
 
 Game Details shows a compatibility label for ROMs on mapped systems. The

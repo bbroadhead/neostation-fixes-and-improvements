@@ -204,17 +204,16 @@ class _ArtworkGalleryDialogState extends State<ArtworkGalleryDialog> {
     _revealSelection();
   }
 
-  String _providerName(ArtworkProvider? provider) => switch (provider) {
-    ArtworkProvider.retroAchievements => 'RetroAchievements',
-    ArtworkProvider.libretro => 'Libretro',
-    null => AppLocale.allContent.getString(context),
-  };
+  String _providerName(ArtworkProvider? provider) =>
+      provider?.displayName ?? AppLocale.allContent.getString(context);
 
   String _category(String category) => switch (category) {
     '' => AppLocale.allContent.getString(context),
     'box2d' => AppLocale.boxart.getString(context),
     'screenshots' => AppLocale.screenshot.getString(context),
     'icons' => AppLocale.galleryGameIcon.getString(context),
+    'wheels' => AppLocale.wheel.getString(context),
+    'fanarts' => AppLocale.fanart.getString(context),
     _ => AppLocale.libretroTitleScreen.getString(context),
   };
 

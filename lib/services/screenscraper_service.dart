@@ -14,6 +14,8 @@ import 'retro_achievements_service.dart';
 import 'retroachievements_hash_service.dart';
 import 'rom_fingerprint_service.dart';
 import 'libretro_thumbnail_service.dart';
+import 'steam_grid_db_artwork_service.dart';
+import '../models/artwork_preview.dart';
 import 'libretro_metadata_service.dart';
 import 'screenscraper/region_config.dart';
 import 'screenscraper/rom_hasher.dart';
@@ -918,6 +920,88 @@ class ScreenScraperService {
     return fields;
   }
 
+  static Future<bool> _scrapeRomArtwork({
+    required String appSystemId,
+    required String systemFolder,
+    required String romName,
+    required String romPath,
+    required String? gameName,
+    required String? searchTitle,
+    bool forceOverwrite = false,
+    bool Function()? shouldCancel,
+    void Function(double)? onProgress,
+  }) async {
+    final cleanTitle = await ScreenscraperRomHasher.getCleanRomName(
+      romName,
+      appSystemId,
+    );
+    final steam = SteamGridDbArtworkService(
+      searchTitle ??
+          (gameName?.trim().isNotEmpty == true ? gameName! : cleanTitle),
+      shouldCancel: shouldCancel,
+    );
+    Future<List<ArtworkPreview>>? verifiedArtwork;
+    Stream<ArtworkPreview> preferred(String category) async* {
+      yield* Stream.fromIterable(await steam.inCategory(category));
+      if (!const {
+            'box2d',
+            'screenshots',
+            'title_screens',
+            'icons',
+          }.contains(category) ||
+          (shouldCancel?.call() ?? false)) {
+        return;
+      }
+      final images = await (verifiedArtwork ??= _verifiedRaArtwork(
+        romPath,
+        shouldCancel,
+      ));
+      yield* Stream.fromIterable(
+        images.where((image) => image.category == category),
+      );
+    }
+
+    return LibretroThumbnailService.download(
+      appSystemId: appSystemId,
+      systemFolder: systemFolder,
+      romName: romName,
+      romPath: romPath,
+      gameName: gameName,
+      searchTitle: searchTitle,
+      enabledMediaTypes: [
+        ...await ScraperRepository.getEnabledMediaTypes(),
+        LibretroThumbnailService.titleScreens,
+        'icons',
+      ],
+      forceOverwrite: forceOverwrite,
+      shouldCancel: shouldCancel,
+      onProgress: onProgress,
+      preferred: preferred,
+    );
+  }
+
+  static Future<List<ArtworkPreview>> _verifiedRaArtwork(
+    String romPath,
+    bool Function()? shouldCancel,
+  ) async {
+    try {
+      final identity = await RetroAchievementsRepository.getVerifiedRomIdentity(
+        romPath,
+      );
+      if (identity == null || (shouldCancel?.call() ?? false)) return [];
+      final key = await RetroAchievementsRepository.getRAApiKey();
+      if (key == null || key.trim().isEmpty) return [];
+      return await RetroAchievementsService.getArtworkPreviews(
+        identity.id,
+        apiKey: key,
+        shouldCancel: shouldCancel,
+      );
+    } catch (error) {
+      _log.w('RetroAchievements artwork lookup failed (${error.runtimeType})');
+      return [];
+    }
+  }
+
   /// Scrapes a single game by its filename and updates its local state.
   static Future<Map<String, dynamic>> scrapeSingleGame({
     required String appSystemId,
@@ -933,25 +1017,14 @@ class ScreenScraperService {
       final searchTitle = await ScraperRepository.getSearchTitle(romPath);
       if (usesLibretroArtwork && !useScreenScraper) {
         final verifiedMetadata = await _verifiedRaMetadata(romPath);
-        if (!LibretroThumbnailService.supportsSystem(appSystemId) &&
-            verifiedMetadata.isEmpty) {
-          return {
-            'success': false,
-            'message': AppLocale.scrapeMediaDownloadsFailed,
-          };
-        }
         onProgress?.call(AppLocale.downloadingImages, 0.1);
-        final available = await LibretroThumbnailService.download(
+        final available = await _scrapeRomArtwork(
           appSystemId: appSystemId,
           systemFolder: systemFolder,
           romName: romName,
           romPath: romPath,
           gameName: (verifiedMetadata['real_name'] as String?) ?? gameName,
           searchTitle: searchTitle,
-          enabledMediaTypes: [
-            ...await ScraperRepository.getEnabledMediaTypes(),
-            LibretroThumbnailService.titleScreens,
-          ],
           forceOverwrite: forceOverwrite,
           onProgress: (progress) => onProgress?.call(
             AppLocale.downloadingImages,
@@ -1499,7 +1572,7 @@ class ScreenScraperService {
           currentStep: ThreadProcessingStep.downloadingImages,
           progress: 0.5,
         );
-        final artwork = await LibretroThumbnailService.download(
+        final artwork = await _scrapeRomArtwork(
           appSystemId: appSystemId,
           systemFolder: systemFolder,
           romName: filename,
@@ -1509,11 +1582,6 @@ class ScreenScraperService {
               rom['real_name']?.toString() ??
               titleName,
           searchTitle: searchTitle,
-          enabledMediaTypes: const [
-            'box2D',
-            'ss',
-            LibretroThumbnailService.titleScreens,
-          ],
           shouldCancel: shouldCancel,
         );
         final cancelled = shouldCancel?.call() ?? false;

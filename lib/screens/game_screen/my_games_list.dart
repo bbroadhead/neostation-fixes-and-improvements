@@ -1,3 +1,5 @@
+import 'package:neostation/services/artwork_assignment_service.dart';
+import 'package:neostation/services/steam_grid_db_artwork_service.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
@@ -35,7 +37,6 @@ import '../../services/retro_achievements_service.dart';
 import '../../services/screenscraper_service.dart';
 import '../../services/secondary_achievements_controller.dart';
 import '../../utils/gamepad_nav.dart';
-import '../../utils/atomic_file_writer.dart';
 import '../../utils/performance_mode.dart';
 import '../../utils/letter_jump.dart';
 import '../../providers/file_provider.dart';
@@ -2285,7 +2286,13 @@ class _SystemGamesListState extends State<SystemGamesList> {
                   romPath,
                 );
             if (cancelled()) return [];
+            final steam = SteamGridDbArtworkService(
+              title == detectedTitle ? verified?.title ?? game.name : title,
+              shouldCancel: cancelled,
+            );
             final results = await Future.wait([
+              for (final category in SteamGridDbArtworkService.endpoints.keys)
+                steam.inCategory(category),
               if (verified != null) _loadRaArtwork(verified.id, cancelled),
               LibretroThumbnailService.gallery(
                 appSystemId: systemId,
@@ -2308,7 +2315,11 @@ class _SystemGamesListState extends State<SystemGamesList> {
             _fileProvider,
           );
           if (target == null) continue;
-          await writeFileAtomically(File(target), image.bytes);
+          await ArtworkAssignmentService.save(
+            File(target),
+            image,
+            manual: true,
+          );
           targets.add(target);
         }
       } finally {

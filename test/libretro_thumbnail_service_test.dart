@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crypto/crypto.dart';
+import 'package:neostation/models/artwork_preview.dart';
+import 'package:neostation/services/artwork_assignment_service.dart';
 import 'package:neostation/services/libretro_thumbnail_service.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/services/screenscraper/media_resolver.dart';
@@ -100,6 +103,66 @@ void main() {
     expect(await download(), isFalse);
     expect(await media.list().toList(), isEmpty);
   });
+
+  test(
+    'chooses the first readable source per category and records its origin',
+    () async {
+      final calls = <String>[];
+      Stream<ArtworkPreview> preferred(String category) async* {
+        calls.add(category);
+        if (category == 'box2d') {
+          yield (
+            provider: ArtworkProvider.steamGridDb,
+            category: category,
+            title: 'Game',
+            bytes: png,
+          );
+        }
+        if (category == 'title_screens') {
+          yield (
+            provider: ArtworkProvider.retroAchievements,
+            category: category,
+            title: 'Game',
+            bytes: png,
+          );
+        }
+      }
+
+      Future<bool> scrape() => LibretroThumbnailService.download(
+        appSystemId: 'nes',
+        systemFolder: 'nes',
+        romName: 'Game & Watch (USA).nes',
+        romPath: '/roms/Game & Watch (USA).nes',
+        enabledMediaTypes: ['box2D', 'ss', 'title_screens'],
+        preferred: preferred,
+        catalog: Uri.parse('http://127.0.0.1:${server.port}'),
+      );
+      expect(await scrape(), isTrue);
+      expect(calls, ['box2d', 'screenshots', 'title_screens']);
+      expect(hits.single[1], 'Named_Snaps');
+      for (final (category, source) in [
+        ('box2d', 'steamGridDb'),
+        ('screenshots', 'libretro'),
+        ('title_screens', 'retroAchievements'),
+      ]) {
+        final target = File(
+          '${media.path}/nes/$category/Game & Watch (USA).png',
+        );
+        final record = ArtworkAssignmentService.provenanceFile(
+          target,
+          sha256.convert(png).toString(),
+        );
+        expect(jsonDecode(await record.readAsString()), {
+          'source': source,
+          'media_type': category,
+          'assignment_origin': 'automatic',
+        });
+      }
+      expect(await scrape(), isTrue);
+      expect(hits, hasLength(1));
+      expect(calls, hasLength(3));
+    },
+  );
 
   test('an unsupported system sends no request', () async {
     expect(await download(appSystemId: 'android'), isFalse);

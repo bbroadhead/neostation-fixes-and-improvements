@@ -6,7 +6,7 @@ import 'package:path/path.dart' as path;
 
 import '../models/artwork_preview.dart';
 import '../models/game_model.dart';
-import '../utils/atomic_file_writer.dart';
+import 'artwork_assignment_service.dart';
 import 'logger_service.dart';
 import 'screenscraper/media_resolver.dart';
 import 'screenscraper/rom_hasher.dart';
@@ -194,9 +194,10 @@ class LibretroThumbnailService {
     void Function(double)? onProgress,
     Uri? catalog,
     bool Function()? shouldCancel,
+    Stream<ArtworkPreview> Function(String category)? preferred,
   }) async {
     final playlist = _playlists[appSystemId];
-    if (playlist == null) return false;
+    if (playlist == null && preferred == null) return false;
 
     final stem = await ScreenscraperRomHasher.getCleanRomName(
       romName,
@@ -213,14 +214,20 @@ class LibretroThumbnailService {
     final labels = _labels(stem, gameName, searchTitle);
     final root = await ScreenscraperMediaResolver.getMediaDirectory();
     final base = catalog ?? Uri.https('thumbnails.libretro.com', '/');
-    final types = _folders.entries
-        .where((e) => enabledMediaTypes.contains(e.key))
+    final types = {..._folders.keys, ...enabledMediaTypes}
+        .where(
+          (type) =>
+              enabledMediaTypes.contains(type) &&
+              (_folders.containsKey(type) ||
+                  (preferred != null &&
+                      const {'fanart', 'wheel', 'icons'}.contains(type))),
+        )
         .toList();
 
     var available = false;
     for (final (index, type) in types.indexed) {
       if (shouldCancel?.call() ?? false) break;
-      final folder = ScreenscraperMediaResolver.mapMediaTypeToFolder(type.key);
+      final folder = ScreenscraperMediaResolver.mapMediaTypeToFolder(type);
       final file = File(path.join(root, systemFolder, folder, '$stem.png'));
       final manual = romPath == null
           ? null
@@ -235,30 +242,46 @@ class LibretroThumbnailService {
       final cached = hasManual || await _hasLocalArtwork(file);
       available = available || cached;
       if (!hasManual && (!cached || forceOverwrite)) {
-        for (final label in labels) {
-          final preview = await _preview(
-            base,
-            playlist,
-            type,
-            label,
-            shouldCancel,
-          );
+        ArtworkPreview? selected;
+        await for (final image
+            in preferred?.call(folder) ??
+                const Stream<ArtworkPreview>.empty()) {
           if (shouldCancel?.call() ?? false) return available;
-          if (preview == null) continue;
+          if (image.category == folder &&
+              await ArtworkAssignmentService.isReadable(image)) {
+            selected = image;
+            break;
+          }
+        }
+        final libretroFolder = _folders[type];
+        if (selected == null && playlist != null && libretroFolder != null) {
+          for (final label in labels) {
+            selected = await _preview(
+              base,
+              playlist,
+              MapEntry(type, libretroFolder),
+              label,
+              shouldCancel,
+            );
+            if (selected != null || (shouldCancel?.call() ?? false)) break;
+          }
+        }
+        if (shouldCancel?.call() ?? false) return available;
+        if (selected != null) {
           if ((await manual?.exists() ?? false) ||
               (!forceOverwrite && await _hasLocalArtwork(file))) {
             available = true;
-            break;
-          }
-          try {
-            await writeFileAtomically(file, preview.bytes);
-            available = true;
-            break;
-          } on FileSystemException catch (error) {
-            _log.w(
-              'Libretro ${type.value} for "$romName": ${error.runtimeType}',
-            );
-            break;
+          } else {
+            try {
+              await ArtworkAssignmentService.save(
+                file,
+                selected,
+                manual: false,
+              );
+              available = true;
+            } on FileSystemException catch (error) {
+              _log.w('Artwork $folder for "$romName": ${error.runtimeType}');
+            }
           }
         }
       }
