@@ -741,6 +741,24 @@ void main() {
         );
       });
 
+      test('matches Tara by its Dragon Warrior release title', () async {
+        await db.rawInsert(
+          'INSERT INTO app_ra_game_list (hash, game_id, console_id, console_name, title) VALUES (?, ?, ?, ?, ?)',
+          [
+            'tara',
+            41277,
+            6,
+            'Game Boy Color',
+            "Dragon Quest Monsters 2: Tara's Adventure",
+          ],
+        );
+        final results = await RetroAchievementsRepository.searchRaGamesByTitle(
+          '6',
+          'Dragon Warrior Monsters 2 - Tara’s Adventure',
+        );
+        expect(results.single.gameId, 41277);
+      });
+
       test('collapses a game to one entry regardless of hash count', () async {
         final results = await RetroAchievementsRepository.searchRaGamesByTitle(
           '7',

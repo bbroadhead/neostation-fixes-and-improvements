@@ -106,21 +106,49 @@ class SteamGridDbArtworkService {
   );
 
   Future<({int id, String name})?> _findGame() async {
-    final searchTitle = title.trim().replaceFirst(_dumpSuffix, '').trim();
+    final searchTitle = title
+        .trim()
+        .replaceFirst(RegExp(r'(?:\s*\[[^\]]+\])+\s*$'), '')
+        .replaceFirst(RegExp(r'\s+\([UEJ]\)$'), '')
+        .replaceFirst(_dumpSuffix, '')
+        .trim();
     if (searchTitle.isEmpty || (await _key).isEmpty) return null;
+    String normalize(String value) => value
+        .toLowerCase()
+        .replaceAll(RegExp(r"['’]"), '')
+        .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ')
+        .trim();
+    final names = {
+      searchTitle,
+      searchTitle.replaceFirst(RegExp(r'\s+-\s+'), ': '),
+      searchTitle.replaceFirst(
+        RegExp(r'^Dragon Quest\b', caseSensitive: false),
+        'Dragon Warrior',
+      ),
+    };
+    names.addAll(
+      names.toList().map((name) => name.replaceFirst(RegExp(r'\s+-\s+'), ': ')),
+    );
     try {
-      final query = searchTitle.toLowerCase();
-      final entries = await _request(['search', 'autocomplete', searchTitle]);
-      final matches = {
-        for (final game in entries.whereType<Map>())
-          if (game['id'] is int && game['name'] is String)
-            (id: game['id'] as int, name: (game['name'] as String).trim()),
-      };
-      final exact = matches.where((game) => game.name.toLowerCase() == query);
-      if (exact.length == 1) return exact.single;
-      return allowPartialMatch
-          ? (exact.firstOrNull ?? matches.firstOrNull)
-          : null;
+      ({int id, String name})? partial;
+      for (final name in names) {
+        if (shouldCancel?.call() ?? false) return null;
+        final entries = await _request(['search', 'autocomplete', name]);
+        final matches = {
+          for (final game in entries.whereType<Map>())
+            if (game['id'] is int && game['name'] is String)
+              (id: game['id'] as int, name: (game['name'] as String).trim()),
+        };
+        final query = normalize(name);
+        final exact = matches.where((game) => normalize(game.name) == query);
+        if (exact.length == 1) return exact.single;
+        if (allowPartialMatch) {
+          partial ??= matches
+              .where((game) => normalize(game.name).startsWith('$query '))
+              .firstOrNull;
+        }
+      }
+      return partial;
     } catch (error) {
       if (!(shouldCancel?.call() ?? false)) onFailure?.call(null);
       _log.w('SteamGridDB title lookup failed (${error.runtimeType})');

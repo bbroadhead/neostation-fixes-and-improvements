@@ -173,9 +173,14 @@ If the Android secrets are missing, the CI build falls back to debug signing (us
 
 Set `LIBRETRO_ARTWORK=true` in the Dart defines file when building a local
 AppImage for Libretro scraping. In **Settings → ScreenScraper**, use
-**Scrape all ROMs** to scan the library. The session can continue after you
+**Scrape all ROMs** to scan the library. **Max Threads** sets 1–16 workers
+with ScreenScraper account request limits applied. The session can continue after you
 leave Settings. Start it again to retry missing thumbnails. Existing local
 PNG, JPG, and WebP thumbnails are reused.
+
+On desktop, use **Settings → Directories → Scan a ROM** or **Scan a folder
+of ROMs** to index a selection in place. NeoStation asks for the system if the
+path and extension are ambiguous.
 
 In **Game Settings → Scraping Data**, set **Scrape Search Title** and save.
 The search title is stored per ROM path. The **Game Title** field controls

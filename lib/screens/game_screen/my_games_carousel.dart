@@ -761,14 +761,16 @@ class _GamesCarouselState extends State<GamesCarousel> {
   }
 
   String _resolveImagePath(GameModel game, String imageType) {
-    final path = game.getImagePath(
+    for (final folder in {
       _folderForGame(game),
-      imageType,
-      widget.fileProvider,
-    );
-    return _fileExistsCache.putIfAbsent(path, () => File(path).existsSync())
-        ? path
-        : '';
+      game.systemFolderName ?? widget.system.folderName,
+    }) {
+      final path = game.getImagePath(folder, imageType, widget.fileProvider);
+      if (_fileExistsCache.putIfAbsent(path, () => File(path).existsSync())) {
+        return path;
+      }
+    }
+    return '';
   }
 
   Widget _buildGameCard(GameModel game, bool isFanart) {
@@ -777,6 +779,8 @@ class _GamesCarouselState extends State<GamesCarousel> {
     final radius = (isFanart ? 24 : 8).r;
     final title = _resolveImagePath(game, 'title_screens');
     final screenshot = _resolveImagePath(game, 'screenshots');
+    final logo = _resolveImagePath(game, 'wheels');
+    final logoHeight = logo.isEmpty ? 0.0 : 42.r;
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -799,7 +803,7 @@ class _GamesCarouselState extends State<GamesCarousel> {
               ),
             ),
           Padding(
-            padding: EdgeInsets.only(bottom: 36.r),
+            padding: EdgeInsets.only(bottom: logoHeight),
             child: GameMediaComposite(
               key: ValueKey(widget.artworkVersion),
               cover: _resolveImagePath(game, 'box2d'),
@@ -809,12 +813,14 @@ class _GamesCarouselState extends State<GamesCarousel> {
               fallback: _buildFallbackCard(game, theme),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildWheelOverlay(game),
-          ),
+          if (logo.isNotEmpty)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: logoHeight,
+              child: _buildWheelOverlay(logo),
+            ),
           if (game.isFavorite == true)
             Positioned(
               top: 8.r,
@@ -1080,26 +1086,17 @@ class _GamesCarouselState extends State<GamesCarousel> {
     );
   }
 
-  Widget _buildWheelOverlay(GameModel game) {
-    final wheelPath = _resolveImagePath(game, 'wheels');
-    if (wheelPath.isNotEmpty) {
-      return Container(
-        padding: EdgeInsets.fromLTRB(48.r, 4.r, 48.r, 8.r),
-        child: Image.file(
-          File(wheelPath),
-          key: ValueKey(wheelPath),
-          fit: BoxFit.contain,
-          filterQuality: FilterQuality.medium,
-          cacheWidth: performanceCacheWidth(
-            512,
-            performanceMode: _performanceMode,
-          ),
-          errorBuilder: (ctx, e, s) => const SizedBox.shrink(),
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  }
+  Widget _buildWheelOverlay(String wheelPath) => Padding(
+    padding: EdgeInsets.fromLTRB(12.r, 3.r, 12.r, 5.r),
+    child: Image.file(
+      File(wheelPath),
+      key: ValueKey((wheelPath, widget.artworkVersion)),
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
+      cacheWidth: performanceCacheWidth(512, performanceMode: _performanceMode),
+      errorBuilder: (ctx, e, s) => const SizedBox.shrink(),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {

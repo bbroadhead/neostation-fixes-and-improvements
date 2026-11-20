@@ -108,25 +108,20 @@ class ScreenScraperSettingsContentState
   /// Whether the focused region has been picked up for reordering.
   bool _movingRegion = false;
 
-  // Slot layout when signed in, in page order: account, the scraping rows,
-  // enable-all, the systems grid, then the media and region rows. The
-  // SteamGridDB key and ScreenScraper developer settings follow these rows.
-  static const int _accountSlot = 0;
-  static const int _scrapeSlot = 1;
-  static const int _scrapeModeSlot = 2;
-  static const int _languageSlot = 3;
-  static const int _toggleAllSlot = 4;
-  static const int _gridStart = 5;
+  // Credential controls stay adjacent in every artwork mode.
+  static const int _steamGridDbSlot = 0;
+  static const int _accountSlot = 1;
+  static const int _developerSlot = 2;
+  static const int _workersSlot = 3;
+  static const int _scrapeSlot = 4;
+  static const int _scrapeModeSlot = 5;
+  static const int _languageSlot = 6;
+  static const int _toggleAllSlot = 7;
+  static const int _gridStart = 8;
   int get _gridEnd => _gridStart + _systems.length;
   int get _mediaStart => _gridEnd;
   int get _regionStart => _mediaStart + _mediaTypes.length;
-
-  int get _steamGridDbSlot => ScreenScraperService.usesLibretroArtwork
-      ? 2
-      : _signedIn
-      ? _regionStart + _regions.length
-      : 1;
-  int get _developerSlot => _steamGridDbSlot + 1;
+  int _workers = 4;
 
   bool _isRegionSlot(int slot) =>
       slot >= _regionStart && slot < _regionStart + _regions.length;
@@ -157,6 +152,7 @@ class ScreenScraperSettingsContentState
   }
 
   Future<void> _load() async {
+    _workers = await ScreenScraperService.getScrapeWorkers();
     if (ScreenScraperService.usesLibretroArtwork) {
       final credentials = await ScreenScraperService.getSavedCredentials();
       if (mounted) {
@@ -222,7 +218,8 @@ class ScreenScraperSettingsContentState
 
   int getItemCount() {
     if (_isLoading) return 0;
-    return _developerSlot + 1;
+    if (ScreenScraperService.usesLibretroArtwork) return _scrapeSlot + 1;
+    return _signedIn ? _regionStart + _regions.length : _workersSlot + 1;
   }
 
   /// Returns whether the cursor moved (drives the nav sound).
@@ -305,7 +302,9 @@ class ScreenScraperSettingsContentState
       return;
     }
     final slot = _cursor;
-    if (slot == _accountSlot) {
+    if (slot == _workersSlot) {
+      _setWorkers(_workers % ScreenScraperService.maxScrapeWorkers + 1);
+    } else if (slot == _accountSlot) {
       if (_signedIn) {
         _logout();
       } else {
@@ -335,6 +334,11 @@ class ScreenScraperSettingsContentState
     } else if (_isGridSlot(slot)) {
       _toggleSystem(_systems[slot - _gridStart]['id'].toString());
     }
+  }
+
+  Future<void> _setWorkers(int workers) async {
+    setState(() => _workers = workers);
+    await ScreenScraperService.setScrapeWorkers(workers);
   }
 
   void _setCursor(int slot) {
@@ -573,15 +577,6 @@ class ScreenScraperSettingsContentState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (ScreenScraperService.usesLibretroArtwork) ...[
-                        _buildScreenScraperAccount(context),
-                        SizedBox(height: 12.r),
-                        _buildScrapeRow(context),
-                      ] else if (_signedIn)
-                        _buildSignedIn(context)
-                      else
-                        _buildSignedOut(context),
-                      SizedBox(height: 12.r),
                       SettingRow(
                         key: _keyFor(_steamGridDbSlot),
                         title: AppLocale.steamGridDbApiKey.getString(context),
@@ -590,6 +585,8 @@ class ScreenScraperSettingsContentState
                         onTap: _editSteamGridDbKey,
                         trailing: Icon(Symbols.edit_rounded, size: 20.r),
                       ),
+                      SizedBox(height: 12.r),
+                      _buildScreenScraperAccount(context),
                       SizedBox(height: 12.r),
                       SettingRow(
                         key: _keyFor(_developerSlot),
@@ -601,6 +598,40 @@ class ScreenScraperSettingsContentState
                         onTap: _editScreenScraperDeveloperApi,
                         trailing: Icon(Symbols.edit_rounded, size: 20.r),
                       ),
+                      SizedBox(height: 12.r),
+                      SettingRow(
+                        key: _keyFor(_workersSlot),
+                        title: AppLocale.maxThreads.getString(context),
+                        subtitle: '',
+                        focused: _focused(_workersSlot),
+                        onTap: () => _setWorkers(
+                          _workers % ScreenScraperService.maxScrapeWorkers + 1,
+                        ),
+                        trailing: DropdownButton<int>(
+                          value: _workers,
+                          items: [
+                            for (
+                              var count = 1;
+                              count <= ScreenScraperService.maxScrapeWorkers;
+                              count++
+                            )
+                              DropdownMenuItem(
+                                value: count,
+                                child: Text('$count'),
+                              ),
+                          ],
+                          onChanged: (count) {
+                            if (count != null) _setWorkers(count);
+                          },
+                        ),
+                      ),
+                      SizedBox(height: 12.r),
+                      if (ScreenScraperService.usesLibretroArtwork)
+                        _buildScrapeRow(context)
+                      else if (_signedIn)
+                        _buildSignedIn(context)
+                      else
+                        _buildSignedOut(context),
                     ],
                   ),
                 ),
@@ -647,8 +678,6 @@ class ScreenScraperSettingsContentState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildScreenScraperAccount(context),
-        SizedBox(height: 12.r),
         Text(
           AppLocale.screenScraperDescription.getString(context),
           style: theme.textTheme.bodyMedium?.copyWith(
@@ -665,12 +694,6 @@ class ScreenScraperSettingsContentState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SettingsSectionHeader(
-          label: AppLocale.screenScraperTitle.getString(context),
-        ),
-        _buildScreenScraperAccount(context),
-        SizedBox(height: 16.r),
-
         SettingsSectionHeader(label: AppLocale.scraping.getString(context)),
         _buildScrapeRow(context),
         gap,

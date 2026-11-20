@@ -100,15 +100,83 @@ class LibretroThumbnailService {
       final query = searchTitle.trim().toLowerCase();
       // The thumbnail filenames can include region and revision suffixes.
       labels.addAll(
-        [stem, gameName].where((label) => label.toLowerCase().contains(query)),
+        _labels(
+          stem,
+          gameName,
+          null,
+        ).where((label) => label.toLowerCase().contains(query)),
       );
     }
-    final candidates = await Future.wait([
-      for (final type in _folders.entries)
-        for (final label in labels)
-          _preview(base, playlist, type, label, shouldCancel),
-    ]);
-    return candidates.nonNulls.toList();
+    Future<List<ArtworkPreview>> fetch(Set<String> names) async {
+      final candidates = await Future.wait([
+        for (final type in _folders.entries)
+          for (final label in names)
+            _preview(base, playlist, type, label, shouldCancel),
+      ]);
+      return candidates.nonNulls.toList();
+    }
+
+    final previews = await fetch(labels);
+    if (previews.isNotEmpty ||
+        searchTitle == null ||
+        (shouldCancel?.call() ?? false)) {
+      return previews;
+    }
+    final indexed = await _catalogueLabels(
+      base,
+      playlist,
+      searchTitle,
+      shouldCancel,
+    );
+    return fetch(indexed.difference(labels));
+  }
+
+  static Future<Set<String>> _catalogueLabels(
+    Uri base,
+    String playlist,
+    String query,
+    bool Function()? shouldCancel,
+  ) async {
+    String normalize(String name) => name
+        .split(RegExp(r'\s*[\[(]'))
+        .first
+        .toLowerCase()
+        .replaceAll(RegExp(r"['’]"), '')
+        .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ')
+        .trim();
+    final wanted = normalize(query);
+    if (wanted.isEmpty) return {};
+    try {
+      final response = await ScreenscraperClient.httpGetWithRetry(
+        base.replace(
+          pathSegments: [
+            ...base.pathSegments.where((segment) => segment.isNotEmpty),
+            playlist,
+            'Named_Titles',
+            '',
+          ],
+        ),
+        timeout: const Duration(seconds: 12),
+        maxRetries: 1,
+        shouldCancel: shouldCancel,
+      );
+      if (response.statusCode != 200 ||
+          response.bodyBytes.length > 2 * 1024 * 1024) {
+        return {};
+      }
+      return RegExp(r'href="([^"<>/]+\.png)"', caseSensitive: false)
+          .allMatches(response.body)
+          .map((match) => Uri.decodeComponent(match[1]!))
+          .map((filename) => filename.substring(0, filename.length - 4))
+          .where((label) => normalize(label) == wanted)
+          .take(4)
+          .toSet();
+    } catch (error) {
+      if (!(shouldCancel?.call() ?? false)) {
+        _log.w('Libretro title index unavailable (${error.runtimeType})');
+      }
+      return {};
+    }
   }
 
   static Future<ArtworkPreview?> _preview(
@@ -151,15 +219,25 @@ class LibretroThumbnailService {
     }
   }
 
-  static Set<String> _labels(String stem, String? title, String? searchTitle) =>
-      {
-        if (searchTitle != null)
-          searchTitle
-        else ...[
-          stem,
-          if (title != null && title.trim().isNotEmpty) title.trim(),
-        ],
-      }..remove('');
+  static Set<String> _labels(String stem, String? title, String? searchTitle) {
+    final labels = {
+      if (searchTitle != null)
+        searchTitle
+      else ...[
+        stem,
+        if (title != null) title.trim(),
+      ],
+    }..remove('');
+    for (final label in labels.toList()) {
+      final modern = label
+          .replaceFirst(RegExp(r'(?<=\([UEJ]\))\s*(?:\[[^\]]+\]\s*)+$'), '')
+          .replaceAll('(U)', '(USA)')
+          .replaceAll('(E)', '(Europe)')
+          .replaceAll('(J)', '(Japan)');
+      if (modern != label) labels.add(modern);
+    }
+    return labels;
+  }
 
   static Uri _artworkUrl(
     Uri base,

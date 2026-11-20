@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:neostation/services/logger_service.dart';
 
 import '../models/rom_fingerprint.dart';
@@ -1105,6 +1106,28 @@ class ScreenScraperService {
     }
   }
 
+  static const maxScrapeWorkers = 16;
+  static const _workersKey = 'artwork_scrape_workers';
+
+  static Future<int> getScrapeWorkers() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getInt(_workersKey) ?? 4).clamp(1, maxScrapeWorkers);
+  }
+
+  static Future<void> setScrapeWorkers(int workers) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_workersKey, workers.clamp(1, maxScrapeWorkers));
+  }
+
+  static int effectiveScrapeWorkers(
+    int requested,
+    Map<String, String>? account,
+  ) {
+    if (usesLibretroArtwork) return requested;
+    final allowed = int.tryParse(account?['maxthreads'] ?? '') ?? 1;
+    return requested.clamp(1, allowed.clamp(1, maxScrapeWorkers));
+  }
+
   static const usesLibretroArtwork = bool.fromEnvironment('LIBRETRO_ARTWORK');
 
   /// Whether the individual game action can run without account setup.
@@ -1235,6 +1258,7 @@ class ScreenScraperService {
       enabledMediaTypes: [
         ...await ScraperRepository.getEnabledMediaTypes(),
         LibretroThumbnailService.titleScreens,
+        'wheel',
         'icons',
       ],
       forceOverwrite: forceOverwrite,
@@ -1650,13 +1674,18 @@ class ScreenScraperService {
 
       final maxDailyRequests =
           int.tryParse(credentials?['max_requests_per_day'] ?? '') ?? 0;
-      final allowedThreads =
-          int.tryParse(credentials?['maxthreads'] ?? '') ?? 1;
-      final maxThreads = libretro != null
-          ? 4
-          : (allowedThreads < 1 ? 1 : allowedThreads);
+      final maxThreads = effectiveScrapeWorkers(
+        await getScrapeWorkers(),
+        credentials,
+      );
       if (libretro == null) ScreenscraperClient.initializeDailyCounter(0);
-      ScreenscraperClient.updateRequestSemaphore(maxThreads);
+      final account = credentials ?? await getSavedCredentials();
+      final providerLimit = int.tryParse(account?['maxthreads'] ?? '');
+      ScreenscraperClient.updateRequestSemaphore(
+        providerLimit == null
+            ? maxThreads
+            : maxThreads.clamp(1, providerLimit.clamp(1, maxScrapeWorkers)),
+      );
 
       final preferredLanguage = credentials?['preferred_language'] ?? 'en';
       final scraperConfig = await getScraperConfig();

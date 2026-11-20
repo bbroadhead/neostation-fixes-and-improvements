@@ -52,9 +52,10 @@ Future<void> startScrapeSession(
     final credentials = libretro
         ? null
         : await ScreenScraperService.getSavedCredentials();
-    final maxThreads = libretro
-        ? 4
-        : int.tryParse(credentials?['maxthreads'] ?? '4') ?? 4;
+    final maxThreads = ScreenScraperService.effectiveScrapeWorkers(
+      await ScreenScraperService.getScrapeWorkers(),
+      credentials,
+    );
     scrapingProvider.startScraping(maxThreads: maxThreads);
 
     // Show the persistent progress notification up front. Its progress bar

@@ -118,6 +118,37 @@ void main() {
     },
   );
 
+  test('name search discovers catalog region and hardware qualifiers', () async {
+    const label =
+        "Dragon Warrior Monsters 2 - Tara's Adventure (USA) (SGB Enhanced) (GB Compatible)";
+    final catalogue = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => catalogue.close(force: true));
+    catalogue.listen((request) {
+      if (request.uri.path.endsWith('/Named_Titles/')) {
+        request.response.write(
+          '<a href="${Uri.encodeComponent('$label.png')}">Game</a>',
+        );
+      } else if (request.uri.pathSegments.last == '$label.png') {
+        request.response.add(png);
+      } else {
+        request.response.statusCode = 404;
+      }
+      request.response.close();
+    });
+    final previews = await LibretroThumbnailService.gallery(
+      appSystemId: 'gbc',
+      romName: "Dragon Warrior Monsters 2 - Tara's Adventure (U) [C][!].gbc",
+      gameName: "Dragon Warrior Monsters 2 - Tara's Adventure",
+      searchTitle: 'Dragon Warrior Monsters 2 - Tara’s Adventure',
+      catalog: Uri.parse('http://127.0.0.1:${catalogue.port}'),
+    );
+    expect(
+      previews.map((image) => image.category),
+      unorderedEquals(['box2d', 'screenshots', 'title_screens']),
+    );
+    expect(previews.every((image) => image.title == label), isTrue);
+  });
+
   test('a manual cover skips network downloads for the same slot', () async {
     const romPath = '/roms/nes/Game & Watch (USA).nes';
     final override = File(

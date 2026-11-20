@@ -270,7 +270,9 @@ class RetroAchievementsRepository {
       '''
       SELECT DISTINCT ra.game_id, ra.title
       FROM user_roms rom
-      JOIN app_ra_game_list ra ON ra.hash = rom.ra_hash AND ra.game_id = rom.id_ra
+      JOIN app_systems system ON system.id = rom.app_system_id
+      JOIN app_ra_game_list ra
+        ON ra.hash = rom.ra_hash AND ra.console_id = CAST(system.ra_id AS INTEGER)
       WHERE rom.rom_path = ? AND rom.ra_match_source = ?
       ''',
       [romPath, raMatchHash],
@@ -549,14 +551,27 @@ class RetroAchievementsRepository {
     if (trimmed.isEmpty) return [];
 
     final db = await SqliteService.getDatabase();
-    final pattern = '%${trimmed.replaceAll(' ', '%')}%';
+    final terms = trimmed
+        .toLowerCase()
+        .replaceAll("'", '')
+        .replaceAll('’', '')
+        .split(RegExp(r'[^\p{L}\p{N}]+', unicode: true))
+        .where((term) => term.isNotEmpty);
+    if (terms.isEmpty) return [];
+    final pattern = '%${terms.join('%')}%';
+    final alternate = pattern.replaceFirst(
+      RegExp(r'^%dragon%warrior%'),
+      '%dragon%quest%',
+    );
     final rows = await db.rawQuery(
       '''
       SELECT game_id, title,
              MAX(num_achievements) AS num_achievements,
              MAX(points) AS points
       FROM app_ra_game_list
-      WHERE console_id = ? AND title LIKE ?
+      WHERE console_id = ?
+        AND (REPLACE(REPLACE(title, char(39), ''), '’', '') LIKE ?
+          OR REPLACE(REPLACE(title, char(39), ''), '’', '') LIKE ?)
       GROUP BY game_id, title
       ORDER BY
         CASE WHEN title LIKE '%[Subset%' THEN 1 ELSE 0 END,
@@ -565,7 +580,7 @@ class RetroAchievementsRepository {
         title ASC
       LIMIT ?
       ''',
-      [consoleRaId, pattern, limit],
+      [consoleRaId, pattern, alternate, limit],
     );
     return rows.map((r) => RaGameListEntry.fromRow(Map.from(r))).toList();
   }

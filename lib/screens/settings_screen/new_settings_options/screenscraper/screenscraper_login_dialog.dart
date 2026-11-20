@@ -52,6 +52,7 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   List<FocusNode?> get selectionSlots => [_usernameFocus, _passwordFocus, null];
@@ -79,12 +80,11 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
     }
   }
 
-  void _showCredentialError() {
-    AppNotification.showNotification(
-      context,
-      AppLocale.errorSavingCredentials.getString(context),
-      type: NotificationType.error,
-    );
+  void _showCredentialError() =>
+      _showError(AppLocale.errorSavingCredentials.getString(context));
+
+  void _showError(String message) {
+    setState(() => _errorMessage = message);
   }
 
   void _initControllerNavigation() {
@@ -142,16 +142,13 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
     final password = _passwordController.text;
     if ((username.isEmpty || password.isEmpty) &&
         !(widget.developer && username.isEmpty && password.isEmpty)) {
-      AppNotification.showNotification(
-        context,
-        AppLocale.pleaseCompleteAllFields.getString(context),
-        type: NotificationType.error,
-      );
+      _showError(AppLocale.pleaseCompleteAllFields.getString(context));
       return;
     }
 
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
     try {
@@ -217,19 +214,11 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
           if (mounted) Navigator.of(context).pop(true);
         } else {
           if (!mounted) return;
-          AppNotification.showNotification(
-            context,
-            AppLocale.errorSavingCredentials.getString(context),
-            type: NotificationType.error,
-          );
+          _showCredentialError();
         }
       } else {
         if (!mounted) return;
-        AppNotification.showNotification(
-          context,
-          _loginFailureMessage(result.failure, username),
-          type: NotificationType.error,
-        );
+        _showError(_loginFailureMessage(result.failure, username));
       }
     } catch (e) {
       if (!mounted) return;
@@ -237,13 +226,7 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
         _showCredentialError();
         return;
       }
-      AppNotification.showNotification(
-        context,
-        AppLocale.loginError
-            .getString(context)
-            .replaceFirst('{error}', e.toString()),
-        type: NotificationType.error,
-      );
+      _showError(AppLocale.screenScraperConnectionError.getString(context));
     } finally {
       if (mounted) {
         setState(() {
@@ -654,6 +637,19 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
             ),
           ),
           SizedBox(height: 6.r),
+
+          if (_errorMessage case final message?) ...[
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                message,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+            SizedBox(height: 6.r),
+          ],
 
           // Login button
           Container(

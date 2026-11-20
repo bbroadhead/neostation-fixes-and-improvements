@@ -32,6 +32,52 @@ void main() {
   );
 
   test(
+    'resolves a regional catalogue name without selecting the remake',
+    () async {
+      final client = MockClient((request) async {
+        final name = request.url.pathSegments.last;
+        final results = switch (name) {
+          "Dragon Quest Monsters 2: Tara's Adventure" => [
+            {
+              'id': 5358768,
+              'name': "Dragon Quest Monsters 2: Iru and Luca's Marvelous Mysterious Key",
+            },
+          ],
+          "Dragon Warrior Monsters 2: Tara's Adventure" => [
+            {
+              'id': 36819,
+              'name': "Dragon Warrior Monsters 2: Tara's Adventure",
+            },
+          ],
+          _ => <Map<String, Object>>[],
+        };
+        if (request.url.pathSegments.contains('logos')) {
+          expect(name, '36819');
+          return http.Response(
+            '{"success":true,"data":[{"url":"https://cdn.steamgriddb.com/logo.png","mime":"image/png"}]}',
+            200,
+          );
+        }
+        if (request.url.host == 'cdn.steamgriddb.com') {
+          return http.Response.bytes([1, 2, 3], 200);
+        }
+        return http.Response(
+          jsonEncode({'success': true, 'data': results}),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      final provider = SteamGridDbArtworkService(
+        "Dragon Quest Monsters 2: Tara's Adventure",
+        apiKey: 'fixture-key',
+        client: client,
+        allowPartialMatch: true,
+      );
+      expect((await provider.inCategory('wheels')).single.category, 'wheels');
+    },
+  );
+
+  test(
     'matches once, selects portrait covers and keeps credentials off the CDN',
     () async {
       final requests = <Uri>[];

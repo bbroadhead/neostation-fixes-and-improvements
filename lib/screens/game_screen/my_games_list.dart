@@ -49,6 +49,7 @@ import '../../repositories/neosync_save_folder_repository.dart';
 import '../../models/system_model.dart';
 import '../../models/game_model.dart';
 import '../../models/artwork_preview.dart';
+import '../../models/ra_game_list_entry.dart';
 import '../../models/database_game_model.dart';
 import '../../utils/rom_tree.dart';
 import '../../utils/game_list_size.dart';
@@ -2285,8 +2286,17 @@ class _SystemGamesListState extends State<SystemGamesList> {
         final verified =
             await RetroAchievementsRepository.getVerifiedRomIdentity(romPath);
         if (cancelled()) return [];
+        final consoleId = system.raId;
+        final titleMatches = byName && consoleId != null && consoleId.isNotEmpty
+            ? await RetroAchievementsRepository.searchRaGamesByTitle(
+                consoleId,
+                title,
+                limit: 3,
+              )
+            : <RaGameListEntry>[];
+        if (cancelled()) return [];
         final lookupTitle = byName
-            ? title
+            ? titleMatches.firstOrNull?.title ?? title
             : verified?.title ?? (game.name.trim().isEmpty ? title : game.name);
         final steam = SteamGridDbArtworkService(
           lookupTitle,
@@ -2296,28 +2306,15 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
         Future<List<ArtworkPreview>> raArtwork() async {
           try {
-            if (!byName) {
-              return verified == null
-                  ? []
-                  : await ScreenScraperService.retroAchievementsArtwork(
-                      verified.id,
-                      shouldCancel: cancelled,
-                    );
-            }
-            final consoleId = system.raId;
-            if (consoleId == null || consoleId.isEmpty) return [];
-            final matches =
-                await RetroAchievementsRepository.searchRaGamesByTitle(
-                  consoleId,
-                  title,
-                  limit: 3,
-                );
+            final ids = byName
+                ? titleMatches.map((entry) => entry.gameId)
+                : [if (verified != null) verified.id];
             final results = <ArtworkPreview>[];
-            for (final match in matches) {
+            for (final id in ids) {
               if (cancelled()) break;
               results.addAll(
                 await ScreenScraperService.retroAchievementsArtwork(
-                  match.gameId,
+                  id,
                   shouldCancel: cancelled,
                 ),
               );

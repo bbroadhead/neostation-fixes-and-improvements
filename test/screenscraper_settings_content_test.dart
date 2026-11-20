@@ -80,13 +80,19 @@ void main() {
     expect(find.text('ScreenScraper Login'), findsOneWidget);
     expect(
       key.currentState!.getItemCount(),
-      ScreenScraperService.usesLibretroArtwork ? 4 : 3,
+      ScreenScraperService.usesLibretroArtwork ? 5 : 4,
     );
     if (ScreenScraperService.usesLibretroArtwork) {
       expect(find.text('Scrape all ROMs'), findsOneWidget);
-      expect(key.currentState!.navigateDown(), isTrue);
     }
-    expect(key.currentState!.navigateDown(), isTrue);
+    expect(
+      tester.getTopLeft(find.text('SteamGridDB API key')).dy,
+      lessThan(tester.getTopLeft(find.text('ScreenScraper Login')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('ScreenScraper Login')).dy,
+      lessThan(tester.getTopLeft(find.text('ScreenScraper developer API')).dy),
+    );
     expect(key.currentState!.navigateBack(), isFalse);
     key.currentState!.selectItem();
     await tester.pumpAndSettle();
@@ -112,7 +118,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(key.currentState!.navigateDown(), isTrue);
-    expect(key.currentState!.navigateDown(), isFalse);
+    expect(key.currentState!.navigateDown(), isTrue);
     key.currentState!.selectItem();
     await tester.pumpAndSettle();
     final developerId = find.widgetWithText(TextField, 'devid');
@@ -153,5 +159,10 @@ void main() {
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(developerId, findsNothing);
+
+    expect(key.currentState!.navigateDown(), isTrue);
+    key.currentState!.selectItem();
+    await tester.pumpAndSettle();
+    expect(await ScreenScraperService.getScrapeWorkers(), 5);
   });
 }
