@@ -564,6 +564,7 @@ class GamepadNavigation {
 
   /// Disables input processing and cancels any active auto-repeat timers.
   void deactivate() {
+    _pendingDesktopBumper = null;
     _isActive = false;
     _activationTime = null;
     _resetSelectModifier();
@@ -1173,6 +1174,53 @@ class GamepadNavigation {
     }
   }
 
+  // The Deck desktop Steam Input layer emits these standalone keyboard keys.
+  // Track a tap through release so shortcuts such as Ctrl+C and Alt+Enter
+  // continue to work. Gaming Mode reports shoulders through the gamepad path.
+  static final bool _deckDesktopKeyboard = _usesDeckDesktopKeyboard();
+  LogicalKeyboardKey? _pendingDesktopBumper;
+
+  static bool _usesDeckDesktopKeyboard() {
+    if (!Platform.isLinux ||
+        !(Platform.environment['XDG_CURRENT_DESKTOP'] ?? '')
+            .split(':')
+            .contains('KDE')) {
+      return false;
+    }
+    try {
+      final product = File('/sys/class/dmi/id/product_name').readAsStringSync();
+      return const {'Jupiter', 'Galileo'}.contains(product.trim());
+    } on FileSystemException {
+      return false;
+    }
+  }
+
+  bool _handleDesktopBumper(KeyEvent event) {
+    final key = event.logicalKey;
+    if (event is KeyDownEvent) {
+      final alreadyHolding = _pendingDesktopBumper != null;
+      _pendingDesktopBumper = null;
+      if (!alreadyHolding &&
+          !_isTextFieldFocused() &&
+          (key == LogicalKeyboardKey.controlLeft ||
+              key == LogicalKeyboardKey.altLeft)) {
+        final otherKeys = HardwareKeyboard.instance.logicalKeysPressed.any(
+          (held) => held != key,
+        );
+        if (!otherKeys) _pendingDesktopBumper = key;
+      }
+      return false;
+    }
+    if (_pendingDesktopBumper != key) return false;
+    _pendingDesktopBumper = null;
+    return !_isTextFieldFocused() &&
+        _dispatchShoulder(
+          key == LogicalKeyboardKey.controlLeft
+              ? GamepadInputType.buttonLB
+              : GamepadInputType.buttonRB,
+        );
+  }
+
   /// Orchestrates the processing of a raw [KeyEvent] from the keyboard.
   bool _handleKeyEvent(KeyEvent event) {
     if (!_isActive ||
@@ -1180,6 +1228,8 @@ class GamepadNavigation {
         (event is! KeyDownEvent && event is! KeyUpEvent)) {
       return false;
     }
+
+    if (_deckDesktopKeyboard && _handleDesktopBumper(event)) return true;
 
     final isKeyDown = event is KeyDownEvent;
 
