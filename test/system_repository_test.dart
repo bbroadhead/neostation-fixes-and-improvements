@@ -114,6 +114,20 @@ void main() {
       expect(detected.any((s) => s.folderName == 'nes'), isTrue);
     });
 
+    test('Arduboy stays registered after scans with no ROMs', () async {
+      await seedSystem(id: 'ard', realName: 'Arduboy', folderName: 'ard');
+
+      await SystemRepository.updateDetectedSystems([]);
+      final systems = await SystemRepository.getDetectedSystems();
+      expect(systems.single.folderName, 'ard');
+      expect(systems.single.romCount, 0);
+
+      await SystemRepository.setSystemHidden('ard', true);
+      await SystemRepository.updateDetectedSystems([]);
+      expect(await SystemRepository.getHiddenSystems(), contains('ard'));
+      expect(await SystemRepository.isSystemDetected('ard'), isTrue);
+    });
+
     test('isSystemDetected returns true for detected system', () async {
       await seedSystem(id: 'nes', realName: 'NES', folderName: 'nes');
       await db.execute(

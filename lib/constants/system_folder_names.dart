@@ -3,6 +3,7 @@ class SystemFolderNames {
   static const String all = 'all';
   static const String music = 'music';
   static const String android = 'android';
+  static const String arduboy = 'ard';
 
   /// Systems the "Recursive Scan" setting cannot apply to: they own no ROM
   /// folder to walk. [all] and [favorites] aggregate games that belong to other

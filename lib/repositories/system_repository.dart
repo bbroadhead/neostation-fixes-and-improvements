@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../constants/system_folder_names.dart';
 import '../models/system_model.dart';
 import '../data/datasources/sqlite_service.dart';
 
@@ -146,7 +147,9 @@ class SystemRepository {
       SqliteService.removeDetectedSystem(systemId);
 
   static Future<void> updateDetectedSystems(List<String> folderNames) =>
-      SqliteService.updateDetectedSystems(folderNames);
+      SqliteService.updateDetectedSystems(
+        {...folderNames, SystemFolderNames.arduboy}.toList(),
+      );
 
   // ── System visibility ─────────────────────────────────────────────────────
 

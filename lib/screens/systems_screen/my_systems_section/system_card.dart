@@ -604,6 +604,26 @@ class _SystemCardState extends State<SystemCard> {
       );
     }
 
+    if (widget.info.folderName == SystemFolderNames.arduboy) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          tint,
+          LayoutBuilder(
+            builder: (context, box) => Center(
+              child: Image.asset(
+                'assets/images/arduboy-system.webp',
+                width: box.biggest.shortestSide * 0.68,
+                height: box.biggest.shortestSide * 0.68,
+                fit: BoxFit.contain,
+                excludeFromSemantics: true,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     if (mosaicPaths.isEmpty || _performanceMode) return tint;
 
     return Stack(

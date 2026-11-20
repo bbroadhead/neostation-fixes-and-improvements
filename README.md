@@ -269,7 +269,8 @@ and any available supported game files.
 
 ### Arduboy ROMs
 
-Place `.hex` or `.arduboy` files under `roms/ard/` or `roms/arduboy/`. The
+Arduboy has a dedicated card in the system grid and carousel, including when
+its library is empty. Place `.hex` or `.arduboy` files under `roms/ard/` or `roms/arduboy/`. The
 bundled default emulator is RetroArch with the Ardens core, which supports both
 formats. For `.hex` files you can also select **RetroArch Arduous** in
 NeoStation when that core is installed. ROM discovery works independently of

@@ -1114,7 +1114,8 @@ extension SqliteConfigScanning on SqliteConfigProvider {
           (updatedSystem.folderName == 'android' && Platform.isAndroid) ||
           updatedSystem.folderName == 'all' ||
           updatedSystem.folderName == SystemFolderNames.favorites ||
-          updatedSystem.folderName == SystemFolderNames.collections;
+          updatedSystem.folderName == SystemFolderNames.collections ||
+          updatedSystem.folderName == SystemFolderNames.arduboy;
 
       if (shouldKeep) {
         await SystemRepository.addDetectedSystem(
@@ -1386,41 +1387,29 @@ extension SqliteConfigScanning on SqliteConfigProvider {
     }
   }
 
-  /// Guarantees the 'collections' virtual system is in `user_detected_systems`.
-  ///
-  /// The ROM scan adds it (fourth pass above), but a device with
-  /// `scanOnStartup` off may go many launches without running one — and the
-  /// Collections card is the only route to creating a first collection (D5), so
-  /// its visibility must not depend on a scan happening. Cheap no-op once the
-  /// card is already there.
-  Future<void> _ensureCollectionsSystemDetected() async {
+  /// Keeps dedicated home cards available on launches that skip a ROM scan.
+  Future<void> _ensureHomeSystemsDetected() async {
     try {
-      if (_detectedSystems.any(
-        (s) => s.folderName == SystemFolderNames.collections,
-      )) {
-        return;
-      }
-
-      final collectionsSystem = await SystemRepository.getSystemByFolderName(
+      var changed = false;
+      for (final folder in [
         SystemFolderNames.collections,
-      );
-      final id = collectionsSystem?.id;
-      if (id == null) {
-        // The systems bundle on this install predates collections.json; the
-        // next systems sync creates the row and the next launch picks it up.
-        return;
+        SystemFolderNames.arduboy,
+      ]) {
+        if (_detectedSystems.any((system) => system.folderName == folder)) {
+          continue;
+        }
+        final system = await SystemRepository.getSystemByFolderName(folder);
+        final id = system?.id;
+        if (id == null) continue;
+        await SystemRepository.addDetectedSystem(id, folder);
+        changed = true;
       }
-
-      await SystemRepository.addDetectedSystem(
-        id,
-        SystemFolderNames.collections,
-      );
-      await _refreshDetectedSystemsFromDatabase();
-      _notify();
+      if (changed) {
+        await _refreshDetectedSystemsFromDatabase();
+        _notify();
+      }
     } catch (e) {
-      SqliteConfigProvider._log.w(
-        'Could not register the Collections system: $e',
-      );
+      SqliteConfigProvider._log.w('Could not register home systems: $e');
     }
   }
 

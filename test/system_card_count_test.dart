@@ -90,6 +90,28 @@ void main() {
     isGame: isGame,
   );
 
+  testWidgets('Arduboy has its own icon with no games or logo footer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        system(folderName: 'ard', count: 0, title: 'Arduboy'),
+        hideSystemLogos: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final icon = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is AssetImage &&
+          (widget.image as AssetImage).assetName ==
+              'assets/images/arduboy-system.webp',
+    );
+    expect(icon, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   group('SystemCard count', () {
     testWidgets('a selected system card uses secondary and onSecondary', (
       tester,

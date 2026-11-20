@@ -409,7 +409,7 @@ class SqliteConfigProvider extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
 
-      await _ensureCollectionsSystemDetected();
+      await _ensureHomeSystemsDetected();
       if (_config.hideBottomScreen && Platform.isAndroid) {
         // ignore: unawaited_futures
         _secondaryDisplayChannel.invokeMethod('setSecondaryDisplayVisible', {
