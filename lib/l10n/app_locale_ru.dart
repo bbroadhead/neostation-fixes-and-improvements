@@ -939,6 +939,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.screenScraperUseUsernameNotEmail: 'Введите имя пользователя ScreenScraper, а не адрес электронной почты. API не принимает email.',
   AppLocale.screenScraperApiClosed:
       'API ScreenScraper временно недоступен. Попробуйте позже.',
+  AppLocale.screenScraperDeveloperApi: 'API разработчика ScreenScraper',
   AppLocale.screenScraperDeveloperCredentials:
       'Данные разработчика ScreenScraper отсутствуют или отклонены.',
   AppLocale.screenScraperLoginRejected:

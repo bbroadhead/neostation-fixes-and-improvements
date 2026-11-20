@@ -861,6 +861,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.screenScraperUseUsernameNotEmail:
       '請輸入您的 ScreenScraper 使用者名稱，而不是電子郵件地址。API 不接受電子郵件。',
   AppLocale.screenScraperApiClosed: 'ScreenScraper API 暫時無法使用。請稍後再試。',
+  AppLocale.screenScraperDeveloperApi: 'ScreenScraper 開發者 API',
   AppLocale.screenScraperDeveloperCredentials: 'ScreenScraper 開發者憑證缺失或遭拒絕。',
   AppLocale.screenScraperLoginRejected: 'ScreenScraper 無法驗證 API 登入。',
   AppLocale.screenScraperAppOutdated:

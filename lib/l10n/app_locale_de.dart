@@ -950,6 +950,7 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.screenScraperUsernameHint: 'Verwende deinen ScreenScraper-Benutzernamen, nicht deine E-Mail-Adresse.',
   AppLocale.screenScraperUseUsernameNotEmail: 'Gib deinen ScreenScraper-Benutzernamen ein, nicht deine E-Mail-Adresse. Die API akzeptiert keine E-Mail.',
   AppLocale.screenScraperApiClosed: 'Die ScreenScraper-API ist vorübergehend nicht verfügbar. Versuche es später erneut.',
+  AppLocale.screenScraperDeveloperApi: 'ScreenScraper-Entwicklerzugang',
   AppLocale.screenScraperDeveloperCredentials:
       'Die ScreenScraper-Entwicklerzugangsdaten fehlen oder wurden abgelehnt.',
   AppLocale.screenScraperLoginRejected:

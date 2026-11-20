@@ -10,6 +10,7 @@ import '../models/rom_fingerprint.dart';
 import '../models/screenscraper_game_candidate.dart';
 import '../repositories/retro_achievements_repository.dart';
 import '../repositories/scraper_repository.dart';
+import 'credential_store.dart';
 import 'retro_achievements_service.dart';
 import 'retroachievements_hash_service.dart';
 import 'rom_fingerprint_service.dart';
@@ -101,9 +102,50 @@ class ScreenScraperService {
   static String baseUrl = defaultBaseUrl;
   static final _log = LoggerService.instance;
 
-  // Developer credentials — provided at build time via --dart-define
-  // or at runtime via environment variables.
-  static (String, String) get _developerCredentials {
+  static const _developerCredentialKey = 'screenscraper_developer_credentials';
+
+  static Future<({String id, String password})?>
+  readDeveloperCredentials() async {
+    final raw = await CredentialStore.read(_developerCredentialKey);
+    if (raw == null) return null;
+    final data = jsonDecode(raw);
+    if (data case {'id': final String id, 'password': final String password}
+        when id.isNotEmpty && password.isNotEmpty) {
+      return (id: id, password: password);
+    }
+    throw const FormatException('Invalid ScreenScraper developer credentials');
+  }
+
+  static Future<void> saveDeveloperCredentials(
+    String id,
+    String password,
+  ) async {
+    final trimmedId = id.trim();
+    if (trimmedId.isEmpty && password.isEmpty) {
+      await CredentialStore.delete(_developerCredentialKey);
+      if (await readDeveloperCredentials() == null) return;
+    } else if (trimmedId.isNotEmpty && password.isNotEmpty) {
+      final outcome = await CredentialStore.write(
+        _developerCredentialKey,
+        jsonEncode({'id': trimmedId, 'password': password}),
+      );
+      if (outcome != CredentialWriteOutcome.sessionOnly) return;
+    }
+    throw CredentialStoreException(
+      'Could not persist ScreenScraper credentials',
+    );
+  }
+
+  static Future<(String, String)> _developerCredentials() async {
+    try {
+      final saved = await readDeveloperCredentials();
+      if (saved != null) return (saved.id, saved.password);
+    } catch (error) {
+      _log.w(
+        'ScreenScraper developer credentials unavailable (${error.runtimeType})',
+      );
+    }
+
     final id = Platform.environment['SCREENSCRAPER_DEV_ID'];
     final password = Platform.environment['SCREENSCRAPER_DEV_PASSWORD'];
     if (id != null || password != null) return (id ?? '', password ?? '');
@@ -135,7 +177,7 @@ class ScreenScraperService {
   ) async {
     try {
       final softname = await ScreenscraperClient.getSoftname();
-      final url = _buildSignedApiUrl('ssuserInfos.php', {
+      final url = await _buildSignedApiUrl('ssuserInfos.php', {
         'softname': softname,
         'output': 'json',
         'ssid': username.trim(),
@@ -190,8 +232,11 @@ class ScreenScraperService {
     }
   }
 
-  static Uri _buildSignedApiUrl(String endpoint, Map<String, String> params) {
-    final (id, password) = _developerCredentials;
+  static Future<Uri> _buildSignedApiUrl(
+    String endpoint,
+    Map<String, String> params,
+  ) async {
+    final (id, password) = await _developerCredentials();
     if (baseUrl == defaultBaseUrl && (id.isEmpty || password.isEmpty)) {
       throw const ScreenscraperDeveloperCredentialsException();
     }
@@ -412,7 +457,7 @@ class ScreenScraperService {
       }
 
       final softname = await ScreenscraperClient.getSoftname();
-      final url = _buildSignedApiUrl('systemesListe.php', {
+      final url = await _buildSignedApiUrl('systemesListe.php', {
         'softname': softname,
         'output': 'json',
         'ssid': credentials['username']!,
@@ -676,7 +721,7 @@ class ScreenScraperService {
       }
     }
 
-    final url = _buildSignedApiUrl('jeuInfos.php', queryParameters);
+    final url = await _buildSignedApiUrl('jeuInfos.php', queryParameters);
 
     final response = await ScreenscraperClient.httpGetWithRetry(
       url,
@@ -1456,7 +1501,7 @@ class ScreenScraperService {
         );
       }
 
-      final url = _buildSignedApiUrl('jeuRecherche.php', {
+      final url = await _buildSignedApiUrl('jeuRecherche.php', {
         'softname': await ScreenscraperClient.getSoftname(),
         'output': 'json',
         'ssid': credentials['username'].toString(),

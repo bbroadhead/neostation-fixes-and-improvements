@@ -17,14 +17,19 @@ import 'package:neostation/utils/login_form_selection.dart';
 /// Owns its own gamepad layer while open. B leaves a focused text field first
 /// and closes the dialog on the next press.
 class ScreenScraperLoginDialog extends StatefulWidget {
-  const ScreenScraperLoginDialog({super.key});
+  const ScreenScraperLoginDialog({super.key, this.developer = false});
+
+  final bool developer;
 
   /// Opens the dialog. Resolves to true once credentials were verified and
   /// saved, false if the user backed out.
-  static Future<bool> show(BuildContext context) async {
+  static Future<bool> show(
+    BuildContext context, {
+    bool developer = false,
+  }) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => const ScreenScraperLoginDialog(),
+      builder: (_) => ScreenScraperLoginDialog(developer: developer),
     );
     return result ?? false;
   }
@@ -56,6 +61,30 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
     super.initState();
     attachFocusSelectionListeners();
     _initControllerNavigation();
+    if (widget.developer) _loadDeveloperCredentials();
+  }
+
+  Future<void> _loadDeveloperCredentials() async {
+    _isLoading = true;
+    try {
+      final saved = await ScreenScraperService.readDeveloperCredentials();
+      if (mounted && saved != null) {
+        _usernameController.text = saved.id;
+        _passwordController.text = saved.password;
+      }
+    } catch (_) {
+      if (mounted) _showCredentialError();
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showCredentialError() {
+    AppNotification.showNotification(
+      context,
+      AppLocale.errorSavingCredentials.getString(context),
+      type: NotificationType.error,
+    );
   }
 
   void _initControllerNavigation() {
@@ -103,12 +132,16 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
   bool _navigateDown() => moveSelection(1);
 
   void _selectCurrentField() {
-    if (focusSelectedField()) return;
+    if (_isLoading || focusSelectedField()) return;
     _performLogin();
   }
 
   Future<void> _performLogin() async {
-    if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
+    if (_isLoading) return;
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text;
+    if ((username.isEmpty || password.isEmpty) &&
+        !(widget.developer && username.isEmpty && password.isEmpty)) {
       AppNotification.showNotification(
         context,
         AppLocale.pleaseCompleteAllFields.getString(context),
@@ -122,8 +155,11 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
     });
 
     try {
-      final username = _usernameController.text.trim();
-      final password = _passwordController.text;
+      if (widget.developer) {
+        await ScreenScraperService.saveDeveloperCredentials(username, password);
+        if (mounted) Navigator.of(context).pop(true);
+        return;
+      }
 
       // Verify credentials with ScreenScraper
       final result = await ScreenScraperService.verifyCredentials(
@@ -197,6 +233,10 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
       }
     } catch (e) {
       if (!mounted) return;
+      if (widget.developer) {
+        _showCredentialError();
+        return;
+      }
       AppNotification.showNotification(
         context,
         AppLocale.loginError
@@ -263,8 +303,10 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
                 constraints: BoxConstraints(maxWidth: 260.r),
                 child: _buildLoginForm(context),
               ),
-              SizedBox(width: 16.r),
-              SizedBox(width: 300.r, child: _buildInfoBox(context)),
+              if (!widget.developer) ...[
+                SizedBox(width: 16.r),
+                SizedBox(width: 300.r, child: _buildInfoBox(context)),
+              ],
             ],
           ),
         ),
@@ -421,7 +463,10 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
             children: [
               Expanded(
                 child: Text(
-                  AppLocale.screenScraperLogin.getString(context),
+                  (widget.developer
+                          ? AppLocale.screenScraperDeveloperApi
+                          : AppLocale.screenScraperLogin)
+                      .getString(context),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.primary,
@@ -461,7 +506,9 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
                 enableSuggestions: false,
                 textCapitalization: TextCapitalization.none,
                 decoration: InputDecoration(
-                  labelText: AppLocale.username.getString(context),
+                  labelText: widget.developer
+                      ? 'devid'
+                      : AppLocale.username.getString(context),
                   labelStyle: TextStyle(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                     fontSize: 10.r,
@@ -471,7 +518,9 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
                     fontSize: 10.r,
                     fontWeight: FontWeight.bold,
                   ),
-                  hintText: AppLocale.enterUsername.getString(context),
+                  hintText: widget.developer
+                      ? null
+                      : AppLocale.enterUsername.getString(context),
                   hintStyle: TextStyle(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     fontSize: 10.r,
@@ -535,7 +584,9 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
                 focusNode: _passwordFocus,
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
-                  labelText: AppLocale.password.getString(context),
+                  labelText: widget.developer
+                      ? 'devpassword'
+                      : AppLocale.password.getString(context),
                   suffixStyle: TextStyle(
                     color: theme.colorScheme.primary.withValues(alpha: 0.7),
                     fontSize: 12.r,
@@ -549,7 +600,9 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
                     fontSize: 10.r,
                     fontWeight: FontWeight.bold,
                   ),
-                  hintText: AppLocale.enterPassword.getString(context),
+                  hintText: widget.developer
+                      ? null
+                      : AppLocale.enterPassword.getString(context),
                   hintStyle: TextStyle(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                     fontSize: 10.r,
@@ -643,7 +696,8 @@ class _ScreenScraperLoginDialogState extends State<ScreenScraperLoginDialog>
                         ),
                       )
                     : Text(
-                        AppLocale.login.getString(context),
+                        (widget.developer ? AppLocale.save : AppLocale.login)
+                            .getString(context),
                         style: TextStyle(
                           fontSize: 14.r,
                           fontWeight: FontWeight.bold,

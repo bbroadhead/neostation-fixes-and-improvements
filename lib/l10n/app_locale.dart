@@ -901,6 +901,8 @@ mixin AppLocale {
   static const String screenScraperUseUsernameNotEmail =
       'screenscraper_use_username_not_email';
   static const String screenScraperApiClosed = 'screenscraper_api_closed';
+  static const String screenScraperDeveloperApi =
+      'screen_scraper_developer_api';
   static const String screenScraperDeveloperCredentials =
       'screenscraper_developer_credentials';
   static const String screenScraperLoginRejected =

@@ -219,7 +219,15 @@ SteamGridDB, then hash-verified RetroAchievements artwork, then Libretro for
 each missing category. SteamGridDB supplies portrait covers, backgrounds,
 logos, and icons. With a ScreenScraper account configured, this build also
 checks ScreenScraper for missing media after the other sources. It uses a
-saved game identification or a unique exact title match. Gallery selections
+saved game identification or a unique exact title match.
+
+Under **Settings → Metadata → ScreenScraper developer API**, save your
+developer ID (`devid`) and password (`devpassword`) if your build does not
+provide them. Save both fields empty to clear the stored pair. Use
+**ScreenScraper Login** on the same page to save your personal username and
+password.
+
+Gallery selections
 and new automatic assignments
 record the source and category in a provenance file tied to the image bytes.
 
