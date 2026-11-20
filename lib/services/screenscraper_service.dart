@@ -945,6 +945,7 @@ class ScreenScraperService {
           appSystemId: appSystemId,
           systemFolder: systemFolder,
           romName: romName,
+          romPath: romPath,
           gameName: (verifiedMetadata['real_name'] as String?) ?? gameName,
           searchTitle: searchTitle,
           enabledMediaTypes: [
@@ -1502,7 +1503,11 @@ class ScreenScraperService {
           appSystemId: appSystemId,
           systemFolder: systemFolder,
           romName: filename,
-          gameName: (verifiedMetadata['real_name'] as String?) ?? titleName,
+          romPath: romPath,
+          gameName:
+              (verifiedMetadata['real_name'] as String?) ??
+              rom['real_name']?.toString() ??
+              titleName,
           searchTitle: searchTitle,
           enabledMediaTypes: const [
             'box2D',

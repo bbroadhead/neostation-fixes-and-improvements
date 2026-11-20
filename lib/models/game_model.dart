@@ -366,22 +366,22 @@ class GameModel {
   String? getArtworkOverridePath(String imageType, FileProvider? fileProvider) {
     final rom = romPath;
     if (rom == null || rom.isEmpty) return null;
-    return _artworkOverridePath(rom, imageType, fileProvider);
-  }
-
-  static String _artworkOverridePath(
-    String romPath,
-    String imageType,
-    FileProvider? fileProvider,
-  ) {
-    final key = sha256.convert(utf8.encode('$romPath\u0000$imageType'));
-    return path.join(
-      fileProvider != null && fileProvider.isInitialized
+    return artworkOverridePathForRom(
+      rom,
+      imageType,
+      mediaDirectory: fileProvider != null && fileProvider.isInitialized
           ? fileProvider.getMediaDirectoryPath()
           : 'media',
-      'manual_artwork',
-      '$key.png',
     );
+  }
+
+  static String artworkOverridePathForRom(
+    String romPath,
+    String imageType, {
+    required String mediaDirectory,
+  }) {
+    final key = sha256.convert(utf8.encode('$romPath\u0000$imageType'));
+    return path.join(mediaDirectory, 'manual_artwork', '$key.png');
   }
 
   /// Resolves the path new art for [imageType] must be *written* to.
@@ -483,7 +483,11 @@ class GameModel {
     if (!fileProvider.isInitialized) return null;
     for (final candidate in [
       if (romPath != null && romPath.isNotEmpty)
-        _artworkOverridePath(romPath, imageType, fileProvider),
+        artworkOverridePathForRom(
+          romPath,
+          imageType,
+          mediaDirectory: fileProvider.getMediaDirectoryPath(),
+        ),
       ..._neoStationImageCandidates(
         fileProvider,
         romname,

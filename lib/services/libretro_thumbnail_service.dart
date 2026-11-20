@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:path/path.dart' as path;
 
 import '../models/artwork_preview.dart';
+import '../models/game_model.dart';
 import '../utils/atomic_file_writer.dart';
 import 'logger_service.dart';
 import 'screenscraper/media_resolver.dart';
@@ -21,6 +23,7 @@ class LibretroThumbnailService {
     'lynx': 'Atari - Lynx',
     'jag': 'Atari - Jaguar',
     'c64': 'Commodore - 64',
+    'ard': 'Arduboy Inc - Arduboy',
     '3do': 'The 3DO Company - 3DO',
     'nes': 'Nintendo - Nintendo Entertainment System',
     'fc': 'Nintendo - Nintendo Entertainment System',
@@ -110,11 +113,18 @@ class LibretroThumbnailService {
     try {
       final response = await ScreenscraperClient.httpGetWithRetry(
         _artworkUrl(base, playlist, type.value, title),
-        timeout: const Duration(seconds: 10),
-        maxRetries: 1,
+        timeout: const Duration(seconds: 15),
         shouldCancel: shouldCancel,
       );
-      if (response.statusCode != 200 || !_isPng(response.bodyBytes)) {
+      if (response.statusCode == 404) return null;
+      if (response.statusCode != 200) {
+        _log.w(
+          'Libretro ${type.value} HTTP ${response.statusCode} for "$title"',
+        );
+        return null;
+      }
+      if (!await _isDecodablePng(response.bodyBytes)) {
+        _log.w('Libretro ${type.value} invalid PNG for "$title"');
         return null;
       }
       return (
@@ -154,6 +164,22 @@ class LibretroThumbnailService {
       Iterable<int>.generate(_pngSignature.length)
           .every((i) => bytes[i] == _pngSignature[i]);
 
+  static Future<bool> _isDecodablePng(Uint8List bytes) async {
+    if (!_isPng(bytes)) return false;
+    try {
+      final codec = await ui.instantiateImageCodec(bytes);
+      try {
+        final frame = await codec.getNextFrame();
+        frame.image.dispose();
+        return true;
+      } finally {
+        codec.dispose();
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Returns whether any requested image is available locally after the run.
   /// A catalog miss leaves existing art available and can be retried later.
   static Future<bool> download({
@@ -161,6 +187,7 @@ class LibretroThumbnailService {
     required String systemFolder,
     required String romName,
     required List<String> enabledMediaTypes,
+    String? romPath,
     String? gameName,
     String? searchTitle,
     bool forceOverwrite = false,
@@ -195,37 +222,39 @@ class LibretroThumbnailService {
       if (shouldCancel?.call() ?? false) break;
       final folder = ScreenscraperMediaResolver.mapMediaTypeToFolder(type.key);
       final file = File(path.join(root, systemFolder, folder, '$stem.png'));
-      final cached = await _hasLocalArtwork(file);
-      available = available || cached;
-      if (!cached || forceOverwrite) {
-        for (final label in labels) {
-          final url = _artworkUrl(base, playlist, type.value, label);
-          try {
-            final response = await ScreenscraperClient.httpGetWithRetry(
-              url,
-              timeout: const Duration(seconds: 15),
-              shouldCancel: shouldCancel,
+      final manual = romPath == null
+          ? null
+          : File(
+              GameModel.artworkOverridePathForRom(
+                romPath,
+                folder,
+                mediaDirectory: root,
+              ),
             );
-            if (response.statusCode == 404) continue;
-            if (response.statusCode != 200) {
-              _log.w(
-                'Libretro ${type.value} HTTP ${response.statusCode} for "$romName"',
-              );
-              break;
-            }
-            if (!_isPng(response.bodyBytes)) {
-              _log.w('Libretro ${type.value} invalid PNG for "$romName"');
-              continue;
-            }
-            if (shouldCancel?.call() ?? false) return available;
-            if (!forceOverwrite && await _hasLocalArtwork(file)) {
-              available = true;
-              break;
-            }
-            await writeFileAtomically(file, response.bodyBytes);
+      final hasManual = await manual?.exists() ?? false;
+      final cached = hasManual || await _hasLocalArtwork(file);
+      available = available || cached;
+      if (!hasManual && (!cached || forceOverwrite)) {
+        for (final label in labels) {
+          final preview = await _preview(
+            base,
+            playlist,
+            type,
+            label,
+            shouldCancel,
+          );
+          if (shouldCancel?.call() ?? false) return available;
+          if (preview == null) continue;
+          if ((await manual?.exists() ?? false) ||
+              (!forceOverwrite && await _hasLocalArtwork(file))) {
             available = true;
             break;
-          } catch (error) {
+          }
+          try {
+            await writeFileAtomically(file, preview.bytes);
+            available = true;
+            break;
+          } on FileSystemException catch (error) {
             _log.w(
               'Libretro ${type.value} for "$romName": ${error.runtimeType}',
             );

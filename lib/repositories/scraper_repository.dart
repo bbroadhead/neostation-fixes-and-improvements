@@ -1162,7 +1162,7 @@ class ScraperRepository {
     final filter = await _scrapeModeFilter(scrapeMode);
     final db = await SqliteService.getDatabase();
     return await db.rawQuery(
-      '''SELECT ur.filename, ur.rom_path, ur.title_name, usm.is_fully_scraped
+      '''SELECT ur.filename, ur.rom_path, ur.title_name, usm.real_name, usm.is_fully_scraped
        FROM user_roms ur LEFT JOIN user_screenscraper_metadata usm ON ur.app_system_id = usm.app_system_id AND ur.filename = usm.filename
        WHERE ur.app_system_id = ? $filter''',
       [appSystemId],
