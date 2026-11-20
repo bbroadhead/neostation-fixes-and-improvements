@@ -569,6 +569,42 @@ void main() {
   });
 
   group('CollectionsBrowserScreen wiring', () {
+    testWidgets('the top Back button returns to the systems page', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(
+          Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => const CollectionsBrowserScreen(),
+                ),
+              ),
+              child: const Text('Open Collections'),
+            ),
+          ),
+          collections: _StubCollections([]),
+        ),
+      );
+      await tester.tap(find.text('Open Collections'));
+      await tester.pumpAndSettle();
+
+      final back = find.widgetWithText(TextButton, 'Back');
+      expect(back, findsOneWidget);
+      expect(
+        tester.getBottomLeft(back).dy,
+        lessThanOrEqualTo(
+          tester.getTopLeft(find.byType(SystemCardGridView)).dy,
+        ),
+      );
+      await tester.tap(back);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CollectionsBrowserScreen), findsNothing);
+      expect(find.text('Open Collections'), findsOneWidget);
+    });
+
     testWidgets('the browser is the systems grid, on its own layer', (
       tester,
     ) async {
