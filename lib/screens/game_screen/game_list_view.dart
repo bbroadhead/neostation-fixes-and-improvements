@@ -336,6 +336,7 @@ class GameListViewState extends State<GameListView>
     final itemHeight = GameListSize.getRowHeight(widget.listSize).r;
     final titleFontSize = GameListSize.getFontSize(widget.listSize).r;
     final totalItemHeight = itemHeight;
+    final gameIconSize = (itemHeight - 4.r) * 0.9;
     _centeredScrollController.setItemExtent(totalItemHeight, paddingTop: 2.r);
 
     return Column(
@@ -466,8 +467,8 @@ class GameListViewState extends State<GameListView>
                                     ),
                                   ),
                                 Padding(
-                                  padding: EdgeInsets.only(right: 4.r),
-                                  child: _gameIcon(game, titleFontSize),
+                                  padding: EdgeInsets.only(right: 6.r),
+                                  child: _gameIcon(game, gameIconSize),
                                 ),
                                 Expanded(
                                   child: RepaintBoundary(
