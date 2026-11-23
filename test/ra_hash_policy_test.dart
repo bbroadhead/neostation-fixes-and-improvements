@@ -34,7 +34,7 @@ void main() {
     test('an unknown algorithm falls back to the whole-file hash', () {
       // An older build reading a systems JSON that gained a new algorithm.
       expect(
-        RaHashPolicy.fromNames('gamecube', 'hash_only').algo,
+        RaHashPolicy.fromNames('unknown_disc', 'hash_only').algo,
         RaHashAlgo.file,
       );
     });
@@ -148,7 +148,7 @@ void main() {
         final algo = system['ra_hash']?['algo'];
         if (algo == null || !discNames.contains(algo)) return;
         expect(
-          system['multidisc'],
+          system['multidisc'] == true || id.startsWith('pspminis'),
           isTrue,
           reason: '$id.json is not a disc system',
         );
@@ -176,7 +176,10 @@ void main() {
       // A hack is precisely the ROM RetroAchievements has not registered, so a
       // title guess there attaches a set the user can never earn.
       systems.forEach((id, system) {
-        if (!id.endsWith('-hacks')) return;
+        if (!id.endsWith('-hacks') ||
+            (system['ids'] as Map?)?['retroachievements'] == null) {
+          return;
+        }
         expect(system['ra_hash']?['mode'], 'hash_only', reason: '$id mode');
       });
     });

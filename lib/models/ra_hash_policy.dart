@@ -46,6 +46,9 @@ enum RaHashAlgo {
   /// own filename.
   psx('psx'),
 
+  /// GameCube logical disc hash, as computed by Dolphin.
+  gamecube('gamecube'),
+
   /// PlayStation 2: the same, from the `BOOT2` key.
   ps2('ps2'),
 
@@ -75,6 +78,7 @@ enum RaHashAlgo {
   /// protects the cartridge path — nothing reads a whole disc — and their ROMs
   /// are the ones the bulk pass used to park as unhashable.
   bool get isDisc => switch (this) {
+    RaHashAlgo.gamecube ||
     RaHashAlgo.psx ||
     RaHashAlgo.ps2 ||
     RaHashAlgo.psp ||

@@ -285,6 +285,21 @@ class RetroAchievementsRepository {
   static Future<void> updateRomRaHash(String romPath, String hash) =>
       SqliteService.updateRomRaHash(romPath, hash);
 
+  /// Invalidates computed evidence while retaining a deliberate association.
+  static Future<void> clearRomHashForRecheck(String romPath) async {
+    final db = await SqliteService.getDatabase();
+    await db.rawUpdate(
+      """
+      UPDATE user_roms
+      SET ra_hash = NULL, ra_hash_skipped = NULL,
+          id_ra = CASE WHEN ra_match_source = ? THEN id_ra END,
+          ra_match_source = CASE WHEN ra_match_source = ? THEN ra_match_source END
+      WHERE rom_path = ?
+      """,
+      [raMatchManual, raMatchManual, romPath],
+    );
+  }
+
   /// How a ROM's RetroAchievements match was established. Persisted in
   /// `user_roms.ra_match_source`; only [raMatchManual] survives an automatic
   /// re-match.

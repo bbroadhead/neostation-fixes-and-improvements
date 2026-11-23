@@ -8,6 +8,7 @@ import 'package:neostation/services/systems_update_service.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/system_model.dart';
+import '../models/system_family.dart';
 import '../models/system_configuration.dart';
 
 /// Service responsible for loading and parsing system configuration JSON files.
@@ -18,6 +19,55 @@ class JsonConfigService {
   static final JsonConfigService _instance = JsonConfigService._internal();
   static JsonConfigService get instance => _instance;
   JsonConfigService._internal();
+
+  @visibleForTesting
+  static List<SystemConfiguration> inheritHacksDefinitions(
+    List<SystemConfiguration> definitions,
+  ) {
+    final byFolder = {
+      for (final definition in definitions)
+        definition.system.folderName: definition,
+    };
+    return definitions.map((definition) {
+      final child = definition.system;
+      final folder = child.folderName;
+      final parentId = parentSystemId(folder);
+      final parent = byFolder[parentId];
+      if (folder == parentId || parent == null) return definition;
+
+      return SystemConfiguration(
+        system: SystemModel.fromJson({
+          ...child.toJson(),
+          'screenscraperId': parent.system.screenscraperId,
+          'raId': parent.system.raId,
+          'raHashAlgo': parent.system.raHashAlgo,
+          'raHashMode': 'hash_only',
+          'extensions': parent.system.extensions,
+          'multidisc': parent.system.multiDisc,
+          'neosync': parent.system.neosync.toJson(),
+        }),
+        emulators: [
+          for (final emulator in parent.emulators)
+            EmulatorDefinition(
+              name: emulator.name,
+              uniqueId: emulatorIdForSystem(
+                emulator.uniqueId,
+                parentId,
+                folder,
+              ),
+              description: emulator.description,
+              platforms: emulator.platforms,
+              extensions: emulator.extensions,
+              isDefaultCore: emulator.isDefaultCore,
+              isDefaultStandalone: emulator.isDefaultStandalone,
+              isretroAchievementsCompatible:
+                  emulator.isretroAchievementsCompatible,
+              neosyncSlug: emulator.effectiveNeoSyncSlug,
+            ),
+        ],
+      );
+    }).toList();
+  }
 
   static final _log = LoggerService.instance;
 
@@ -145,7 +195,7 @@ class JsonConfigService {
         }
       }
 
-      return systems;
+      return inheritHacksDefinitions(systems);
     } catch (e) {
       _log.e('Error loading system configurations: $e');
       return [];

@@ -10,6 +10,7 @@ import 'package:sqlite3/sqlite3.dart' as sqlite; // sqlite3 usage
 
 import '../../services/android_service.dart';
 
+import '../../models/system_family.dart';
 import '../../models/system_model.dart';
 import '../../models/system_configuration.dart';
 import '../../models/emulator_model.dart';
@@ -568,7 +569,7 @@ class SqliteService {
         // Search by folder_name (the logical unique key)
         final existing = await txn.query(
           'app_systems',
-          columns: ['id'],
+          columns: ['id', 'ra_hash_algo'],
           where: 'folder_name = ? COLLATE NOCASE',
           whereArgs: [jsonSystem.folderName],
           limit: 1,
@@ -577,6 +578,21 @@ class SqliteService {
         String systemId;
         if (existing.isNotEmpty) {
           systemId = existing.first['id'].toString();
+          if (jsonSystem.raHashAlgo == 'gamecube' &&
+              existing.first['ra_hash_algo'] != 'gamecube') {
+            await txn.rawUpdate(
+              """
+              UPDATE user_roms
+              SET ra_hash = NULL, ra_hash_skipped = NULL,
+                  id_ra = CASE WHEN ra_match_source = 'manual' THEN id_ra END,
+                  ra_match_source = CASE
+                    WHEN ra_match_source = 'manual' THEN ra_match_source END
+              WHERE app_system_id = ?
+              """,
+              [systemId],
+            );
+          }
+
           await txn.update(
             'app_systems',
             {
@@ -4638,6 +4654,30 @@ class SqliteService {
   ) async {
     final db = await instance.database;
     final currentOs = getCurrentOs();
+
+    final parent = parentSystemId(systemId);
+    if (parent != systemId) {
+      final inherited = await getUserDefaultEmulatorForSystem(parent);
+      if (inherited != null) {
+        final childId = emulatorIdForSystem(
+          inherited.uniqueId,
+          parent,
+          systemId,
+        );
+        final rows = await db.rawQuery(
+          """
+          SELECT child.*, os.name AS os_name, uc.emulator_path, uc.is_user_default
+          FROM app_emulators child
+          JOIN app_os os ON child.os_id = os.id
+          JOIN user_emulator_config uc ON uc.emulator_unique_id = ?
+          WHERE child.system_id = ? AND child.unique_identifier = ? AND os.name = ?
+          LIMIT 1
+          """,
+          [inherited.uniqueId, systemId, childId, currentOs],
+        );
+        if (rows.isNotEmpty) return CoreEmulatorModel.fromMap(rows.first);
+      }
+    }
 
     final userStandalone = await db.rawQuery(
       '''

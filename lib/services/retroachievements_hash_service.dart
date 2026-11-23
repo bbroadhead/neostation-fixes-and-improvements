@@ -50,9 +50,12 @@ class RetroAchievementsHashService {
   /// Checks local cache (SQLite) before attempting generation. Handles temporary
   /// extraction for compressed files and offloads the MD5 calculation to an
   /// isolate via [compute].
-  static Future<String?> generateHashForGame(GameModel game) async {
+  static Future<String?> generateHashForGame(
+    GameModel game, {
+    bool recheck = false,
+  }) async {
     try {
-      if (game.raHash != null && game.raHash!.isNotEmpty) {
+      if (!recheck && game.raHash != null && game.raHash!.isNotEmpty) {
         return game.raHash;
       }
 
@@ -62,11 +65,15 @@ class RetroAchievementsHashService {
         return null;
       }
 
-      final existingHash = await RetroAchievementsRepository.getRomRaHash(
-        game.romPath!,
-      );
-      if (existingHash != null && existingHash.isNotEmpty) {
-        return existingHash;
+      if (recheck) {
+        await RetroAchievementsRepository.clearRomHashForRecheck(game.romPath!);
+      } else {
+        final existingHash = await RetroAchievementsRepository.getRomRaHash(
+          game.romPath!,
+        );
+        if (existingHash != null && existingHash.isNotEmpty) {
+          return existingHash;
+        }
       }
 
       final policy = await policyForSystem(game.systemFolderName);
@@ -389,7 +396,7 @@ class RetroAchievementsHashService {
     if (isDisc) {
       // A container the disc reader cannot open — a .gdi, a compressed .cso —
       // is parked rather than hashed wrongly.
-      if (!RaDiscHash.canHash(candidate.romPath)) {
+      if (!RaDiscHash.canHash(candidate.romPath, algo: candidate.policy.algo)) {
         return (hash: null, skipReason: RetroAchievementsRepository.raSkipDisc);
       }
     } else if (isDiscContainer(candidate.romPath)) {

@@ -8,6 +8,7 @@ import 'chd_disc_image.dart';
 import 'cso_disc_image.dart';
 import 'disc_image.dart';
 import 'disc_paths.dart';
+import 'dolphin_ra_hash.dart';
 import 'm3u_playlist.dart';
 import 'ra_disc_hasher.dart';
 
@@ -40,8 +41,11 @@ class RaDiscHash {
   };
 
   /// Whether [romPath] is a container this can open.
-  static bool canHash(String romPath) {
+  static bool canHash(String romPath, {RaHashAlgo? algo}) {
     final lower = romPath.toLowerCase();
+    if (algo == RaHashAlgo.gamecube) {
+      return DolphinRaHash.supports(lower) || lower.endsWith('.m3u');
+    }
     return supportedExtensions.any(lower.endsWith);
   }
 
@@ -52,6 +56,7 @@ class RaDiscHash {
 
     final resolved = await _resolvePlaylist(romPath);
     if (resolved == null) return null;
+    if (algo == RaHashAlgo.gamecube) return DolphinRaHash.compute(resolved);
 
     // A PSP `.pbp` is an archive of the metadata and the executable both, so
     // RetroAchievements hashes the whole file rather than unpacking it.

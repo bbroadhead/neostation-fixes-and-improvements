@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 
 import '../models/system_model.dart';
+import '../models/system_family.dart';
 import '../models/game_model.dart';
 import '../repositories/game_repository.dart';
 import '../utils/disc/disc_paths.dart';
@@ -66,6 +67,32 @@ class LauncherService {
       final config = jsonDecode(jsonString) as Map<String, dynamic>;
 
       final systemId = config['system']['id'].toString();
+      final parent = parentSystemId(systemId);
+      if (parent != systemId && await loadSystemConfig('$parent.json')) {
+        final parentConfig = _configs[parent]!;
+        final players = <String, Map<String, dynamic>>{
+          for (final entry
+              in (config['emulators'] ?? config['players'] ?? []) as List)
+            entry['unique_id'].toString(): Map<String, dynamic>.from(
+              entry as Map,
+            ),
+        };
+        for (final entry
+            in (parentConfig['emulators'] ?? parentConfig['players'] ?? [])
+                as List) {
+          final id = emulatorIdForSystem(
+            entry['unique_id'].toString(),
+            parent,
+            systemId,
+          );
+          players[id] = {
+            ...Map<String, dynamic>.from(entry as Map),
+            'unique_id': id,
+          };
+        }
+        config['emulators'] = players.values.toList();
+      }
+
       _configs[systemId] = config;
 
       LoggerService.instance.log(

@@ -1,0 +1,254 @@
+{
+  "system": {
+    "id": "lynx-hacks",
+    "multidisc": false,
+    "name": "Atari Lynx Hacks",
+    "short_name": "Lynx Hacks",
+    "details": {
+      "manufacturer": "Atari",
+      "release_date": "1989-09-01",
+      "description": "Atari's 16-bit color handheld with hardware sprite scaling.",
+      "type": "handheld"
+    },
+    "ids": {
+      "screenscraper": 28,
+      "retroachievements": 13
+    },
+    "ra_hash": {
+      "algo": "lynx",
+      "mode": "hash_only"
+    },
+    "folders": [
+      "lynx-hacks"
+    ],
+    "colors": [
+      "#455A64",
+      "#B0BEC5"
+    ],
+    "extensions": [
+      "lnx",
+      "o",
+      "zip",
+      "7z"
+    ]
+  },
+  "emulators": [
+    {
+      "name": "Standalone LynxEmu",
+      "unique_id": "lynx-hacks.com.explusalpha.LynxEmu",
+      "description": "Supported extensions: lnx, o, zip, 7z.",
+      "is_retroachievements_compatible": false,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.explusalpha.LynxEmu/com.imagine.BaseActivity -a android.intent.action.VIEW -d \"{file.localuri}\" -t application/zip --activity-clear-task --activity-clear-top --activity-no-history"
+        }
+      }
+    },
+    {
+      "name": "RetroArch64 Beetle Lynx",
+      "unique_id": "lynx-hacks.ra64.mednafen_lynx",
+      "description": "Supported extensions: lnx, o, zip, 7z.",
+      "is_retroachievements_compatible": true,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch.aarch64/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"mednafen_lynx\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch64 Handy",
+      "default_core": true,
+      "unique_id": "lynx-hacks.ra64.handy",
+      "description": "Supported extensions: lnx, o, zip, 7z.",
+      "is_retroachievements_compatible": true,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch.aarch64/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"handy\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch64 Holani",
+      "unique_id": "lynx-hacks.ra64.holani",
+      "description": "Supported extensions: lnx, o, zip, 7z.",
+      "is_retroachievements_compatible": false,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch.aarch64/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"holani\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch32 Beetle Lynx",
+      "unique_id": "lynx-hacks.ra32.mednafen_lynx",
+      "description": "Supported extensions: lnx, o, zip, 7z.",
+      "is_retroachievements_compatible": true,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch.ra32/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"mednafen_lynx\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch32 Handy",
+      "default_core": true,
+      "unique_id": "lynx-hacks.ra32.handy",
+      "description": "Supported extensions: lnx, o, zip, 7z.",
+      "is_retroachievements_compatible": true,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch.ra32/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"handy\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch32 Holani",
+      "unique_id": "lynx-hacks.ra32.holani",
+      "description": "Supported extensions: lnx, o, zip, 7z.",
+      "is_retroachievements_compatible": false,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch.ra32/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"holani\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch Beetle Lynx",
+      "unique_id": "lynx-hacks.ra.mednafen_lynx",
+      "description": "Supported extensions: lnx, o, zip, 7z.",
+      "is_retroachievements_compatible": true,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"mednafen_lynx\""
+        },
+        "windows": {
+          "executable": "retroarch.exe",
+          "args": "-L mednafen_lynx_libretro.dll \"{file.path}\""
+        },
+        "linux": {
+          "executable": "retroarch",
+          "flatpak": "org.libretro.RetroArch",
+          "emudeck_launcher": "retroarch.sh",
+          "args": "-L mednafen_lynx_libretro.so \"{file.path}\""
+        },
+        "macos": {
+          "executable": "RetroArch.App",
+          "args": "-L mednafen_lynx_libretro.dylib \"{file.path}\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch Handy",
+      "default_core": true,
+      "unique_id": "lynx-hacks.ra.handy",
+      "description": "Supported extensions: lnx, o, zip, 7z.",
+      "is_retroachievements_compatible": true,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"handy\""
+        },
+        "windows": {
+          "executable": "retroarch.exe",
+          "args": "-L handy_libretro.dll \"{file.path}\""
+        },
+        "linux": {
+          "executable": "retroarch",
+          "flatpak": "org.libretro.RetroArch",
+          "emudeck_launcher": "retroarch.sh",
+          "args": "-L handy_libretro.so \"{file.path}\""
+        },
+        "macos": {
+          "executable": "RetroArch.App",
+          "args": "-L handy_libretro.dylib \"{file.path}\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch Holani",
+      "unique_id": "lynx-hacks.ra.holani",
+      "description": "Supported extensions: lnx, o, zip, 7z.",
+      "is_retroachievements_compatible": false,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"holani\""
+        },
+        "windows": {
+          "executable": "retroarch.exe",
+          "args": "-L holani_libretro.dll \"{file.path}\""
+        },
+        "linux": {
+          "executable": "retroarch",
+          "flatpak": "org.libretro.RetroArch",
+          "emudeck_launcher": "retroarch.sh",
+          "args": "-L holani_libretro.so \"{file.path}\""
+        },
+        "macos": {
+          "executable": "RetroArch.App",
+          "args": "-L holani_libretro.dylib \"{file.path}\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch Gearlynx",
+      "unique_id": "lynx-hacks.ra.gearlynx",
+      "description": "Supported extensions: lnx, lyx, o, bin.",
+      "is_retroachievements_compatible": false,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"gearlynx\""
+        },
+        "windows": {
+          "executable": "retroarch.exe",
+          "args": "-L gearlynx_libretro.dll \"{file.path}\""
+        },
+        "linux": {
+          "executable": "retroarch",
+          "flatpak": "org.libretro.RetroArch",
+          "emudeck_launcher": "retroarch.sh",
+          "args": "-L gearlynx_libretro.so \"{file.path}\""
+        },
+        "macos": {
+          "executable": "retroarch",
+          "args": "-L gearlynx_libretro.dylib \"{file.path}\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch64 Gearlynx",
+      "unique_id": "lynx-hacks.ra64.gearlynx",
+      "description": "Supported extensions: lnx, lyx, o, bin.",
+      "is_retroachievements_compatible": false,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch.aarch64/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"gearlynx\""
+        }
+      }
+    },
+    {
+      "name": "RetroArch32 Gearlynx",
+      "unique_id": "lynx-hacks.ra32.gearlynx",
+      "description": "Supported extensions: lnx, lyx, o, bin.",
+      "is_retroachievements_compatible": false,
+      "platforms": {
+        "android": {
+          "launch_arguments": "-n com.retroarch.ra32/com.retroarch.browser.retroactivity.RetroActivityFuture --es ROM \"{file.path}\" --es LIBRETRO \"gearlynx\""
+        }
+      }
+    }
+  ],
+  "neosync": {
+    "sync": true,
+    "android_sync_folder": [
+      "{SYNC_DIR}"
+    ],
+    "windows_sync_folder": [
+      "{SYNC_DIR}"
+    ],
+    "linux_sync_folder": [
+      "{SYNC_DIR}"
+    ],
+    "macos_sync_folder": [
+      "{SYNC_DIR}"
+    ]
+  }
+}

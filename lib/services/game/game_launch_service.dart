@@ -9,6 +9,7 @@ import 'package:neostation/services/logger_service.dart';
 
 import '../../models/game_model.dart';
 import '../../models/system_model.dart';
+import '../../models/system_family.dart';
 import '../../models/emulator_model.dart';
 import '../../models/core_emulator_model.dart';
 import '../../repositories/emulator_repository.dart';
@@ -97,7 +98,7 @@ class GameLaunchService {
         game.romPath,
         allowDirectory:
             system.id == 'ps3' ||
-            system.folderName == 'ps3' ||
+            parentSystemId(system.folderName) == 'ps3' ||
             (game.romPath?.toLowerCase().endsWith('.app') ?? false),
       );
       if (!context.mounted) return GameLaunchResult.failure('', '');
@@ -109,7 +110,7 @@ class GameLaunchService {
         );
       }
 
-      final configFileName = '${system.folderName}.json';
+      final configFileName = '${systemDefinitionId(system.folderName)}.json';
       final bool configLoaded = await LauncherService.instance.loadSystemConfig(
         configFileName,
       );
