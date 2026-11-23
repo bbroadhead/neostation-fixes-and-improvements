@@ -290,6 +290,7 @@ class SteamGridDbArtworkService {
             !const {
               'cdn.cloudflare.steamstatic.com',
               'cdn.steamgriddb.com',
+              'cdn2.steamgriddb.com',
             }.contains(uri.host) ||
             uri.userInfo.isNotEmpty ||
             !seen.add(uri)) {

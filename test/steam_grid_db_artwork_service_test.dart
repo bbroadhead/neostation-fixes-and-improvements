@@ -171,7 +171,7 @@ void main() {
       final client = MockClient((request) async {
         final uri = request.url;
         requests.add(uri);
-        if (uri.host == 'cdn.steamgriddb.com') {
+        if (uri.host == 'cdn2.steamgriddb.com') {
           expect(request.headers['authorization'], isNull);
           return http.Response.bytes(png, 200);
         }
@@ -197,13 +197,13 @@ void main() {
                 'success': true,
                 'data': [
                   {
-                    'url': 'https://cdn.steamgriddb.com/wide.jpg',
+                    'url': 'https://cdn2.steamgriddb.com/wide.jpg',
                     'width': 600,
                     'height': 400,
                     'mime': 'image/jpeg',
                   },
                   {
-                    'url': 'https://cdn.steamgriddb.com/portrait.jpg',
+                    'url': 'https://cdn2.steamgriddb.com/portrait.jpg',
                     'width': 400,
                     'height': 600,
                     'mime': 'image/jpeg',
