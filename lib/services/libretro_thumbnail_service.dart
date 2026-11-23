@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 import '../models/artwork_preview.dart';
 import '../models/artwork_scrape_event.dart';
 import '../models/game_model.dart';
+import '../models/system_family.dart';
 import 'artwork_assignment_service.dart';
 import 'logger_service.dart';
 import 'screenscraper/media_resolver.dart';
@@ -65,7 +66,7 @@ class LibretroThumbnailService {
   };
 
   static String? playlistForSystem(String appSystemId) =>
-      _playlists[appSystemId];
+      _playlists[parentSystemId(appSystemId)];
 
   static bool supportsSystem(String appSystemId) =>
       playlistForSystem(appSystemId) != null;
@@ -289,7 +290,7 @@ class LibretroThumbnailService {
     Stream<ArtworkPreview> Function(String category)? preferred,
     Future<ArtworkPreview?> Function(String category)? fallback,
   }) async {
-    final playlist = _playlists[appSystemId];
+    final playlist = _playlists[parentSystemId(appSystemId)];
     if (playlist == null && preferred == null) return false;
 
     final stem = await ScreenscraperRomHasher.getCleanRomName(
@@ -396,6 +397,17 @@ class LibretroThumbnailService {
                 selected,
                 manual: false,
               );
+              final saved = await ArtworkAssignmentService.readProvenance(
+                file,
+                folder,
+              );
+              if (saved?.source != selected.provider ||
+                  saved?.manual != false) {
+                throw FileSystemException(
+                  'Could not verify saved artwork',
+                  file.path,
+                );
+              }
               available = true;
               onArtwork?.call(folder, ArtworkScrapeEvent.assigned);
             } on FileSystemException catch (error) {
@@ -413,8 +425,18 @@ class LibretroThumbnailService {
   static Future<bool> _hasLocalArtwork(File png) async {
     final stem = path.withoutExtension(png.path);
     for (final extension in const ['png', 'jpg', 'webp']) {
-      final stat = await File('$stem.$extension').stat();
-      if (stat.type == FileSystemEntityType.file && stat.size > 0) return true;
+      final file = File('$stem.$extension');
+      final stat = await file.stat();
+      if (stat.type != FileSystemEntityType.file || stat.size <= 0) continue;
+      try {
+        if (await ArtworkAssignmentService.isImageReadable(
+          await file.readAsBytes(),
+        )) {
+          return true;
+        }
+      } on FileSystemException {
+        // An unreadable cache file is eligible for repair.
+      }
     }
     return false;
   }

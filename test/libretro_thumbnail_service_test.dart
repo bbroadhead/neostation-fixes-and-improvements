@@ -165,6 +165,62 @@ void main() {
     expect(await override.readAsBytes(), png);
   });
 
+  test(
+    'valid NeoAssets art wins and invalid art falls through per slot',
+    () async {
+      final tried = <String>[];
+      Stream<ArtworkPreview> preferred(String category) async* {
+        tried.add('NeoAssets $category');
+        yield (
+          provider: ArtworkProvider.neoAssets,
+          category: category,
+          title: 'Game',
+          bytes: category == 'box2d' ? png : png.sublist(0, 10),
+        );
+        tried.add('RetroAchievements $category');
+        yield (
+          provider: ArtworkProvider.retroAchievements,
+          category: category,
+          title: 'Game',
+          bytes: png,
+        );
+      }
+
+      expect(
+        await LibretroThumbnailService.download(
+          appSystemId: 'nes',
+          systemFolder: 'nes',
+          romName: 'Game & Watch (USA).nes',
+          enabledMediaTypes: ['box2D', 'ss'],
+          preferred: preferred,
+          catalog: Uri.parse('http://127.0.0.1:${server.port}'),
+        ),
+        isTrue,
+      );
+      expect(tried, [
+        'NeoAssets box2d',
+        'NeoAssets screenshots',
+        'RetroAchievements screenshots',
+      ]);
+      final cover = File('${media.path}/nes/box2d/Game & Watch (USA).png');
+      final screenshot = File(
+        '${media.path}/nes/screenshots/Game & Watch (USA).png',
+      );
+      expect(
+        (await ArtworkAssignmentService.readProvenance(cover, 'box2d'))?.source,
+        ArtworkProvider.neoAssets,
+      );
+      expect(
+        (await ArtworkAssignmentService.readProvenance(
+          screenshot,
+          'screenshots',
+        ))?.source,
+        ArtworkProvider.retroAchievements,
+      );
+      expect(hits, isEmpty);
+    },
+  );
+
   test('a truncated PNG is rejected before assignment', () async {
     serveTruncated = true;
     expect(await download(), isFalse);

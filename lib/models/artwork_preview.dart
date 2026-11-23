@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 enum ArtworkProvider {
+  neoAssets('NeoAssets'),
   steamGridDb('SteamGridDB'),
   retroAchievements('RetroAchievements'),
   libretro('Libretro'),

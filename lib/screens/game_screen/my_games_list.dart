@@ -1,4 +1,5 @@
 import 'package:neostation/services/artwork_assignment_service.dart';
+import 'package:neostation/services/neo_assets_game_service.dart';
 import 'package:neostation/services/steam_grid_db_artwork_service.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -2326,7 +2327,15 @@ class _SystemGamesListState extends State<SystemGamesList> {
           }
         }
 
+        final neoAssets = NeoAssetsGameService(
+          systemId,
+          lookupTitle,
+          allowPartialMatch: byName,
+          shouldCancel: cancelled,
+        );
         final results = await Future.wait([
+          for (final category in NeoAssetsGameService.imageKinds.values.toSet())
+            neoAssets.inCategory(category),
           raArtwork(),
           ScreenScraperService.artworkGallery(
             appSystemId: systemId,
@@ -2386,11 +2395,21 @@ class _SystemGamesListState extends State<SystemGamesList> {
             _fileProvider,
           );
           if (target == null) continue;
-          await ArtworkAssignmentService.save(
-            File(target),
-            image,
-            manual: true,
+          if (!await ArtworkAssignmentService.isReadable(image)) {
+            throw const FormatException('Selected artwork is unreadable');
+          }
+          final file = File(target);
+          await ArtworkAssignmentService.save(file, image, manual: true);
+          final saved = await ArtworkAssignmentService.readProvenance(
+            file,
+            image.category,
           );
+          if (saved?.source != image.provider || saved?.manual != true) {
+            throw FileSystemException(
+              'Could not verify selected artwork',
+              target,
+            );
+          }
           targets.add(target);
         }
       } finally {
@@ -2400,7 +2419,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
           if (mounted) await _handleGameUpdated();
         }
       }
-      if (!mounted) return;
+      if (!mounted || targets.isEmpty) return;
       AppNotification.showNotification(
         context,
         AppLocale.imageUpdated.getString(context),

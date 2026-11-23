@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
@@ -9,9 +10,12 @@ import '../models/artwork_preview.dart';
 import '../utils/atomic_file_writer.dart';
 
 class ArtworkAssignmentService {
-  static Future<bool> isReadable(ArtworkPreview image) async {
+  static Future<bool> isReadable(ArtworkPreview image) =>
+      isImageReadable(image.bytes);
+
+  static Future<bool> isImageReadable(Uint8List bytes) async {
     try {
-      final codec = await ui.instantiateImageCodec(image.bytes);
+      final codec = await ui.instantiateImageCodec(bytes);
       try {
         final frame = await codec.getNextFrame();
         frame.image.dispose();

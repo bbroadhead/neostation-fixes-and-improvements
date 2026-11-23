@@ -209,8 +209,8 @@ Search with Enter or the search button. With a controller, use Y to focus
 the query field and A to submit. The reset icon restores the detected title.
 Gallery queries leave the library display name and saved scrape title intact.
 
-The gallery shows RetroAchievements results first, followed by ScreenScraper,
-SteamGridDB, and Libretro results when those sources have artwork. Use the
+The gallery shows NeoAssets results when configured, followed by RetroAchievements,
+ScreenScraper, SteamGridDB, and Libretro results when those sources have artwork. Use the
 **Logo** category to pick a game logo independently of the icon. The default
 lookup uses the verified RetroAchievements ROM match when available. A
 submitted title searches each available provider by name. Choosing artwork
@@ -219,12 +219,22 @@ from those results leaves the ROM's verified identity unchanged.
 In **Settings → Metadata → SteamGridDB API key**, enter your key and select
 **Save**. The saved key persists across launches. Save an empty field to clear
 it. The runtime environment variable `STEAMGRIDDB_API_KEY` remains available
-when no saved key is set. Local artwork builds try
-SteamGridDB, then hash-verified RetroAchievements artwork, then Libretro for
-each missing category. SteamGridDB supplies portrait covers, backgrounds,
+when no saved key is set. Local artwork builds try NeoAssets, SteamGridDB,
+hash-verified RetroAchievements artwork and Libretro in order for each missing
+category. SteamGridDB supplies portrait covers, backgrounds,
 logos, and icons. With a ScreenScraper account configured, this build also
 checks ScreenScraper for missing media after the other sources. It uses a
 saved game identification or a unique exact title match.
+
+To enable the NeoAssets game provider, supply your developer app credentials
+through the launch environment variables `NEOASSETS_CLIENT_ID` and
+`NEOASSETS_CLIENT_SECRET`. `NEOASSETS_USER_API_KEY` is optional and uses the
+personal account quota. Use your own NeoAssets developer application and
+keep its secret out of the repository and Steam launch arguments. The
+default system-art catalogue continues to work without credentials.
+The game provider imports cover art, screenshots, logos, fanart and
+metadata from the authenticated catalogue. Other image categories continue
+through the remaining providers.
 
 Under **Settings → Metadata → ScreenScraper developer API**, save your
 developer ID (`devid`) and password (`devpassword`) if your build does not
