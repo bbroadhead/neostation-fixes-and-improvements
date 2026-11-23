@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localization/flutter_localization.dart';
+import 'package:http/http.dart' as http;
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/services/game_service.dart'
     show GamepadNavigationManager;
@@ -8,7 +9,9 @@ import 'package:neostation/utils/gamepad_nav.dart';
 import 'package:neostation/utils/login_form_selection.dart';
 
 class SteamGridDbKeyDialog extends StatefulWidget {
-  const SteamGridDbKeyDialog({super.key});
+  const SteamGridDbKeyDialog({super.key, this.client});
+
+  final http.Client? client;
 
   @override
   State<SteamGridDbKeyDialog> createState() => _SteamGridDbKeyDialogState();
@@ -21,7 +24,8 @@ class _SteamGridDbKeyDialogState extends State<SteamGridDbKeyDialog>
   final _focus = FocusNode();
   late final GamepadNavigation _navigation;
   bool _busy = true;
-  bool _failed = false;
+  String? _error;
+  bool _saved = false;
 
   @override
   List<FocusNode?> get selectionSlots => [_focus, null];
@@ -64,7 +68,7 @@ class _SteamGridDbKeyDialogState extends State<SteamGridDbKeyDialog>
       _controller.text = key ?? '';
     } catch (_) {
       if (!mounted) return;
-      _failed = true;
+      _error = AppLocale.credentialStorageUnavailable;
     }
     setState(() => _busy = false);
   }
@@ -74,17 +78,46 @@ class _SteamGridDbKeyDialogState extends State<SteamGridDbKeyDialog>
     exitTextEntry();
     setState(() {
       _busy = true;
-      _failed = false;
+      _error = null;
+      _saved = false;
     });
+    final key = _controller.text.trim();
     try {
-      await SteamGridDbArtworkService.saveApiKey(_controller.text);
-      if (mounted) Navigator.of(context).pop();
-    } catch (_) {
+      if (key.isNotEmpty) {
+        final failure = await SteamGridDbArtworkService.testConnection(
+          key,
+          client: widget.client,
+        );
+        if (!mounted) return;
+        if (failure != null) {
+          setState(
+            () => _error = switch (failure) {
+              SteamGridDbConnectionFailure.invalidKey =>
+                AppLocale.rommErrorInvalidApiKey,
+              SteamGridDbConnectionFailure.network =>
+                AppLocale.steamGridDbNetworkError,
+              SteamGridDbConnectionFailure.rateLimited =>
+                AppLocale.steamGridDbRateLimited,
+              SteamGridDbConnectionFailure.unavailable =>
+                AppLocale.steamGridDbUnavailable,
+              SteamGridDbConnectionFailure.unexpectedResponse =>
+                AppLocale.steamGridDbUnexpectedResponse,
+            },
+          );
+          return;
+        }
+      }
+      await SteamGridDbArtworkService.saveApiKey(key);
       if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _failed = true;
-      });
+      if (key.isEmpty) {
+        Navigator.of(context).pop();
+      } else {
+        setState(() => _saved = true);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _error = AppLocale.failedToSaveSetting);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -103,6 +136,7 @@ class _SteamGridDbKeyDialogState extends State<SteamGridDbKeyDialog>
     final colors = Theme.of(context).colorScheme;
     return AlertDialog(
       title: Text(AppLocale.steamGridDbApiKey.getString(context)),
+      scrollable: true,
       content: TextField(
         controller: _controller,
         focusNode: _focus,
@@ -111,12 +145,19 @@ class _SteamGridDbKeyDialogState extends State<SteamGridDbKeyDialog>
         autocorrect: false,
         enableSuggestions: false,
         textInputAction: TextInputAction.done,
+        onChanged: (_) => setState(() {
+          _saved = false;
+          _error = null;
+        }),
         onSubmitted: (_) => _save(),
         decoration: InputDecoration(
           labelText: AppLocale.rommApiKey.getString(context),
-          errorText: _failed
-              ? AppLocale.failedToSaveSetting.getString(context)
+          errorText: _error?.getString(context),
+          errorMaxLines: 3,
+          helperText: _saved
+              ? AppLocale.rommConnectionSuccess.getString(context)
               : null,
+          helperStyle: TextStyle(color: colors.primary),
           border: OutlineInputBorder(
             borderSide: BorderSide(
               color: isSelected(0) ? colors.primary : colors.outline,
@@ -132,7 +173,9 @@ class _SteamGridDbKeyDialogState extends State<SteamGridDbKeyDialog>
       actions: [
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: Text(AppLocale.cancel.getString(context)),
+          child: Text(
+            (_saved ? AppLocale.close : AppLocale.cancel).getString(context),
+          ),
         ),
         TextButton(
           onPressed: _busy ? null : _save,

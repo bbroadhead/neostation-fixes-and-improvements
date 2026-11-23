@@ -8,6 +8,10 @@ import 'package:neostation/providers/scraping_provider.dart';
 import 'package:neostation/screens/settings_screen/new_settings_options/screenscraper/screenscraper_settings_content.dart';
 import 'package:neostation/services/credential_store.dart';
 import 'package:neostation/services/screenscraper_service.dart';
+import 'package:neostation/services/steam_grid_db_artwork_service.dart';
+import 'package:neostation/screens/settings_screen/new_settings_options/screenscraper/steam_grid_db_key_dialog.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,9 +42,56 @@ void main() {
     await dbHelper.tearDown();
   });
 
+  testWidgets('validates the key before showing visible success and saving', (
+    tester,
+  ) async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final client = MockClient(
+      (request) async => request.headers['authorization'] == 'Bearer valid-key'
+          ? http.Response(
+              '{"success":true,"data":[{"name":"Portal 2","id":17830}]}',
+              200,
+            )
+          : http.Response('{"success":false}', 401),
+    );
+    addTearDown(client.close);
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates:
+            FlutterLocalization.instance.localizationsDelegates,
+        supportedLocales: FlutterLocalization.instance.supportedLocales,
+        home: SteamGridDbKeyDialog(client: client),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final field = find.byType(TextField);
+    final save = find.widgetWithText(TextButton, 'Save');
+
+    await tester.enterText(field, 'invalid-key');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.text('The API key was rejected.'), findsOneWidget);
+    expect(find.text('Connection successful'), findsNothing);
+    expect(await SteamGridDbArtworkService.readSavedApiKey(), isNull);
+
+    await tester.enterText(field, ' valid-key ');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.text('Connection successful'), findsOneWidget);
+    expect(tester.widget<TextField>(field).obscureText, isTrue);
+    expect(await SteamGridDbArtworkService.readSavedApiKey(), 'valid-key');
+
+    await tester.enterText(field, 'invalid-key');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.text('Connection successful'), findsNothing);
+    expect(await SteamGridDbArtworkService.readSavedApiKey(), 'valid-key');
+  });
+
   testWidgets('scraper API settings can be saved without ScreenScraper login', (
     tester,
   ) async {
+    await SteamGridDbArtworkService.saveApiKey('fixture-key');
     final key = GlobalKey<ScreenScraperSettingsContentState>();
     await tester.pumpWidget(
       MediaQuery(
@@ -99,13 +150,6 @@ void main() {
 
     final field = find.byType(TextField);
     expect(tester.widget<TextField>(field).obscureText, isTrue);
-    await tester.enterText(field, ' fixture-key ');
-    await tester.tap(find.widgetWithText(TextButton, 'Save'));
-    await tester.pumpAndSettle();
-    expect(field, findsNothing);
-
-    key.currentState!.selectItem();
-    await tester.pumpAndSettle();
     expect(tester.widget<TextField>(field).controller!.text, 'fixture-key');
     await tester.enterText(field, '');
     await tester.tap(find.widgetWithText(TextButton, 'Save'));

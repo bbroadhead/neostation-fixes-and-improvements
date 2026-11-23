@@ -33,7 +33,7 @@ void main() {
           'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
         );
         final cover = (
-          provider: ArtworkProvider.libretro,
+          provider: ArtworkProvider.steamGridDb,
           category: 'box2d',
           title: 'Cover',
           bytes: bytes,
@@ -94,6 +94,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
+        await tester.tap(find.widgetWithText(ChoiceChip, 'SteamGridDB'));
+        await tester.pumpAndSettle();
+        expect(find.text('Cover'), findsOneWidget);
+        expect(find.text('Gameplay'), findsNothing);
         await tester.tap(find.widgetWithText(TextButton, 'Select'));
         if (apply) {
           await tester.runAsync(() async {

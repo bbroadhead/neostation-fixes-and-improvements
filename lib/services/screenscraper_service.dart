@@ -18,6 +18,7 @@ import 'rom_fingerprint_service.dart';
 import 'libretro_thumbnail_service.dart';
 import 'neo_assets_game_service.dart';
 import 'steam_grid_db_artwork_service.dart';
+import 'artwork_assignment_service.dart';
 import '../models/artwork_preview.dart';
 import '../models/artwork_scrape_event.dart';
 import 'scrape_batch_checkpoint.dart';
@@ -1203,6 +1204,7 @@ class ScreenScraperService {
         (gameName?.trim().isNotEmpty == true ? gameName! : cleanTitle);
     final steam = SteamGridDbArtworkService(
       lookupTitle,
+      alternateTitle: searchTitle == null ? cleanTitle : null,
       shouldCancel: shouldCancel,
       onFailure: (category) {
         if (category == null) {
@@ -1214,8 +1216,7 @@ class ScreenScraperService {
     );
     Future<List<ArtworkPreview>>? verifiedArtwork;
     Stream<ArtworkPreview> preferred(String category) async* {
-      yield* Stream.fromIterable(await neoAssets.inCategory(category));
-      yield* Stream.fromIterable(await steam.inCategory(category));
+      yield* Stream.fromIterable(await steam.inCategory(category, limit: 1));
       if (!const {
             'box2d',
             'screenshots',
@@ -1255,7 +1256,12 @@ class ScreenScraperService {
     }
 
     Future<_ArtworkMedia?>? screenScraperMedia;
-    Future<ArtworkPreview?> screenScraperFallback(String category) async {
+    Future<ArtworkPreview?> otherArtwork(String category) async {
+      for (final image in await neoAssets.inCategory(category)) {
+        if (cancelled()) return null;
+        if (await ArtworkAssignmentService.isReadable(image)) return image;
+        failures.add(category);
+      }
       final type = _previewMediaTypes[category];
       if (type == null || cancelled()) return null;
       final entry = await (screenScraperMedia ??= lookupScreenScraperMedia());
@@ -1288,7 +1294,7 @@ class ScreenScraperService {
       shouldCancel: shouldCancel,
       onProgress: onProgress,
       preferred: preferred,
-      fallback: screenScraperFallback,
+      fallback: otherArtwork,
       onArtwork: onArtwork,
       providerFailed: (category) =>
           neoAssets.failedFor(category) ||

@@ -211,20 +211,42 @@ Gallery queries leave the library display name and saved scrape title intact.
 
 The gallery shows NeoAssets results when configured, followed by RetroAchievements,
 ScreenScraper, SteamGridDB, and Libretro results when those sources have artwork. Use the
-**Logo** category to pick a game logo independently of the icon. The default
-lookup uses the verified RetroAchievements ROM match when available. A
+**Logo** category to pick a game logo independently of the icon. The
+RetroAchievements gallery uses the verified ROM match when available. A
 submitted title searches each available provider by name. Choosing artwork
 from those results leaves the ROM's verified identity unchanged.
 
 In **Settings → Metadata → SteamGridDB API key**, enter your key and select
-**Save**. The saved key persists across launches. Save an empty field to clear
-it. The runtime environment variable `STEAMGRIDDB_API_KEY` remains available
-when no saved key is set. Local artwork builds try NeoAssets, SteamGridDB,
-hash-verified RetroAchievements artwork and Libretro in order for each missing
-category. SteamGridDB supplies portrait covers, backgrounds,
-logos, and icons. With a ScreenScraper account configured, this build also
-checks ScreenScraper for missing media after the other sources. It uses a
-saved game identification or a unique exact title match.
+**Save**. NeoStation validates the key and displays **Connection successful**
+after the key is saved. Save an empty field to clear the stored key. The
+runtime environment variable `STEAMGRIDDB_API_KEY` remains available when no
+saved key is set. Local artwork builds try SteamGridDB, hash-verified
+RetroAchievements and Libretro in that order for each missing category.
+Configured NeoAssets and ScreenScraper sources can fill remaining slots.
+SteamGridDB supplies portrait covers, backgrounds, logos, and icons.
+
+**Steam Deck verification**
+
+1. Launch the new AppImage in Desktop Mode using a test profile and a legally
+   dumped ROM for a known title such as *Super Mario World*. In **Settings →
+   Metadata → SteamGridDB API key**, save an invalid key and verify that the
+   dialog shows a rejection. Save a valid key and verify **Connection successful**
+   appears inside the dialog.
+2. Close and relaunch NeoStation. Reopen the dialog and verify the obscured key
+   is populated. Select **Save** to validate the stored key again. Repeat with
+   Wi-Fi disconnected and verify a network error, then reconnect.
+3. Open the game's artwork picker and search for `Super Mario World`. Filter
+   by **SteamGridDB**, preview a portrait cover and a logo, then select and
+   apply them. Verify both appear in their respective slots and survive a restart.
+4. Run automatic scraping on the same game and confirm both manual assignments
+   survive. Using a fresh test game with missing art, scrape with all intended
+   providers configured and check SteamGridDB wins for a slot it can fill.
+   Clear the SteamGridDB key and ensure its environment override is unset.
+   Scrape another uncached title to check hash-verified RetroAchievements
+   and Libretro fallback. Check screenshots and title screens independently.
+5. Launch the same AppImage through Steam in Gaming Mode. Repeat the settings
+   and artwork-picker checks with the D-pad, A and B, then launch a game and
+   confirm navigation works on return. Keep keys out of screenshots and logs.
 
 To enable the NeoAssets game provider, supply your developer app credentials
 through the launch environment variables `NEOASSETS_CLIENT_ID` and

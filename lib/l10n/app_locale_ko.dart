@@ -1249,6 +1249,13 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.rommCredentialsRequired: '서버 URL, 사용자 이름, 비밀번호를 입력하세요',
   AppLocale.rommAuthPassword: '비밀번호',
   AppLocale.rommAuthApiKey: 'API 키',
+  AppLocale.steamGridDbNetworkError:
+      'SteamGridDB에 연결할 수 없습니다. 연결 상태를 확인한 후 다시 시도하세요.',
+  AppLocale.steamGridDbRateLimited: 'SteamGridDB 요청 한도에 도달했습니다. 잠시 후 다시 시도하세요.',
+  AppLocale.steamGridDbUnavailable:
+      'SteamGridDB를 일시적으로 사용할 수 없습니다. 나중에 다시 시도하세요.',
+  AppLocale.steamGridDbUnexpectedResponse:
+      'SteamGridDB에서 예상치 못한 응답을 받았습니다. 나중에 다시 시도하세요.',
   AppLocale.steamGridDbApiKey: 'SteamGridDB API 키',
   AppLocale.rommApiKey: 'API 키',
   AppLocale.rommApiKeyHint: 'rmm_...',

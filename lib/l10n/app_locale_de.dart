@@ -1333,6 +1333,11 @@ const Map<String, dynamic> appLocaleDe = {
       'Gib Server-URL, Benutzername und Passwort ein',
   AppLocale.rommAuthPassword: 'Passwort',
   AppLocale.rommAuthApiKey: 'API-Schlüssel',
+  AppLocale.steamGridDbNetworkError: 'SteamGridDB ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.',
+  AppLocale.steamGridDbRateLimited: 'Anfragelimit von SteamGridDB erreicht. Warte kurz und versuche es erneut.',
+  AppLocale.steamGridDbUnavailable: 'SteamGridDB ist vorübergehend nicht verfügbar. Versuche es später erneut.',
+  AppLocale.steamGridDbUnexpectedResponse:
+      'SteamGridDB hat unerwartet geantwortet. Versuche es später erneut.',
   AppLocale.steamGridDbApiKey: 'SteamGridDB-API-Schlüssel',
   AppLocale.rommApiKey: 'API-Schlüssel',
   AppLocale.rommApiKeyHint: 'rmm_...',

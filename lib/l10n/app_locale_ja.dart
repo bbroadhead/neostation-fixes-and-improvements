@@ -1243,6 +1243,13 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.rommCredentialsRequired: 'サーバー URL、ユーザー名、パスワードを入力してください',
   AppLocale.rommAuthPassword: 'パスワード',
   AppLocale.rommAuthApiKey: 'API キー',
+  AppLocale.steamGridDbNetworkError:
+      'SteamGridDB に接続できませんでした。接続を確認して再試行してください。',
+  AppLocale.steamGridDbRateLimited:
+      'SteamGridDB のリクエスト上限に達しました。少し待ってから再試行してください。',
+  AppLocale.steamGridDbUnavailable: 'SteamGridDB は一時的に利用できません。後でもう一度お試しください。',
+  AppLocale.steamGridDbUnexpectedResponse:
+      'SteamGridDB から予期しない応答が返されました。後でもう一度お試しください。',
   AppLocale.steamGridDbApiKey: 'SteamGridDB API キー',
   AppLocale.rommApiKey: 'API キー',
   AppLocale.rommApiKeyHint: 'rmm_...',

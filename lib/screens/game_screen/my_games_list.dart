@@ -2284,29 +2284,32 @@ class _SystemGamesListState extends State<SystemGamesList> {
         bool Function() cancelled, {
         required bool byName,
       }) async {
-        final verified =
-            await RetroAchievementsRepository.getVerifiedRomIdentity(romPath);
-        if (cancelled()) return [];
-        final consoleId = system.raId;
-        final titleMatches = byName && consoleId != null && consoleId.isNotEmpty
-            ? await RetroAchievementsRepository.searchRaGamesByTitle(
-                consoleId,
-                title,
-                limit: 3,
-              )
-            : <RaGameListEntry>[];
-        if (cancelled()) return [];
-        final lookupTitle = byName
-            ? titleMatches.firstOrNull?.title ?? title
-            : verified?.title ?? (game.name.trim().isEmpty ? title : game.name);
+        final lookupTitle = byName || game.name.trim().isEmpty
+            ? title
+            : game.name;
         final steam = SteamGridDbArtworkService(
           lookupTitle,
+          alternateTitle: byName ? null : title,
           shouldCancel: cancelled,
           allowPartialMatch: byName,
         );
 
         Future<List<ArtworkPreview>> raArtwork() async {
           try {
+            final verified = byName
+                ? null
+                : await RetroAchievementsRepository.getVerifiedRomIdentity(
+                    romPath,
+                  );
+            final consoleId = system.raId;
+            final titleMatches =
+                byName && consoleId != null && consoleId.isNotEmpty
+                ? await RetroAchievementsRepository.searchRaGamesByTitle(
+                    consoleId,
+                    title,
+                    limit: 3,
+                  )
+                : <RaGameListEntry>[];
             final ids = byName
                 ? titleMatches.map((entry) => entry.gameId)
                 : [if (verified != null) verified.id];
@@ -2333,26 +2336,52 @@ class _SystemGamesListState extends State<SystemGamesList> {
           allowPartialMatch: byName,
           shouldCancel: cancelled,
         );
+        Future<List<ArtworkPreview>> fromProvider(
+          ArtworkProvider provider,
+          Future<List<ArtworkPreview>> Function() load,
+        ) async {
+          try {
+            return await load();
+          } catch (error) {
+            if (!cancelled()) {
+              _log.w('${provider.name} gallery failed (${error.runtimeType})');
+            }
+            return [];
+          }
+        }
+
         final results = await Future.wait([
           for (final category in NeoAssetsGameService.imageKinds.values.toSet())
-            neoAssets.inCategory(category),
+            fromProvider(
+              ArtworkProvider.neoAssets,
+              () => neoAssets.inCategory(category),
+            ),
           raArtwork(),
-          ScreenScraperService.artworkGallery(
-            appSystemId: systemId,
-            romName: game.romname,
-            romPath: romPath,
-            title: lookupTitle,
-            byName: byName,
-            shouldCancel: cancelled,
+          fromProvider(
+            ArtworkProvider.screenScraper,
+            () => ScreenScraperService.artworkGallery(
+              appSystemId: systemId,
+              romName: game.romname,
+              romPath: romPath,
+              title: lookupTitle,
+              byName: byName,
+              shouldCancel: cancelled,
+            ),
           ),
           for (final category in SteamGridDbArtworkService.endpoints.keys)
-            steam.inCategory(category),
-          LibretroThumbnailService.gallery(
-            appSystemId: systemId,
-            romName: game.romname,
-            gameName: verified?.title ?? game.name,
-            searchTitle: byName ? title : null,
-            shouldCancel: cancelled,
+            fromProvider(
+              ArtworkProvider.steamGridDb,
+              () => steam.inCategory(category),
+            ),
+          fromProvider(
+            ArtworkProvider.libretro,
+            () => LibretroThumbnailService.gallery(
+              appSystemId: systemId,
+              romName: game.romname,
+              gameName: game.name,
+              searchTitle: byName ? title : null,
+              shouldCancel: cancelled,
+            ),
           ),
         ]);
         return results.expand((images) => images).toList();

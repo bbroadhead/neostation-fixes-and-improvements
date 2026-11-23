@@ -166,13 +166,13 @@ void main() {
   });
 
   test(
-    'valid NeoAssets art wins and invalid art falls through per slot',
+    'valid SteamGridDB art wins and invalid art falls through per slot',
     () async {
       final tried = <String>[];
       Stream<ArtworkPreview> preferred(String category) async* {
-        tried.add('NeoAssets $category');
+        tried.add('SteamGridDB $category');
         yield (
-          provider: ArtworkProvider.neoAssets,
+          provider: ArtworkProvider.steamGridDb,
           category: category,
           title: 'Game',
           bytes: category == 'box2d' ? png : png.sublist(0, 10),
@@ -198,8 +198,8 @@ void main() {
         isTrue,
       );
       expect(tried, [
-        'NeoAssets box2d',
-        'NeoAssets screenshots',
+        'SteamGridDB box2d',
+        'SteamGridDB screenshots',
         'RetroAchievements screenshots',
       ]);
       final cover = File('${media.path}/nes/box2d/Game & Watch (USA).png');
@@ -208,7 +208,7 @@ void main() {
       );
       expect(
         (await ArtworkAssignmentService.readProvenance(cover, 'box2d'))?.source,
-        ArtworkProvider.neoAssets,
+        ArtworkProvider.steamGridDb,
       );
       expect(
         (await ArtworkAssignmentService.readProvenance(

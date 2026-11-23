@@ -1455,6 +1455,11 @@ mixin AppLocale {
   static const String rommCredentialsRequired = 'romm_credentials_required';
   static const String rommAuthPassword = 'romm_auth_password';
   static const String rommAuthApiKey = 'romm_auth_api_key';
+  static const String steamGridDbNetworkError = 'steam_grid_db_network_error';
+  static const String steamGridDbRateLimited = 'steam_grid_db_rate_limited';
+  static const String steamGridDbUnavailable = 'steam_grid_db_unavailable';
+  static const String steamGridDbUnexpectedResponse =
+      'steam_grid_db_unexpected_response';
   static const String steamGridDbApiKey = 'steam_grid_db_api_key';
   static const String rommApiKey = 'romm_api_key';
   static const String rommApiKeyHint = 'romm_api_key_hint';

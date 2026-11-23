@@ -1319,6 +1319,13 @@ const Map<String, dynamic> appLocaleId = {
       'Masukkan URL server, nama pengguna, dan kata sandi',
   AppLocale.rommAuthPassword: 'Kata sandi',
   AppLocale.rommAuthApiKey: 'Kunci API',
+  AppLocale.steamGridDbNetworkError: 'Tidak dapat menghubungi SteamGridDB. Periksa koneksi Anda dan coba lagi.',
+  AppLocale.steamGridDbRateLimited:
+      'Batas permintaan SteamGridDB tercapai. Tunggu sebentar lalu coba lagi.',
+  AppLocale.steamGridDbUnavailable:
+      'SteamGridDB tidak tersedia untuk sementara. Coba lagi nanti.',
+  AppLocale.steamGridDbUnexpectedResponse:
+      'SteamGridDB memberikan respons yang tidak terduga. Coba lagi nanti.',
   AppLocale.steamGridDbApiKey: 'Kunci API SteamGridDB',
   AppLocale.rommApiKey: 'Kunci API',
   AppLocale.rommApiKeyHint: 'rmm_...',
