@@ -1,0 +1,187 @@
+NeoStation SteamOS integration
+
+The fork's published upstream base is NeoStation Beta 0.16.1+2134.
+The verified tag v0.16.1+2134 points to
+9a4c9934da16a757d60dc91aca671cdc3888c077. It is the direct upstream base
+of the custom fork, so the release-to-base source delta is empty.
+https://github.com/misobadev/neostation-frontend/releases/tag/v0.16.1%2B2134
+
+The tag already contains NeoGlass and the NeoAssets system-art catalog
+integration. The tagged release notes list NeoSync standalone upload
+confirmation/cancellation and conflict handling, NeoGlass dialog sizing
+and colors, desktop RetroArch core directory handling, CI sharding,
+pure Dart tests and Android version-code alignment.
+
+NeoAssets documents public system-art pack endpoints and a separate
+developer-credential-gated per-game endpoint. The tagged client uses the
+pack endpoints. This integration adds the game endpoint.
+https://github.com/misobadev/neoassets-service/tree/bbc5c23
+
+The authoritative AppImage embeds version 0.16.1+2134 and systems manifest
+0.3.48, while the fork began with systems manifest 0.3.40. Its stripped
+AOT libapp.so differs from the retained fork and prior release build
+outputs. No Dart source map was found. Resource parity and binary
+behavior are separate verification tasks.
+
+Release channel selection
+The live GitHub releases API superseded the older cached release page.
+The current GitHub "Latest" entry is NeoStation 1.0.0 RC 2
+(v1.0.0-rc.2+3002, commit a91f2f0). RC 1 and RC 2 are labeled release
+candidates in their tags and titles, even though the GitHub prerelease
+flag is false. The 0.16.1+2134 tag is the prior published beta and the
+existing integration base. A newer stable 1.0.0 tag was not found.
+https://github.com/misobadev/neostation-frontend/releases/tag/v1.0.0-rc.2%2B3002
+
+Release candidate history reviewed for provenance
+The RC line contains branding and theme updates, liquid-ring navigation
+and grid changes, new Android Games handling, RA dashboard and game
+details redesign, NeoSync save-conflict and layout work, RomM art and save
+changes, scan parallelization, user-data relocation and startup safeguards,
+additional platform and emulator definitions, and CI and packaging work.
+The RC's NeoAssets client still uses public system-art packs. Its later
+ScreenScraper changes map Android Games to the ROM-owning system and
+correct the Watara Supervision and WonderSwan Color platform IDs. The two
+platform ID corrections were applied from 7d7d7ba (#832). Inspection did
+not show a new ScreenScraper authentication mechanism in that range.
+https://github.com/misobadev/neostation-frontend/compare/v0.16.1%2B2134...v1.0.0-rc.2%2B3002
+
+Recovery and database compatibility
+The compiled artifact contained 94 additional hacks definitions and 121
+additional image resources. The original system resources also changed
+PSP and PC Engine CD aliases and supplied a PSP Minis launcher and RA
+configuration. The text and image resources were recovered. Hash and
+ScreenScraper corrections use bundle manifest 0.3.49. The RA seed SQL
+matched source after line-ending normalization. The original profile
+uses SQLite schema 188, which is also the integration schema. No schema
+migration is needed for the additions.
+
+New code
+NeoAssetsGameService resolves one game for a ROM or title, scoped to the
+parent console. It shares that result across per-asset downloads and
+metadata and accepts developer app credentials from the launch environment.
+The automatic order is NeoAssets, SteamGridDB, hash-verified
+RetroAchievements, Libretro, then ScreenScraper where supported. The
+existing picker also shows NeoAssets results. The API advertises cover,
+box front, box back, screenshot, logo, fanart and video. The current image
+importer consumes cover and box front, screenshot, logo and fanart.
+Title screens and icons are provided by other sources where available.
+The catalog does not advertise manuals. Media are decoded before automatic
+assignment and verified against the saved provenance after writing.
+
+Hacks definition loading derives platform IDs, extensions, disc policy and
+emulator definitions from the parent. Launcher configuration applies the
+same emulator identifier translation. An available parent default is used
+when resolving the child's default, and per-game IDs remain scoped to the
+child. Hash-based compatibility has no filename fallback for hacks.
+GameCube uses Dolphin's offline rcheevos hashing for logical disc images.
+Existing GameCube hashes are invalidated on the first definition sync
+under the new method. Explicit manual mappings are retained.
+Direct scanning reports completion, duplicate, unsupported, failed and
+canceled outcomes. Folder summaries report counts, elapsed time and
+available failure details in a controller-scrollable dialog.
+The local audit tool reads a SQLite snapshot and can retrieve supported
+files using the documented authenticated RA endpoint. Its report stays
+outside Git. To rerun, execute tool/audit_ra_library.py with the database
+and private output paths. Use --rehash-gamecube for fresh Dolphin hashes
+and --live with RA_API_KEY supplied privately for supported-file requests.
+https://api-docs.retroachievements.org/v1/get-game-hashes.html
+
+Remaining scope
+The AOT payload is stripped and bytewise differs from retained build
+outputs. Symbols show separate artwork-chooser, system-scoped scrape,
+ROM verification and library-reorganization work, but are insufficient
+to recover exact behavior. The existing fork's artwork picker remains
+in the preview. The ROM recheck path was reproduced in source. Complete
+parity with the authoritative AppImage has not been established.
+
+The new NeoAssets game integration requires a valid developer application
+ID and secret. An optional personal API key changes the quota. The build
+ships without NeoAssets or ScreenScraper developer secrets. The existing
+ScreenScraper secure credential settings remain available.
+
+The GameCube repair covers local hash generation and catalogue matching
+on Linux with a supporting Dolphin installation. The installed Dolphin
+2609b profile had achievements enabled and no API token. Dolphin's
+LoadGame exits before loading achievements in that state. The emulator
+needs a fresh sign-in. Emulator eligibility and unlocks remain unverified.
+https://github.com/dolphin-emu/dolphin/blob/2609b/Source/Core/Core/AchievementManager.cpp
+
+Release candidate commit inventory
+837038f fix(settings): keep a data move's progress; say why Directories waits (#810)
+4ab73a3 fix(settings): keep what the app writes while a user-data move finishes (#813)
+b45da69 fix(settings): turn down an unwritable user-data folder before the move (#824)
+3d535c1 feat(saves): restore or delete earlier versions of a save (#825)
+17772b7 fix(startup): stop on a missing user-data folder instead of starting on an empty one (#830)
+7d7d7ba fix(systems): correct Supervision and WonderSwan Color ScreenScraper ids (#832)
+04f231c perf(scan): scan desktop systems in parallel and skip the per-file size read (#822)
+2a20693 fix(ui): refresh header clock and battery on wake (#819)
+bb06bb2 feat(games): add theme-aware fanart backgrounds to the carousel (#812)
+632fe32 fix(ps3): offer ARMSX3 for CHD games (#818)
+ae7eb2a fix(romm): take the server's newer save over an unchanged local one, and say when a conflict copy is kept (#814)
+543a097 fix(neosync): keep this device's save when a newer cloud copy replaces it (#827)
+08b385c fix(settings): move user data to the folder picked, not the SD card's app folder (#828)
+86acad7 feat(romm): rescrape a linked game's info and art from RomM (#831)
+cb6287b test: mount the card between two looks in the drive-appears test (#833)
+5cd45b0 fix(systems): bump the systems manifest for the PS3 change (#834)
+a79b563 fix(romm): keep this device's save before a download writes over it (#835)
+4c0ba89 fix(android): hold shared_preferences_android on 2.4 so dual-screen devices start (#837)
+51d7de9 ci(labeler): stop PRs pushed close together cancelling each other's labelling (#838)
+6c84991 fix(settings): don't follow links when moving user data, or move it onto itself (#839)
+de8bc6e fix(neosync): sync RetroArch's shared memory cards in its system folder (#844)
+e6715a0 feat(systems): add the Lemon Switch emulator on Android (#684) (#840)
+a57332b feat(systems): add Atari 800 and Sega Model 2 (#719) (#841)
+64e85ba feat(systems): add the PPSSPP Duo PSP emulator on Android (#845)
+133896c fix(neosync): keep a new device's blank memory card from replacing the cloud's (#849)
+e104b2b docs(wiki): add screenshots to the getting started, library and feature pages (#851)
+dc98f63 feat: prepare the 1.0.0 release candidate
+f43ecc1 feat(systems): liquid ring selector for the systems and discovery grids
+d95d10e feat(systems): scroll the systems and discovery grids on a spring
+adea40d feat(systems): keep only the compact Recently Played card
+7c072c8 fix(discovery): cap the size of the card labels
+392eb1a feat(brand): use the new handheld logo and isotype
+6e1932e fix(systems): tune the liquid selector's drag and long jumps
+b7dd55d feat(games): liquid ring selector and spring scroll in the games grid and Android apps
+dfd297d feat(brand): the eye isotype and its look-and-blink motion
+26b3ef9 feat(themes): brand palettes, readable contrast and a corner setting
+f2aa5cf feat(themes): 16 Bits theme matched to the Retroid Pocket Nova 16 Bit
+af1e191 fix(art): play system art GIFs at their speed without blanking
+edefc2b fix(art): smooth GIF frames and music covers drawn through shaders
+eb36399 style(systems): keep the carousel's centred card in the card colours
+0c42213 style(discovery): keep the carousel's centred card in the card colours
+b8554c6 style(games): round RetroAchievements icon in the footer pill
+b5cdf4a feat(themes): import the designer's NeoStation theme format
+fbd00ad style(games): PLAY and the achievements bar follow the theme
+269d1a9 feat(themes): Sunset, Neon Arcade, Deep Sea, Matcha and Famicom
+cc3e791 style(settings): compact the appearance options above the themes
+2e38439 revert: keep com.neogamelab.neostation and drop the beta importer
+7d80125 feat(systems): bring back the large Recently Played card, compact by default
+efc8ef9 style(systems): shadow under the Recently Played game logo
+c227699 build(macos): sign with Developer ID and notarize
+55eecbe feat(grids): XS card size with eight columns
+0336d0b style(collections): New collection card follows the liquid selection
+c6b5e48 fix(grids): pinch to resize across the whole grid and on trackpads
+369efac fix(forms): one selection ring on the NeoSync and RA fields
+e775306 style(grids): soften the card motion between selections
+dcb6c19 feat(android): add an Android Games system for apps the user marks as games
+ef94f69 fix(discovery): stop recommending games from hidden systems (#852)
+153c91e fix(ra): quieter Achievement of the Week card
+4a80cbd feat(retroachievements): open games inside the dashboard panel
+86078f1 fix(game-details): even inset around the selected tab
+bc849e0 fix(game-details): frosted info, achievements and leaderboard panels
+ae82759 Merge remote-tracking branch 'origin/main' into release/1.0.0-rc
+23252db fix(wizard): fit short screens and finish only when finished
+1e609ab feat(retroachievements): grids and summary cards across the dashboard
+af721cd fix(options): give the option rows a visible edge
+b04b0f7 fix(sign-in): one layout for the NeoSync, RetroAchievements and RomM forms
+76c33bb feat(neosync): sidebar menu with the section in the panel
+5ce9e9e chore(release): 1.0.0-rc.2+3002
+7c1b707 fix(android-games): read their art from the android folder
+f3c88c3 feat(android-games): no cover tab for installed apps
+1803703 test(neosync): follow the kept copies section into the sidebar menu
+a91f2f0 Merge pull request #853 from misobadev/hotfix/1.0.0-rc.1
+
+Fork source coverage
+The published fork had two heads during discovery. Its customization head
+was bc765f383f01f4a51cf4a99287bbe76c887b22f1 and its main head was 5cd45b0,
+an upstream commit also in the release-candidate history above. Neither
+provided source matching the authoritative recovery binary.

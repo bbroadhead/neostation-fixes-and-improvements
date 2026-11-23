@@ -1,0 +1,225 @@
+NeoStation custom change inventory
+
+Evidence baseline
+Official v0.16.1+2134, custom fork bc765f3, and authoritative SteamOS
+library-recovery AppImage (version.json reports 0.16.1+2134).
+AppImage SHA-256
+86fa543d605ca5af09b8794cbaf3262736e2e8ec76a8de8b1fa3e37611c4e0ea
+AOT ELF build ID b1e5592a3744c137606b992849c15589.
+The AppImage and backup were compared byte-for-byte.
+
+Fork implementation history (commit IDs and subjects)
+ea0a433 fix(screenscraper): bound retries and abort timed-out requests
+2e37fce fix(screenscraper): distinguish authorization failures and preserve artwork
+a863b7f feat(artwork): add RetroArch thumbnail downloads for local builds
+9c25260 fix(linux): isolate the CHD library's bundled codecs
+c92f8b6 fix(library): use box covers in the game grid
+ed3b748 feat(scraping): preserve Libretro library scraping and add verified game metadata
+8b95c9e test(input): cover Steam Input virtual controller bumpers
+bfeeee3 feat(retroachievements): show hash-based compatibility in game details
+1f48b02 feat(artwork): preserve and reset per-ROM artwork overrides
+bbbc0b1 feat(artwork): browse and apply Libretro thumbnails per game
+fe840b2 fix(library): skip byte-identical ROM copies during scans
+ffbcdca feat(artwork): add verified RetroAchievements images to the gallery
+444ef9a feat(artwork): show composite media and stage gallery selections
+6e00145 fix(scraping): share validated Libretro lookups with library scraping
+bc3784b feat(retroachievements): show ROM hashes and update incompatible collection
+a698a8d fix(input): map Steam Deck desktop bumper taps
+e11bd8f docs: record preview workflows and verify Settings stays visible
+1e22b8f feat(scraping): prioritize SteamGridDB, RetroAchievements, and Libretro artwork
+9ab2f8c feat(metadata): show artwork source and assignment origin
+b13fa27 feat(scraping): report batch artwork issues and resume unfinished ROMs
+4d241a2 feat(retroachievements): filter the incompatible collection by reason
+33772fa feat(metadata): show ROM file facts and verified achievement set details
+a34c48c fix(ui): size game list icons to the row
+7980080 feat(scraping): search all configured artwork sources in the gallery
+c74c49a fix(ui): separate favorites with a game list divider
+a6bc497 feat(settings): persist the SteamGridDB artwork API key
+3efea14 fix(retroachievements): refresh games without achievement sets
+6042b3b fix(scraping): share provider lookups with the artwork picker
+85c8ec4 feat(settings): persist ScreenScraper API credentials
+09f973c feat(systems): give Arduboy a dedicated home card
+4b3b13f fix(collections): add a Back button to the browser
+7a0f771 feat(library): scan one ROM or folder without rescanning the library
+bc765f3 fix(artwork): improve regional search, logos and carousel layout
+
+Part A — Fixes and evidence
+
+Steam Deck L/R controls · a698a8d, 8b95c9e
+  Reproduce by paging the game list on a Deck in Desktop and Gaming modes.
+  The Desktop input stream's keyboard-mapped bumper taps were absent from
+  the prior translator. lib/utils/gamepad_nav.dart added the Desktop paths
+  while retaining controller handling. Translator tests cover virtual
+  controller input. Physical buttons in both sessions still need testing.
+
+Linux CHD crash · 9c25260
+  Scan or open a CHD through the SteamOS AppImage. The historical issue was
+  a native crash with exit 139. The fix controls exported symbols in
+  packages/flutter_chd/src/CMakeLists.txt and exports.map so bundled libchdr
+  codec symbols cannot interpose other app libraries. The current AppImage's
+  libflutter_chd.so depends only on libm and libc. This dependency check does
+  not by itself establish runtime reproduction or resolution. CHD test path
+  test/chd_disc_image_test.dart and retained package provenance support the
+  change. Keep the fix in SteamOS builds.
+
+ScreenScraper permissions, quota and timeout · ea0a433, 2e37fce, 85c8ec4
+  Exercise account verification and scrape endpoints against responses
+  403, 429, 5xx, timeouts and missing assets. Client retry behavior is in
+  ScreenscraperClient.httpGetWithRetry. ScreenScraperService verification
+  distinguishes developer and account failures, subscription/quota and
+  authorization errors. Missing/invalid data remain separate from HTTP
+  permission failures. media_downloader.dart avoids replacing existing
+  artwork on failure. The custom settings dialog persists developer
+  credentials in CredentialStore, and the service accepts runtime or
+  compile-time fallback. A 403 alone does not establish which individual
+  credential was rejected. Current valid developer credentials were not
+  established by the source review. Preserve these paths. See
+  screenscraper_client_quota_test.dart, screenscraper_service_test.dart,
+  screenscraper_credential_store_test.dart and downloader tests.
+  Later upstream 7d7d7ba addresses wrong platform IDs for Supervision and
+  WonderSwan Color. This corrects catalog selection, separately from auth.
+
+RA HTTP 503 and stale profile · upstream baseline
+  Load the RA dashboard while a request returns 5xx or is offline, then
+  restore connectivity. RetroAchievementsService._fetchWithCache replays a
+  known-good parsed response on transport failure or 5xx. Authentication
+  and quota errors are handled without this fallback. RetroAchievementsCache
+  persists payloads and tracks stale endpoints. The provider rechecks live
+  state after connection/session changes. These paths already exist in the
+  official baseline. No live profile failure or private credential issue
+  was attributed to a code change from source evidence alone.
+
+Catalog refresh with zero achievements · 3efea14
+  Refresh a platform catalogue and inspect a recognized game with zero
+  achievements. A filter requesting only games with achievements omitted
+  those rows. ra_catalogue_service.dart now fetches the required catalogue
+  coverage and test/ra_catalogue_service_test.dart covers the request.
+  This matters to the incompatible-game reason and supported-file UI.
+
+Hash identity and title guessing · bfeeee3, bc3784b, 4d241a2, 33772fa
+  Open details for a recognized dump, an alternate revision and a manual
+  association. RetroAchievementsRepository checks exact console-scoped
+  hashes and distinguishes no set, alternate revision and unknown. A title
+  candidate and a manual association both require exact-hash verification. Game Details shows ROM size, hash method and
+  linked set details. The generated collection filters by reason. See
+  retro_achievements_repository_test.dart and ra_hash_policy_test.dart.
+
+GameCube lookup · this integration
+  Each indexed GameCube image in the audited profile is RVZ. The tagged and
+  authoritative GameCube resource had console 16, algorithm file and mode
+  filename_fallback. Whole-file hashing is wrong for GameCube logical discs
+  and large files also exceed the cartridge hash limit. The source now
+  sets gamecube/hash_only, then invokes Dolphin's rchash through
+  DolphinRaHash using the native tool or the installed Dolphin Flatpak.
+  The platform ID remains 16. The state sync clears old hash-derived state
+  when it first loads the new policy. Manual mappings remain. All 20 RVZ
+  images produced hashes, 19 of which matched the local achievement
+  catalogue. The unmatched image's hash is recorded in the private report.
+  This confirms the frontend hash defect. The installed Dolphin 2609b
+  profile has achievements enabled and an empty API token. Its
+  AchievementManager::LoadGame returns early with no token, which
+  independently blocks emulator achievements. The reason Dolphin lost
+  its token is unresolved. Sign-in happens in Dolphin. In-game
+  eligibility and unlocks remain unverified.
+  https://github.com/dolphin-emu/dolphin/blob/2609b/Source/Core/Core/AchievementManager.cpp
+  https://github.com/dolphin-emu/dolphin#dolphintool-usage
+  https://github.com/RetroAchievements/rcheevos/blob/master/src/rhash/hash_disc.c
+
+Grid images, persistence and manual choices · c92f8b6, 1f48b02, 9ab2f8c
+  Compare the list/grid media for different categories and select a cover
+  manually before retriggering automatic import. The prior grid could use
+  a different media slot. my_games_grid.dart and my_games_list.dart use
+  the box cover. FileProvider and ArtworkAssignmentService track explicit
+  per-ROM choices and their provenance separately from downloaded media.
+  Override reset is explicit, and scrape paths protect manual art. See
+  esde_media_write_protection_test.dart and libretro_artwork_dialog_test.dart.
+  Restart behavior against a production profile requires device verification.
+
+Duplicate ROMs and scan completion · fe840b2, 7a0f771, this integration
+  Scan a directory containing aliases, duplicate copies, or a missing
+  removable root. The retained scanner deduplicates byte-identical files
+  within a system, handles alias paths, and keeps targeted imports across
+  a later library scan. It previously reduced targeted outcomes to a count.
+  The direct scanner now verifies saved rows, distinguishes an unreadable
+  or empty file and reports counts and failures. See
+  sqlite_database_service.dart, SqliteConfigProvider.importRomSelection,
+  directories_settings_content.dart and rom_scan_symlink_alias_test.dart.
+  Picker cancellation reports a normal cancellation. The Linux picker
+  keeps its accepted extension filter, which hides unsupported choices.
+
+Part B — Features
+
+  Multi-source game art · 1e22b8f, 6042b3b, bc765f3
+    ScreenScraperService._scrapeRomArtwork now tries NeoAssets before
+    SteamGridDB and hash-verified RA. LibretroThumbnailService.download
+    then tries its catalog and a lazy ScreenScraper fallback by asset
+    category. Media are scoped to a game and system where the provider
+    supports it. Manual assignments and valid existing files are guarded.
+    The Libretro build option enables this automatic chain. NeoAssets
+    game metadata fills gaps ahead of RA and Libretro. The existing
+    NeoAssetsService handles system theme packs separately.
+    https://github.com/misobadev/neoassets-service#public-scraping-api
+
+  Libretro metadata and library imports · a863b7f, ed3b748, 6e00145, b13fa27
+    LibretroMetadataService caches playlist metadata DATs and fills missing
+    publisher/developer/genre/year fields. Verified RA fields are preferred.
+    Batch workers report provider failures and resume unfinished ROM paths
+    via checkpoint files. Direct selection and folder imports register a
+    path for future scan retention. Build option LIBRETRO_ARTWORK enables
+    the SteamOS provider flow.
+
+  Artwork gallery and custom presentation · bbbc0b1, ffbcdca, 444ef9a,
+    7980080, 6042b3b, bc765f3
+    The gallery searches across configured providers and lets the user
+    stage a choice before applying it. FileProvider and GameMediaComposite
+    render separate media slots for cover, title screen, screenshot and
+    logo, plus list icons where supported. The fork carries both the
+    details UI and its custom carousel layout. The exact AppImage-only
+    choose_game_artwork implementation could not be recovered. Automatic
+    art and manual categories are constrained by each provider's response.
+
+  Game naming and metadata · ed3b748, 33772fa, bc765f3
+    Title search uses the game's persisted search title where available.
+    Artwork search accepts a custom term. The renamed game's title can
+    feed a new metadata search without changing its file path or identity.
+    Game Details adds file facts, compatibility and list/source provenance.
+
+  Account settings · a6bc497, 85c8ec4
+    SteamGridDB API key and ScreenScraper developer credentials persist
+    via secure storage or the platform's encrypted fallback. No credentials
+    are included in source or in this report.
+
+  Navigation and sorting · 4b3b13f, 09f973c, a34c48c, c74c49a
+    Collections has a Back control, Arduboy gets a home card, game list
+    icons scale with their rows, and a divider separates favorites.
+    Existing controller handling is kept with the source.
+
+  System families and GameCube · this integration
+    Recovered the separate hacks categories and art from the AppImage.
+    Central parent mapping supplies format, metadata platform IDs, emulator
+    definitions and launch parameters. Parent defaults are consulted, and
+    explicit per-game choices keep their existing identifiers. A hacks
+    category remains separately organized, with hash-only RA matching.
+
+Part C — Comparison matrix
+
+Component | Original upstream | Authoritative custom AppImage | Updated stable release | Integration preview
+UI | NeoGlass, upstream game views | Custom compiled views, exact parity unconfirmed | Same release base | Fork views and recovered asset resources
+Steam Deck bumpers | Upstream controller paging | Desktop customization in fork history | Same release base | Fork Steam Input translator retained
+CHD | Upstream CHD reader | Private codec dependencies visible in ELF | Same release base | Fork library build and isolation rules
+Artwork | ScreenScraper, NeoAssets system packs | Custom chooser symbols and custom resource inventory | Same release base | Credential-gated NeoAssets first, then fork providers
+ROM categories | Nine bundled hacks definitions | 103 bundled hacks definitions | Same release base | 103 categories and shared platform definitions
+GameCube RA | Platform 16 and whole-file hash | Same bundled policy | Same release base | Platform 16 and Dolphin rcheevos hash on Linux
+Direct scanning | Baseline library rescan | Targeted scan evidence in compiled build | Same release base | Targeted results with counts and scrollable failure details
+RA support | Seed/cache, matching, manual association | Hash/recheck symbols and custom library data | Same release base | Fork compatibility UI plus per-ROM recheck and private audit
+User settings | SQLite schema 188 | SQLite schema 188 observed | Same release base | Schema 188 with a hash policy backfill during system sync
+
+Part D — Provenance limits
+Commit subjects at the start of this file are repository history. No
+author attribution is inferred for AppImage-only additions. Unmatched
+binary strings include choose_game_artwork, system-scoped scraping,
+copyManualArtworkToPlaylist, clearRomVerification and retroAchievementsFallback.
+The SQL strings suggest PSP Minis reassignment and library reconciliation,
+but do not prove the exact control flow or handling of artwork and play
+history. The resource recovery and recheck equivalent are new work in
+this integration. A comparative hardware walkthrough is still needed.

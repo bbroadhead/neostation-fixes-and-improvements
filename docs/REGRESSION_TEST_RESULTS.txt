@@ -1,0 +1,76 @@
+NeoStation SteamOS regression results
+
+Release candidate under test
+Custom integration preview 0.16.1+2135, based on official tag v0.16.1+2134.
+Linux x86-64 release built with LIBRETRO_ARTWORK enabled using the existing
+Ubuntu 24.04 build image. Schema 188.
+
+Automated checks
+  PASS   Dart format check on the changed Dart files.
+  PASS   Flutter analyze --no-pub reported no issues.
+  PASS   Focused Flutter suite, 232 tests. Includes every bundled hacks
+         system's resolved definition, GameCube console and hash policy,
+         exact and manual RA matching, supported file handling, targeted
+         scan results and retention, PS3 folder format, media browsing,
+         provider behavior and CHD fixture reads with native symbol checks.
+         Evidence build/integration-focused.log.
+  PASS   NeoAssets and artwork run, 19 tests. Includes scoped lookup,
+         header isolation, rename search, validated per-image fallbacks,
+         manual asset priority, and a rerun of the logger tests.
+         Evidence build/integration-neoassets-focused.log.
+  PASS   Full offline Flutter suite, 4,123 tests, excluding network-tagged
+         tests. The prior run hit a logger-relocation timing failure that
+         passed on recheck and in this run.
+         Evidence build/integration-neoassets-suite.log.
+  PASS   The live NeoAssets game route returned HTTP 401 without
+         developer credentials. Authenticated results use mock fixtures
+         in this build's tests.
+  PASS   Pure Dart suite, 461 tests. Evidence build/integration-pure.log.
+  PASS   Authenticated RetroAchievements supported-file API requests for
+         21 candidate game IDs. Responses verified nine additional indexed
+         ROMs with the stored platform-appropriate hash. The audit includes
+         396 unmatched indexed rows and 43 potential unindexed paths.
+         Evidence build/integration-ra-api.log and the private report.
+
+SteamOS package and isolated profile
+  PASS   Built the Flutter Linux release and generated a fresh AppImage
+         payload. The new AppImage extracted successfully. Its AOT payload
+         was byte-identical to the built bundle. Embedded version.json
+         reports 0.16.1+2135. ldd reported no missing runner dependencies.
+         libflutter_chd.so's direct dependencies are libm and libc.
+         Evidence build/integration-delivery-release.log and
+         build/integration-delivery-package.log.
+  PASS   Steam Deck desktop startup in extract-and-run mode. The process
+         remained alive for the 35-second smoke and was stopped by the test
+         timeout. A second launch opened a visible 1280x720 window. The
+         application detected the Deck's controller. The final AppImage
+         also started in normal FUSE mode on the Deck and rendered a
+         visible 1280x800 window until the 25-second timeout.
+         Evidence build/integration-steamos-smoke.log,
+         build/integration-steamos-restart.log and
+         build/integration-delivery-smoke.log.
+  PASS   Started and restarted against a SQLite snapshot of the user's
+         library with startup scanning and updates disabled on the copy.
+         The 1,415 ROM rows, 38 detected systems, 2 ROM directories,
+         14 emulator settings and 10 per-system settings retained their
+         counts. ROM path, owner, title, descriptive metadata, favorite,
+         hidden, history and emulator override values compared equal.
+         Manual RA associations compared equal. The GameCube policy
+         changed to gamecube/hash_only and cleared legacy automatic
+         hashes in the snapshot. The schema remained 188.
+  PASS   Dolphin 2609b computed rcheevos hashes for all 20 indexed
+         GameCube RVZ images. The local RA catalogue identified 19 as
+         having achievement sets. This verifies frontend hash evidence.
+         Dolphin's local RA token was empty, so emulator sign-in and
+         in-game award eligibility were unavailable to verify.
+
+Pending physical or live coverage
+  Desktop and Gaming Mode L/R and game launch with physical buttons.
+  UI end-to-end scan feedback and restart persistence of actual image files.
+  Exact behavioral parity with the stripped authoritative AOT payload.
+  Live authenticated NeoAssets, ScreenScraper and SteamGridDB responses.
+  GameCube in-game authentication, Hardcore eligibility and unlocks.
+  Fresh hashing across non-GameCube ROMs and identified unindexed paths.
+
+AppImage SHA-256
+e52a5f489de7522273254156367e6be285ca4e733eb0111eeed91c92446c7bfb
