@@ -1413,21 +1413,21 @@ extension SqliteConfigScanning on SqliteConfigProvider {
     }
   }
 
-  Future<int> importRomSelection(
+  Future<RomImportResult> importRomSelection(
     SystemModel system,
     String selection, {
     required bool folder,
   }) async {
-    if (_isScanning || _isSilentScanning) return 0;
+    if (_isScanning || _isSilentScanning) throw StateError('Scan in progress');
     _setScanning(true);
     try {
-      final added = await SqliteDatabaseService.importRomSelection(
+      final result = await SqliteDatabaseService.importRomSelection(
         system,
         selection,
         folder: folder,
         ignoreHiddenFiles: _config.ignoreHiddenFiles,
       );
-      if (added > 0) {
+      if (result.added > 0) {
         await SystemRepository.addDetectedSystem(system.id!, system.folderName);
         final all = await SystemRepository.getSystemByFolderName(
           SystemFolderNames.all,
@@ -1438,7 +1438,7 @@ extension SqliteConfigScanning on SqliteConfigProvider {
         await _loadDetectedSystems();
         _notify();
       }
-      return added;
+      return result;
     } finally {
       _scanCompleted = true;
       _setScanning(false);

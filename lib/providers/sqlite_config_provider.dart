@@ -14,6 +14,7 @@ import 'package:neostation/services/screenshot_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 
 import '../models/system_model.dart';
+import '../models/rom_import_result.dart';
 import '../models/config_model.dart';
 import '../models/emulator_model.dart';
 import '../data/datasources/sqlite_service.dart';

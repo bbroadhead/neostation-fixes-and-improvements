@@ -65,6 +65,54 @@ void main() {
     );
   }
 
+  test(
+    'selected scans report existing, unsupported and unreadable files',
+    () async {
+      final root = await createAliasedRomTree(['Indexed.rvz']);
+      final dir = Directory('${root.path}/gc');
+      final indexed = '${dir.path}/Indexed.rvz';
+      await SqliteDatabaseService.scanSystemRoms(gcSystem, [root.path]);
+      File('${dir.path}/New.rvz').writeAsStringSync('new game');
+      File('${dir.path}/Empty.rvz').createSync();
+      final note = File('${dir.path}/Notes.txt')..writeAsStringSync('manual');
+      final result = await SqliteDatabaseService.importRomSelection(
+        gcSystem,
+        dir.path,
+        folder: true,
+        ignoreHiddenFiles: true,
+      );
+      expect(result.discovered, 4);
+      expect(result.added, 1);
+      expect(result.existing, 1);
+      expect(result.unsupported, 1);
+      expect(result.failures.single, contains('Empty.rvz'));
+      expect(result.hasErrors, isTrue);
+
+      final existing = await SqliteDatabaseService.importRomSelection(
+        gcSystem,
+        indexed,
+        folder: false,
+        ignoreHiddenFiles: true,
+      );
+      expect(existing.existing, 1);
+      expect(existing.hasErrors, isFalse);
+      final unsupported = await SqliteDatabaseService.importRomSelection(
+        gcSystem,
+        note.path,
+        folder: false,
+        ignoreHiddenFiles: true,
+      );
+      expect(unsupported.unsupported, 1);
+      final missing = await SqliteDatabaseService.importRomSelection(
+        gcSystem,
+        '${dir.path}/Missing.rvz',
+        folder: false,
+        ignoreHiddenFiles: true,
+      );
+      expect(missing.hasErrors, isTrue);
+    },
+  );
+
   group('ROM scan across symlinked alias folders', () {
     test(
       'targeted file and folder imports survive another library scan',
@@ -77,21 +125,21 @@ void main() {
         File('${folder.path}/Another.rvz').writeAsStringSync('another');
 
         expect(
-          await SqliteDatabaseService.importRomSelection(
+          (await SqliteDatabaseService.importRomSelection(
             gcSystem,
             solo.path,
             folder: false,
             ignoreHiddenFiles: true,
-          ),
+          )).added,
           1,
         );
         expect(
-          await SqliteDatabaseService.importRomSelection(
+          (await SqliteDatabaseService.importRomSelection(
             gcSystem,
             folder.path,
             folder: true,
             ignoreHiddenFiles: true,
-          ),
+          )).added,
           1,
         );
 

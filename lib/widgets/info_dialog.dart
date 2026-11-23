@@ -52,11 +52,25 @@ class InfoDialog extends StatefulWidget {
 
 class _InfoDialogState extends State<InfoDialog> {
   late final GamepadNavigation _gamepadNav;
+  final _scrollController = ScrollController();
+
+  void _scroll(double direction) {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    _scrollController.jumpTo(
+      (position.pixels + direction * 44.r).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _gamepadNav = GamepadNavigation(
+      onNavigateUp: () => _scroll(-1),
+      onNavigateDown: () => _scroll(1),
       onSelectItem: () {
         if (mounted) Navigator.of(context).pop();
       },
@@ -80,6 +94,7 @@ class _InfoDialogState extends State<InfoDialog> {
   void dispose() {
     GamepadNavigationManager.popLayer('info_dialog');
     _gamepadNav.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -110,11 +125,14 @@ class _InfoDialogState extends State<InfoDialog> {
           ),
         ],
       ),
-      content: Text(
-        widget.body,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontSize: 11.r,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+      content: SingleChildScrollView(
+        controller: _scrollController,
+        child: Text(
+          widget.body,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontSize: 11.r,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
         ),
       ),
       actions: [

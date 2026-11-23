@@ -886,6 +886,12 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.scanningRomLibrary: 'Scanning ROM library',
   AppLocale.gamesWithAchievementsFound:
       '{count} games with achievements found!',
+  AppLocale.recheckRom: 'Recheck this ROM',
+  AppLocale.romScanCanceled: 'Scan canceled',
+  AppLocale.romImported: 'ROM imported',
+  AppLocale.romAlreadyExists: 'ROM already exists',
+  AppLocale.romNoneImported: 'No ROMs imported',
+  AppLocale.romImportSummary: 'Discovered {found} · Imported {added} · Existing {existing} · Unsupported {unsupported} · Playlist discs {playlist} · Failed {failed} · {seconds} s',
   AppLocale.cancelScan: 'Cancel Scan',
   AppLocale.progress: 'Progress',
   AppLocale.raLogin: 'RetroAchievements Login',

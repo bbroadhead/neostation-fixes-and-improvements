@@ -908,6 +908,12 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.scanningRomLibrary: 'Scansione libreria ROM',
   AppLocale.gamesWithAchievementsFound:
       '{count} giochi con obiettivi trovati !',
+  AppLocale.recheckRom: 'Verifica di nuovo questa ROM',
+  AppLocale.romScanCanceled: 'Scansione annullata',
+  AppLocale.romImported: 'ROM importata',
+  AppLocale.romAlreadyExists: 'ROM già presente',
+  AppLocale.romNoneImported: 'Nessuna ROM importata',
+  AppLocale.romImportSummary: 'Trovati {found} · Importati {added} · Esistenti {existing} · Non supportati {unsupported} · Dischi in playlist {playlist} · Errori {failed} · {seconds} s',
   AppLocale.cancelScan: 'Annulla Scansione',
   AppLocale.progress: 'Progresso',
   AppLocale.raLogin: 'Login RetroAchievements',

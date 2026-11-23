@@ -24,6 +24,7 @@ import 'package:neostation/services/permission_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/services/user_data_location_service.dart';
 import 'package:neostation/widgets/custom_notification.dart';
+import 'package:neostation/widgets/info_dialog.dart';
 import 'package:neostation/widgets/move_user_data_dialog.dart';
 import 'package:neostation/widgets/neo_glass.dart';
 import 'package:neostation/widgets/permission_check_wrapper.dart';
@@ -296,7 +297,14 @@ class DirectoriesSettingsContentState
               type: FileType.custom,
               allowedExtensions: extensions,
             ))?.path;
-      if (!mounted || selection == null) return;
+      if (!mounted) return;
+      if (selection == null) {
+        AppNotification.showNotification(
+          context,
+          AppLocale.romScanCanceled.getString(context),
+        );
+        return;
+      }
       final extension = paths
           .extension(selection)
           .toLowerCase()
@@ -332,7 +340,7 @@ class DirectoriesSettingsContentState
       if (systems.isEmpty) {
         AppNotification.showNotification(
           context,
-          AppLocale.noGamesAvailable.getString(context),
+          AppLocale.unsupportedGameFormat.getString(context),
           type: NotificationType.info,
         );
         return;
@@ -344,23 +352,63 @@ class DirectoriesSettingsContentState
           builder: (_) => _RomImportSystemDialog(systems: systems),
         );
       }
-      if (!mounted || system == null) return;
+      if (!mounted) return;
+      if (system == null) {
+        AppNotification.showNotification(
+          context,
+          AppLocale.romScanCanceled.getString(context),
+        );
+        return;
+      }
       final database = context.read<SqliteDatabaseProvider>();
-      final added = await provider.importRomSelection(
+      final result = await provider.importRomSelection(
         system,
         selection,
         folder: folder,
       );
-      if (added > 0) await database.refresh();
+      if (result.added > 0) await database.refresh();
       if (!mounted) return;
+      final counts = AppLocale.romImportSummary
+          .getString(context)
+          .replaceFirst('{found}', '${result.discovered}')
+          .replaceFirst('{added}', '${result.added}')
+          .replaceFirst('{existing}', '${result.existing}')
+          .replaceFirst('{unsupported}', '${result.unsupported}')
+          .replaceFirst('{playlist}', '${result.playlistDiscs}')
+          .replaceFirst('{failed}', '${result.failures.length}')
+          .replaceFirst(
+            '{seconds}',
+            (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1),
+          );
+      final message = folder
+          ? counts
+          : (result.added > 0
+                    ? AppLocale.romImported
+                    : result.existing > 0
+                    ? AppLocale.romAlreadyExists
+                    : result.unsupported > 0
+                    ? AppLocale.unsupportedGameFormat
+                    : AppLocale.romNoneImported)
+                .getString(context);
       AppNotification.showNotification(
         context,
-        AppLocale.gamesCount
-            .getString(context)
-            .replaceFirst('{count}', '$added'),
-        type: NotificationType.info,
+        message,
+        type: result.hasErrors
+            ? NotificationType.error
+            : result.added > 0
+            ? NotificationType.success
+            : NotificationType.info,
       );
+      if (result.hasErrors) {
+        await InfoDialog.show(
+          context,
+          title: AppLocale.errorScanningRoms.getString(context),
+          body: [message, ?result.walkError, ...result.failures].join('\n'),
+          okLabel: AppLocale.ok.getString(context),
+        );
+      }
     } catch (error) {
+      _log.e('Selected ROM import failed: $error');
       if (!mounted) return;
       AppNotification.showNotification(
         context,

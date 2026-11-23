@@ -892,6 +892,12 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.scanningRomLibrary: 'Memindai pustaka ROM',
   AppLocale.gamesWithAchievementsFound:
       '{count} game dengan pencapaian ditemukan!',
+  AppLocale.recheckRom: 'Periksa ulang ROM ini',
+  AppLocale.romScanCanceled: 'Pemindaian dibatalkan',
+  AppLocale.romImported: 'ROM diimpor',
+  AppLocale.romAlreadyExists: 'ROM sudah ada',
+  AppLocale.romNoneImported: 'Tidak ada ROM yang diimpor',
+  AppLocale.romImportSummary: 'Ditemukan {found} · Diimpor {added} · Sudah ada {existing} · Tidak didukung {unsupported} · Cakram daftar putar {playlist} · Gagal {failed} · {seconds} dtk',
   AppLocale.cancelScan: 'Batalkan Pemindaian',
   AppLocale.progress: 'Kemajuan',
   AppLocale.raLogin: 'Login RetroAchievements',

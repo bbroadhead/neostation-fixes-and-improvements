@@ -851,6 +851,12 @@ mixin AppLocale {
   static const String scanningRomLibrary = 'scanning_rom_library';
   static const String gamesWithAchievementsFound =
       'games_with_achievements_found';
+  static const String recheckRom = 'recheck_rom';
+  static const String romScanCanceled = 'romScanCanceled';
+  static const String romImported = 'romImported';
+  static const String romAlreadyExists = 'romAlreadyExists';
+  static const String romNoneImported = 'romNoneImported';
+  static const String romImportSummary = 'romImportSummary';
   static const String cancelScan = 'cancel_scan';
   static const String progress = 'progress';
   static const String raLogin = 'ra_login';

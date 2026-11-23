@@ -143,22 +143,27 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
     _supportedFiles = null;
   }
 
-  Future<(String?, String)> _loadHash() async {
+  Future<(String?, String)> _loadHash({bool recheck = false}) async {
     final game = widget.game;
     final policy = await RetroAchievementsHashService.policyForSystem(
       game.systemFolderName ?? widget.system.folderName,
     );
     final path = game.romPath;
-    final cached =
-        game.raHash ??
-        (path == null
-            ? null
-            : await RetroAchievementsRepository.getRomRaHash(path));
-    if (cached != null && cached.isNotEmpty) {
-      return (cached, policy.algo.jsonName);
+    if (!recheck) {
+      final cached =
+          game.raHash ??
+          (path == null
+              ? null
+              : await RetroAchievementsRepository.getRomRaHash(path));
+      if (cached != null && cached.isNotEmpty) {
+        return (cached, policy.algo.jsonName);
+      }
     }
-    final hash = await RetroAchievementsHashService.generateHashForGame(game);
-    if (hash != null &&
+    final hash = await RetroAchievementsHashService.generateHashForGame(
+      game,
+      recheck: recheck,
+    );
+    if ((hash != null || recheck) &&
         path != null &&
         mounted &&
         identical(widget.game, game)) {
@@ -803,6 +808,18 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                 },
               ),
               _buildSupportedFiles(),
+              FutureBuilder<(String?, String)>(
+                future: _romHash,
+                builder: (context, snapshot) => TextButton(
+                  onPressed: snapshot.connectionState != ConnectionState.done
+                      ? null
+                      : () => setState(() {
+                          _supportedFiles = null;
+                          _romHash = _loadHash(recheck: true);
+                        }),
+                  child: Text(AppLocale.recheckRom.getString(context)),
+                ),
+              ),
             ],
             if (collections.isNotEmpty) ...[
               SizedBox(height: 8.r),

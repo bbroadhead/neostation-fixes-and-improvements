@@ -1,5 +1,7 @@
 import '../../models/database_game_model.dart';
 import '../../models/system_model.dart';
+import '../../models/system_family.dart';
+import '../../models/rom_import_result.dart';
 import '../../models/emulator_model.dart';
 import '../../utils/switch_title_extractor.dart';
 import 'sqlite_service.dart';
@@ -159,70 +161,136 @@ class SqliteDatabaseService {
   static const _directImportsKey = 'direct_rom_import_paths';
 
   /// Indexes only the selected desktop file or directory.
-  static Future<int> importRomSelection(
+  static Future<RomImportResult> importRomSelection(
     SystemModel system,
     String selection, {
     required bool folder,
     required bool ignoreHiddenFiles,
   }) async {
+    final timer = Stopwatch()..start();
     final id = system.id;
-    if (id == null) return 0;
+    if (id == null) throw ArgumentError('Missing system ID');
     final extensions = (await SqliteService.getExtensionsForSystem(id))
         .map((extension) => extension.toLowerCase())
         .toSet();
-    final List<RomEntry> entries;
+
+    final entries = <RomEntry>[];
+    final failures = <String>[];
+    var discovered = 0;
+    var unsupported = 0;
+    String? walkError;
     if (folder) {
-      entries = system.folderName == 'ps3'
-          ? await scanPs3Path(
-              selection,
-              extensions,
-              true,
-              ignoreHiddenFiles: ignoreHiddenFiles,
-            )
-          : await scanStandardPath(
-              selection,
-              extensions,
-              true,
-              ignoreHiddenFiles: ignoreHiddenFiles,
-            );
-    } else {
-      final file = File(selection);
-      final extension = path.extension(selection).toLowerCase();
-      if (!extensions.contains(extension.replaceFirst('.', '')) ||
-          !await file.exists()) {
-        return 0;
-      }
-      entries = [
-        RomEntry(
-          path: file.path,
-          filename: path.basename(file.path),
-          size: await file.length(),
+      final walk = await Isolate.run(
+        () => _walkStandardPath(
+          selection,
+          extensions,
+          true,
+          ignoreHiddenFiles: ignoreHiddenFiles,
+          checkReadable: true,
         ),
-      ];
+      );
+      discovered = walk.discovered;
+      unsupported = walk.unsupported;
+      failures.addAll(walk.failures);
+      walkError = walk.error;
+      if (parentSystemId(system.folderName) == 'ps3') {
+        entries.addAll(
+          await scanPs3Path(
+            selection,
+            extensions,
+            true,
+            ignoreHiddenFiles: ignoreHiddenFiles,
+          ),
+        );
+      } else {
+        entries.addAll(walk.entries);
+      }
+    } else {
+      discovered = 1;
+      final extension = path
+          .extension(selection)
+          .toLowerCase()
+          .replaceFirst('.', '');
+      if (!extensions.contains(extension)) {
+        unsupported = 1;
+      } else {
+        try {
+          entries.add(await _readableRom(File(selection)));
+        } on FileSystemException catch (error) {
+          failures.add('${path.basename(selection)}: ${error.message}');
+        }
+      }
     }
 
     final playable = extensions.contains('m3u')
         ? await _filterM3uReferencedFiles(entries, false)
         : entries;
-    if (playable.isEmpty) return 0;
-    final existing = await (await SqliteService.getDatabase()).rawQuery(
+    final db = await SqliteService.getDatabase();
+    final existing = await db.rawQuery(
       'SELECT rom_path FROM user_roms WHERE app_system_id = ?',
       [id],
     );
-    final duplicates = await _findNewDuplicatePaths(
-      playable,
-      existing.map((row) => row['rom_path'] as String).toSet(),
-    );
+    final existingPaths = existing
+        .map((row) => row['rom_path'] as String)
+        .toSet();
+    final duplicates = await _findNewDuplicatePaths(playable, existingPaths);
     final candidates = _filterDeduplicatedRoms(playable)
-        .where((entry) => !duplicates.contains(entry.path))
+        .where(
+          (entry) =>
+              !duplicates.contains(entry.path) &&
+              !existingPaths.contains(entry.path),
+        )
         .toList();
-    final prefs = await SharedPreferences.getInstance();
-    final registered = (prefs.getStringList(_directImportsKey) ?? []).toSet();
-    final before = await SqliteService.getRomCountForSystem(id);
-    await _batchInsertRoms(system.folderName, candidates);
-    registered.addAll(candidates.map((rom) => rom.path));
-    await prefs.setStringList(_directImportsKey, registered.toList());
-    return (await SqliteService.getRomCountForSystem(id)) - before;
+
+    var added = 0;
+    if (candidates.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      final registered = (prefs.getStringList(_directImportsKey) ?? []).toSet();
+      await _batchInsertRoms(system.folderName, candidates);
+      final after = await db.rawQuery(
+        'SELECT rom_path FROM user_roms WHERE app_system_id = ?',
+        [id],
+      );
+      final saved = after.map((row) => row['rom_path'] as String).toSet();
+      for (final candidate in candidates) {
+        if (saved.contains(candidate.path)) {
+          added++;
+          registered.add(candidate.path);
+        } else {
+          failures.add(candidate.path);
+        }
+      }
+      if (!await prefs.setStringList(_directImportsKey, registered.toList())) {
+        throw StateError('Could not persist direct imports');
+      }
+    }
+    return RomImportResult(
+      discovered: discovered,
+      added: added,
+      existing: playable.length - candidates.length,
+      unsupported: unsupported,
+      playlistDiscs: entries.length - playable.length,
+      failures: failures,
+      walkError: walkError,
+      elapsed: timer.elapsed,
+    );
+  }
+
+  static Future<RomEntry> _readableRom(File file) async {
+    final reader = await file.open();
+    try {
+      final size = await reader.length();
+      if (await reader.readByte() == -1) {
+        throw FileSystemException('Empty ROM', file.path);
+      }
+      return RomEntry(
+        path: file.path,
+        filename: path.basename(file.path),
+        size: size,
+      );
+    } finally {
+      await reader.close();
+    }
   }
 
   /// Orchestrates the physical directory scan and database synchronization logic.
@@ -328,7 +396,7 @@ class SqliteDatabaseService {
       if (!walkedDirs.add(target.canonicalPath)) continue;
 
       try {
-        final entries = system.id == 'ps3'
+        final entries = parentSystemId(system.id!) == 'ps3'
             ? await scanPs3Path(
                 target.dirPath,
                 validExtensionsSet,
@@ -699,7 +767,12 @@ class SqliteDatabaseService {
   /// known, so an extraction that failed once — unreadable file, missing Switch
   /// keys — is retried later instead of being frozen out by the path diff.
   static bool _needsMetadataExtraction(String systemId, RomEntry entry) {
-    if (systemId == 'switch' || systemId == 'nintendo-switch') return true;
+    if (const {
+      'switch',
+      'nintendo-switch',
+    }.contains(parentSystemId(systemId))) {
+      return true;
+    }
     final lower = entry.filename.toLowerCase();
     return lower.endsWith('.psvita') || lower.endsWith('.steam');
   }
@@ -725,7 +798,10 @@ class SqliteDatabaseService {
     final db = await SqliteService.getDatabase();
     final system = await SqliteService.getSystemByFolderName(systemFolderName);
     final systemId = system.id!;
-    final isSwitch = systemId == 'switch' || systemId == 'nintendo-switch';
+    final isSwitch = const {
+      'switch',
+      'nintendo-switch',
+    }.contains(parentSystemId(systemId));
 
     if (isSwitch) await SwitchTitleExtractor.loadKeys();
 
@@ -1605,13 +1681,27 @@ class SqliteDatabaseService {
   /// plugin. A failure comes back as [error] for the caller to log, along with
   /// whatever the walk had already collected — the same partial result the
   /// in-place `try` used to return.
-  static Future<({List<RomEntry> entries, String? error})> _walkStandardPath(
+  static Future<
+    ({
+      List<RomEntry> entries,
+      String? error,
+      int discovered,
+      int unsupported,
+      List<String> failures,
+    })
+  >
+  _walkStandardPath(
     String pathStr,
     Set<String> validExtensions,
     bool recursive, {
     required bool ignoreHiddenFiles,
+    bool checkReadable = false,
   }) async {
     final entries = <RomEntry>[];
+    final failures = <String>[];
+    var discovered = 0;
+    var unsupported = 0;
+    String? error;
     try {
       final entities = await Directory(pathStr)
           .list(recursive: recursive, followLinks: false)
@@ -1643,10 +1733,24 @@ class SqliteDatabaseService {
               RomEntry(path: entity.path, filename: filename, size: 0),
             );
             directoryEntries.add(entity.path);
+            discovered++;
           }
           continue;
         }
-        if (entity is File && matches) {
+        if (entity is File) {
+          discovered++;
+          if (!matches) {
+            unsupported++;
+            continue;
+          }
+          if (checkReadable) {
+            try {
+              entries.add(await _readableRom(entity));
+            } on FileSystemException catch (failure) {
+              failures.add('${entity.path}: ${failure.message}');
+            }
+            continue;
+          }
           entries.add(
             RomEntry(
               path: entity.path,
@@ -1656,10 +1760,16 @@ class SqliteDatabaseService {
           );
         }
       }
-    } catch (e) {
-      return (entries: entries, error: '$e');
+    } catch (failure) {
+      error = '$failure';
     }
-    return (entries: entries, error: null);
+    return (
+      entries: entries,
+      error: error,
+      discovered: discovered,
+      unsupported: unsupported,
+      failures: failures,
+    );
   }
 
   static bool _isDotEntryName(String name) {
