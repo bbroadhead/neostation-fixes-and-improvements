@@ -813,8 +813,9 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     try {
       final destination = await RaGuideService.resolve(gameId, system);
       if (!mounted || _currentGameInfo?.id != gameId) return;
-      if (await launchUrl(destination, mode: LaunchMode.externalApplication))
+      if (await launchUrl(destination, mode: LaunchMode.externalApplication)) {
         return;
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppLocale.error.getString(context))),

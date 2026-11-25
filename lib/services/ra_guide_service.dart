@@ -52,8 +52,9 @@ class RaGuideService {
             .toList();
         if (!urls.any(
           (link) => link.host == fallback.host && link.path == fallback.path,
-        ))
+        )) {
           continue;
+        }
         for (final link in urls) {
           if (link.scheme == 'https' &&
               link.host == _wiki.host &&
