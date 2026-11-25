@@ -28,6 +28,18 @@ void main() {
   setUp(resetGamepadClock);
   tearDown(restoreGamepadClock);
 
+  test('English revisions use only regions and language tags in the official filename', () {
+    expect(englishRevisionOrder('Game (USA) (Rev 2).nes'), 0);
+    expect(englishRevisionOrder('Game (Europe) (En,Fr).nes'), 1);
+    expect(englishRevisionOrder('Game (World) (En).nes'), 2);
+    expect(
+      englishRevisionOrder('Game (Japan) [T+Eng] [English Translation].nes'),
+      3,
+    );
+    expect(englishRevisionOrder('Game (Europe) (Fr,De).nes'), isNull);
+    expect(englishRevisionOrder('USA Football (Japan).nes'), isNull);
+  });
+
   testWidgets('reason filters preserve the ROM selected for Game Info', (
     tester,
   ) async {

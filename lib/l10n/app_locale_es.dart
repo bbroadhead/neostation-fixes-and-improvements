@@ -1725,6 +1725,9 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.genreEducational: 'Educativo',
   AppLocale.genreQuiz: 'Preguntas',
   AppLocale.genreCompilation: 'Recopilatorio',
+  AppLocale.raCompatibilityHome: 'Compatibilidad con RetroAchievements',
+  AppLocale.raNoVerifiedEnglishHash:
+      'No se encontró un hash verificado compatible con inglés',
   AppLocale.raConnectionNotices: 'Avisos de conexión de RetroAchievements',
   AppLocale.raConnectionRestored:
       'Conexión con RetroAchievements restablecida.',

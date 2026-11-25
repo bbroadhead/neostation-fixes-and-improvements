@@ -1721,6 +1721,9 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.genreEducational: 'Edukasi',
   AppLocale.genreQuiz: 'Kuis',
   AppLocale.genreCompilation: 'Kompilasi',
+  AppLocale.raCompatibilityHome: 'Kompatibilitas RetroAchievements',
+  AppLocale.raNoVerifiedEnglishHash:
+      'Hash terverifikasi untuk versi bahasa Inggris tidak ditemukan',
   AppLocale.raConnectionNotices: 'Peringatan koneksi RetroAchievements',
   AppLocale.raConnectionRestored: 'Koneksi RetroAchievements pulih.',
   AppLocale.raConnectionNetwork:

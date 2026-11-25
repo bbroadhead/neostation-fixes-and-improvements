@@ -1570,6 +1570,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.genreEducational: '教育',
   AppLocale.genreQuiz: '问答',
   AppLocale.genreCompilation: '合集',
+  AppLocale.raCompatibilityHome: 'RetroAchievements 兼容性',
+  AppLocale.raNoVerifiedEnglishHash: '未找到已验证的英语兼容哈希',
   AppLocale.raConnectionNotices: 'RetroAchievements 连接提醒',
   AppLocale.raConnectionRestored: 'RetroAchievements 连接已恢复。',
   AppLocale.raConnectionNetwork: 'NeoStation 无法连接 RetroAchievements。',

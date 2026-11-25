@@ -92,7 +92,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
 
     // Pre-allocate keys for maximum theoretical setting items (the fixed rows
     // plus one per navigation tab that can be toggled).
-    for (int i = 0; i < 21 + NavTab.values.length; i++) {
+    for (int i = 0; i < 22 + NavTab.values.length; i++) {
       _itemKeys.add(GlobalKey());
     }
   }
@@ -266,6 +266,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
     count++; // Show subfolders (every system)
     count++; // Cloud-save mark in the game views
     count++; // Achievement badges on game tiles
+    count++; // RetroAchievements compatibility home
     count++; // RetroAchievements connection notices
     count++; // Match RetroAchievements on startup
     if (Platform.isAndroid) {
@@ -481,6 +482,14 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
     if (index == currentItemIndex) {
       configProvider.updateShowAchievementsBadge(
         !configProvider.config.showAchievementsBadge,
+      );
+      return;
+    }
+    currentItemIndex++;
+
+    if (index == currentItemIndex) {
+      configProvider.updateRaCompatibilityHome(
+        !configProvider.raCompatibilityHome,
       );
       return;
     }
@@ -1010,6 +1019,26 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                             .read<SqliteConfigProvider>()
                             .updateShowAchievementsBadge(value);
                       },
+                      activeColor: theme.colorScheme.primary,
+                    ),
+                  );
+                }(),
+
+                SizedBox(height: 12.r),
+                () {
+                  final index = currentItemIdx++;
+                  final provider = context.watch<SqliteConfigProvider>();
+                  return SettingRow(
+                    key: _itemKeys[index],
+                    onTap: () => selectItem(index),
+                    focused:
+                        widget.isContentFocused &&
+                        widget.selectedContentIndex == index,
+                    title: AppLocale.raCompatibilityHome.getString(context),
+                    subtitle: '',
+                    trailing: CustomToggleSwitch(
+                      value: provider.raCompatibilityHome,
+                      onChanged: provider.updateRaCompatibilityHome,
                       activeColor: theme.colorScheme.primary,
                     ),
                   );

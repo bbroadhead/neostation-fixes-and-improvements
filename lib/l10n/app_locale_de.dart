@@ -1741,6 +1741,9 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.genreEducational: 'Lernspiel',
   AppLocale.genreQuiz: 'Quiz',
   AppLocale.genreCompilation: 'Sammlung',
+  AppLocale.raCompatibilityHome: 'RetroAchievements-Kompatibilität',
+  AppLocale.raNoVerifiedEnglishHash:
+      'Kein bestätigter Hash für eine englische Version gefunden',
   AppLocale.raConnectionNotices: 'RetroAchievements-Verbindungsmeldungen',
   AppLocale.raConnectionRestored:
       'RetroAchievements-Verbindung wiederhergestellt.',

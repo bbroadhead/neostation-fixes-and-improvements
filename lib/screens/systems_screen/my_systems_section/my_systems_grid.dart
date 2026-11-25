@@ -1,3 +1,5 @@
+import '../../collections_screen/ra_incompatible_games_screen.dart';
+
 import 'dart:io';
 import 'dart:async';
 
@@ -505,6 +507,8 @@ class MySystems extends StatelessWidget {
             MaterialPageRoute(builder: (context) => targetScreen),
           );
         }
+      } else if (systemInfo.folderName == raCompatibilityHomeFolder) {
+        if (context.mounted) await openRaCompatibilityReview(context);
       } else if (systemInfo.folderName == SystemFolderNames.search) {
         if (context.mounted) await openSearch(context);
       } else if (systemInfo.folderName == SystemFolderNames.collections) {

@@ -70,6 +70,22 @@ class SqliteConfigProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _sfxMutation = Future.value();
   ConfigModel _config = ConfigModel.empty;
   static const _artworkLayoutKey = 'gameArtworkLayout';
+  static const _raCompatibilityHomeKey = 'raCompatibilityHome';
+  bool _raCompatibilityHome = true;
+  bool get raCompatibilityHome => _raCompatibilityHome;
+
+  Future<void> updateRaCompatibilityHome(bool visible) async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      if (await preferences.setBool(_raCompatibilityHomeKey, visible)) {
+        _raCompatibilityHome = visible;
+        notifyListeners();
+      }
+    } catch (error) {
+      _log.w('Could not save compatibility page visibility: $error');
+    }
+  }
+
   bool _raConnectionNotifications = true;
   bool get raConnectionNotifications => _raConnectionNotifications;
 
@@ -534,6 +550,8 @@ class SqliteConfigProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _loadConfig();
       try {
         final preferences = await SharedPreferences.getInstance();
+        _raCompatibilityHome =
+            preferences.getBool(_raCompatibilityHomeKey) ?? true;
         _raConnectionNotifications =
             preferences.getBool(
               RetroAchievementsService.connectionNotificationsPreference,

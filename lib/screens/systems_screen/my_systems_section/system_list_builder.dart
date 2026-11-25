@@ -92,5 +92,16 @@ List<SystemInfo> buildSystemsList({
         return info;
       });
 
-  return [...recentGames, ...detectedSystems];
+  return [
+    ...recentGames,
+    ...detectedSystems,
+    if (configProvider.raCompatibilityHome)
+      SystemInfo(
+        folderName: raCompatibilityHomeFolder,
+        title: AppLocale.raCompatibilityHome.getString(context),
+        color: Theme.of(context).colorScheme.secondaryContainer,
+      ),
+  ];
 }
+
+const raCompatibilityHomeFolder = 'virtual:ra-compatibility';

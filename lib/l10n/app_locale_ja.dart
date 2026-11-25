@@ -1619,6 +1619,8 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.genreEducational: '教育',
   AppLocale.genreQuiz: 'クイズ',
   AppLocale.genreCompilation: 'コンピレーション',
+  AppLocale.raCompatibilityHome: 'RetroAchievementsの互換性',
+  AppLocale.raNoVerifiedEnglishHash: '確認済みの英語対応ハッシュが見つかりません',
   AppLocale.raConnectionNotices: 'RetroAchievementsの接続通知',
   AppLocale.raConnectionRestored: 'RetroAchievementsへの接続が復旧しました。',
   AppLocale.raConnectionNetwork: 'NeoStationからRetroAchievementsに接続できません。',

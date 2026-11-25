@@ -1,3 +1,12 @@
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../providers/retro_achievements_provider.dart';
+import '../../repositories/game_repository.dart';
+import '../../repositories/retro_achievements_repository.dart';
+import '../../services/retro_achievements_service.dart';
+import '../../utils/ra_coverage.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -11,6 +20,166 @@ import '../../utils/gamepad_nav.dart';
 import '../../utils/ra_compatibility_labels.dart';
 
 typedef IncompatibleGame = ({GameModel game, RaCompatibilityStatus reason});
+
+Future<void> openRaCompatibilityReview(BuildContext context) =>
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => RaIncompatibleGamesScreen(
+          title: AppLocale.raCompatibilityHome.getString(context),
+          openDetails: (game) => _showCompatibilityEvidence(context, game),
+          loadGames: _loadCompatibilityReview,
+        ),
+      ),
+    );
+
+Future<List<IncompatibleGame>> _loadCompatibilityReview({
+  bool Function()? isCancelled,
+}) async {
+  final review = <IncompatibleGame>[];
+  final rows = await GameRepository.getAllGames();
+  for (final (index, row) in rows.indexed) {
+    if (index % 32 == 0) await Future<void>.delayed(Duration.zero);
+    if (isCancelled?.call() == true) return const [];
+    if (!isRaSupportedSystem(row.systemRaId) || row.romPath.isEmpty) continue;
+    final reason = (await RetroAchievementsRepository.getRomCompatibility(
+      row.romPath,
+    )).status;
+    if (reason != RaCompatibilityStatus.supported) {
+      review.add((game: GameModel.fromDatabaseModel(row), reason: reason));
+    }
+  }
+  return review;
+}
+
+/// Official filenames are the only language evidence available in the hash API.
+int? englishRevisionOrder(String filename) {
+  final name = filename.toLowerCase();
+  final tags = RegExp(r'\(([^)]+)\)|\[([^\]]+)\]')
+      .allMatches(name)
+      .map((match) => match[1] ?? match[2]!)
+      .join(' ');
+  if (RegExp(r'\bt\+\s*en\b').hasMatch(tags) ||
+      (RegExp(r'\benglish\b').hasMatch(tags) &&
+          RegExp(r'\b(translated|translation)\b').hasMatch(tags))) {
+    return 3;
+  }
+  if (RegExp(r'\b(usa|united states)\b').hasMatch(tags)) return 0;
+  final english = RegExp(r'\b(english|en)\b').hasMatch(tags);
+  if (english && tags.contains('europe')) return 1;
+  if (english && (tags.contains('world') || tags.contains('international'))) {
+    return 2;
+  }
+  return null;
+}
+
+Future<void> _showCompatibilityEvidence(
+  BuildContext context,
+  GameModel game,
+) async {
+  final provider = context.read<RetroAchievementsProvider?>();
+  final compatibility = await RetroAchievementsRepository.getRomCompatibility(
+    game.romPath!,
+  );
+  if (!context.mounted) return;
+  final gameId = compatibility.gameId ?? game.idRa;
+  final files = gameId == null || (provider?.apiKey.isEmpty ?? true)
+      ? Future<List<({String hash, String name})>?>.value(null)
+      : RetroAchievementsService.getSupportedGameFiles(
+          gameId,
+          apiKey: provider!.apiKey,
+        );
+  await showDialog<void>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: Text(game.name),
+        content: SizedBox(
+          width: 510,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(game.systemRealName ?? game.systemFolderName ?? ''),
+                Text(compatibility.status.labelKey.getString(context)),
+                Text(AppLocale.raHash.getString(context)),
+                SelectableText(
+                  game.raHash ?? AppLocale.unknown.getString(context),
+                ),
+                const SizedBox(height: 12),
+                Text(AppLocale.raSupportedFiles.getString(context)),
+                FutureBuilder(
+                  future: files,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const LinearProgressIndicator();
+                    }
+                    final rows = snapshot.data;
+                    if (rows == null) {
+                      return Text(
+                        AppLocale.raSupportedFilesUnavailable.getString(
+                          context,
+                        ),
+                      );
+                    }
+                    final english =
+                        rows
+                            .where(
+                              (row) => englishRevisionOrder(row.name) != null,
+                            )
+                            .toList()
+                          ..sort(
+                            (a, b) =>
+                                englishRevisionOrder(a.name)!
+                                    .compareTo(englishRevisionOrder(b.name)!),
+                          );
+                    if (english.isEmpty) {
+                      return Text(
+                        AppLocale.raNoVerifiedEnglishHash.getString(context),
+                      );
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final row in english)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(row.name),
+                                SelectableText(row.hash),
+                              ],
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          if (gameId != null && gameId > 0)
+            TextButton(
+              onPressed: () async {
+                await launchUrl(
+                  Uri.https('retroachievements.org', '/game/$gameId'),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+              child: Text(AppLocale.raOpenPage.getString(context)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppLocale.close.getString(context)),
+          ),
+        ],
+      );
+    },
+  );
+}
 
 /// Review the current reasons for the generated collection.
 class RaIncompatibleGamesScreen extends StatefulWidget {
@@ -36,6 +205,7 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
     null,
     RaCompatibilityStatus.differentRomRequired,
     RaCompatibilityStatus.noAchievementSet,
+    RaCompatibilityStatus.unknown,
   ];
   late final _layer = 'ra_incompatible_games#${identityHashCode(this)}';
   late final GamepadNavigation _navigation;
@@ -48,6 +218,10 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
   bool _loading = true;
   bool _loadFailed = false;
   bool _opening = false;
+  bool _ascending = true;
+  String _query = '';
+  String? _system;
+  final _searchFocus = FocusNode();
 
   double get _rowHeight => 43.r;
 
@@ -66,7 +240,13 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
           _open(_visible[_selected].game);
         }
       },
-      onBack: () => Navigator.of(context).maybePop(),
+      onBack: () {
+        if (_searchFocus.hasFocus) {
+          _searchFocus.unfocus();
+        } else {
+          Navigator.of(context).maybePop();
+        }
+      },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -85,6 +265,7 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
     GamepadNavigationManager.popLayer(_layer);
     _navigation.dispose();
     _scroll.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -98,6 +279,9 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
       if (!mounted) return;
       setState(() {
         _games = games;
+        if (!games.any((entry) => entry.game.systemRealName == _system)) {
+          _system = null;
+        }
         _updateVisible(preserveRomPath);
         _loading = false;
       });
@@ -113,9 +297,20 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
 
   void _updateVisible(String? preserveRomPath) {
     final reason = _filters[_filter];
-    _visible = reason == null
-        ? _games
-        : _games.where((entry) => entry.reason == reason).toList();
+    _visible =
+        _games.where((entry) {
+          final game = entry.game;
+          return (reason == null || entry.reason == reason) &&
+              (_system == null || _system == game.systemRealName) &&
+              ('${game.name} ${game.raHash ?? ''}'.toLowerCase().contains(
+                _query,
+              ));
+        }).toList()..sort((a, b) {
+          final result = a.game.name.toLowerCase().compareTo(
+            b.game.name.toLowerCase(),
+          );
+          return _ascending ? result : -result;
+        });
     final index = preserveRomPath == null
         ? -1
         : _visible.indexWhere((entry) => entry.game.romPath == preserveRomPath);
@@ -177,6 +372,58 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
         padding: EdgeInsets.symmetric(horizontal: 20.r, vertical: 8.r),
         child: Column(
           children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    focusNode: _searchFocus,
+                    decoration: InputDecoration(
+                      hintText: AppLocale.searchNameHint.getString(context),
+                    ),
+                    onChanged: (value) => setState(() {
+                      _query = value.trim().toLowerCase();
+                      _updateVisible(null);
+                    }),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                DropdownButton<String>(
+                  value: _system ?? '',
+                  onChanged: (value) => setState(() {
+                    _system = (value?.isEmpty ?? true) ? null : value;
+                    _updateVisible(null);
+                  }),
+                  items: [
+                    DropdownMenuItem(
+                      value: '',
+                      child: Text(AppLocale.allContent.getString(context)),
+                    ),
+                    for (final name
+                        in (_games
+                            .map((entry) => entry.game.systemRealName)
+                            .whereType<String>()
+                            .toSet()
+                            .toList()
+                          ..sort()))
+                      DropdownMenuItem(value: name, child: Text(name)),
+                  ],
+                ),
+                IconButton(
+                  icon: Icon(
+                    _ascending ? Icons.arrow_upward : Icons.arrow_downward,
+                  ),
+                  tooltip:
+                      (_ascending
+                              ? AppLocale.sortNameDesc
+                              : AppLocale.sortNameAsc)
+                          .getString(context),
+                  onPressed: () => setState(() {
+                    _ascending = !_ascending;
+                    _updateVisible(null);
+                  }),
+                ),
+              ],
+            ),
             Wrap(
               spacing: 8.r,
               runSpacing: 4.r,
@@ -235,7 +482,15 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          subtitle: Text(entry.reason.labelKey.getString(context)),
+          subtitle: Text(
+            [
+              ?entry.game.systemRealName,
+              entry.reason.labelKey.getString(context),
+              ?entry.game.raHash,
+            ].join(' · '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           trailing: Tooltip(
             message: AppLocale.gameInfo.getString(context),
             child: const Icon(Icons.info_outline),

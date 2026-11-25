@@ -1708,6 +1708,9 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.genreEducational: 'Обучающая',
   AppLocale.genreQuiz: 'Викторина',
   AppLocale.genreCompilation: 'Сборник',
+  AppLocale.raCompatibilityHome: 'Совместимость с RetroAchievements',
+  AppLocale.raNoVerifiedEnglishHash:
+      'Подтверждённый хеш англоязычной версии не найден',
   AppLocale.raConnectionNotices:
       'Уведомления о подключении к RetroAchievements',
   AppLocale.raConnectionRestored:

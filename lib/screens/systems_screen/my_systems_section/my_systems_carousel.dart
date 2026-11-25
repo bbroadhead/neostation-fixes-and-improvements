@@ -1,3 +1,5 @@
+import '../../collections_screen/ra_incompatible_games_screen.dart';
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -570,6 +572,8 @@ class _MySystemsCarouselState extends State<MySystemsCarousel> {
           context,
           MaterialPageRoute(builder: (context) => targetScreen),
         );
+      } else if (systemInfo.folderName == raCompatibilityHomeFolder) {
+        if (context.mounted) await openRaCompatibilityReview(context);
       } else if (systemInfo.folderName == SystemFolderNames.search) {
         // Mirrors the grid's branch, for the same reason as Collections below.
         await openSearch(context);

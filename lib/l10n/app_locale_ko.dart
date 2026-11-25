@@ -1626,6 +1626,8 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.genreEducational: '교육',
   AppLocale.genreQuiz: '퀴즈',
   AppLocale.genreCompilation: '합본',
+  AppLocale.raCompatibilityHome: 'RetroAchievements 호환성',
+  AppLocale.raNoVerifiedEnglishHash: '검증된 영어판 해시를 찾을 수 없습니다',
   AppLocale.raConnectionNotices: 'RetroAchievements 연결 알림',
   AppLocale.raConnectionRestored: 'RetroAchievements 연결이 복구되었습니다.',
   AppLocale.raConnectionNetwork: 'NeoStation이 RetroAchievements에 연결할 수 없습니다.',
