@@ -1619,6 +1619,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.genreEducational: '教育',
   AppLocale.genreQuiz: 'クイズ',
   AppLocale.genreCompilation: 'コンピレーション',
+  AppLocale.raGuides: '攻略ガイド',
   AppLocale.artworkLayout: 'アートワークの配置',
   AppLocale.artworkLayoutDynamic: 'ダイナミック',
   AppLocale.artworkLayoutStacked: '縦並び',

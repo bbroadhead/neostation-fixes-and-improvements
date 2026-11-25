@@ -1696,6 +1696,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.genreEducational: 'Educational',
   AppLocale.genreQuiz: 'Quiz',
   AppLocale.genreCompilation: 'Compilation',
+  AppLocale.raGuides: 'Guides',
   AppLocale.artworkLayout: 'Artwork layout',
   AppLocale.artworkLayoutDynamic: 'Dynamic',
   AppLocale.artworkLayoutStacked: 'Stacked',

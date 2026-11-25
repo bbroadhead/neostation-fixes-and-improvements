@@ -1833,6 +1833,7 @@ mixin AppLocale {
   // ==========================================================================
   // Localization Maps
   // ==========================================================================
+  static const String raGuides = 'ra_guides';
   static const String artworkLayout = 'artwork_layout';
   static const String artworkLayoutDynamic = 'artwork_layout_dynamic';
   static const String artworkLayoutStacked = 'artwork_layout_stacked';

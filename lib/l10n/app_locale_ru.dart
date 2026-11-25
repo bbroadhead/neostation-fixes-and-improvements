@@ -1708,6 +1708,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.genreEducational: 'Обучающая',
   AppLocale.genreQuiz: 'Викторина',
   AppLocale.genreCompilation: 'Сборник',
+  AppLocale.raGuides: 'Руководства',
   AppLocale.artworkLayout: 'Расположение изображений',
   AppLocale.artworkLayoutDynamic: 'Динамическое',
   AppLocale.artworkLayoutStacked: 'Столбцы',

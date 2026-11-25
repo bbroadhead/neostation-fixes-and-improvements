@@ -1569,6 +1569,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.genreEducational: '教育',
   AppLocale.genreQuiz: '問答',
   AppLocale.genreCompilation: '合集',
+  AppLocale.raGuides: '攻略',
   AppLocale.artworkLayout: '遊戲圖片配置',
   AppLocale.artworkLayoutDynamic: '動態',
   AppLocale.artworkLayoutStacked: '堆疊',

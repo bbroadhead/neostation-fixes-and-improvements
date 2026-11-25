@@ -1,3 +1,5 @@
+import 'package:url_launcher/url_launcher.dart';
+import 'package:neostation/services/ra_guide_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:neostation/l10n/app_locale.dart';
@@ -801,6 +803,33 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
     }
   }
 
+  bool _guideInFlight = false;
+
+  Future<void> _openAchievementGuide() async {
+    final gameId = _currentGameInfo?.id;
+    if (_guideInFlight || gameId == null || gameId <= 0) return;
+    _guideInFlight = true;
+    final system = _effectiveSystem.primaryFolderName;
+    try {
+      final destination = await RaGuideService.resolve(gameId, system);
+      if (!mounted || _currentGameInfo?.id != gameId) return;
+      if (await launchUrl(destination, mode: LaunchMode.externalApplication))
+        return;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocale.error.getString(context))),
+      );
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocale.error.getString(context))),
+        );
+      }
+    } finally {
+      _guideInFlight = false;
+    }
+  }
+
   /// Opens the manual match picker and reloads the tab when the user picked a
   /// different game, so the achievement list reflects the new set immediately.
   ///
@@ -1132,6 +1161,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
                         onRefresh: refreshAchievements,
                         onFixMatch: _openMatchPicker,
                         onOpenPage: _openAchievementsPage,
+                        onOpenGuide: _openAchievementGuide,
                         raHash: _game.raHash,
                       ),
                     ),

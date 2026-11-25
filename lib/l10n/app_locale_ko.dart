@@ -1626,6 +1626,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.genreEducational: '교육',
   AppLocale.genreQuiz: '퀴즈',
   AppLocale.genreCompilation: '합본',
+  AppLocale.raGuides: '가이드',
   AppLocale.artworkLayout: '아트워크 배치',
   AppLocale.artworkLayoutDynamic: '동적',
   AppLocale.artworkLayoutStacked: '세로 배열',

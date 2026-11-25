@@ -51,6 +51,7 @@ class GameDetailsAchievementsTab extends StatefulWidget {
 
   /// Opens the full achievements page for the matched game.
   final VoidCallback? onOpenPage;
+  final VoidCallback? onOpenGuide;
 
   /// The ROM's RetroAchievements hash, or `null` when it has not been hashed.
   ///
@@ -74,6 +75,7 @@ class GameDetailsAchievementsTab extends StatefulWidget {
     this.headerAction,
     this.onFixMatch,
     this.onOpenPage,
+    this.onOpenGuide,
     this.raHash,
   });
 
@@ -184,6 +186,8 @@ class GameDetailsAchievementsTabState
         _HeaderAction(label: AppLocale.raFixMatch, onTap: widget.onFixMatch!),
       if (widget.gameInfo != null && widget.onOpenPage != null)
         _HeaderAction(label: AppLocale.raOpenPage, onTap: widget.onOpenPage!),
+      if (widget.gameInfo != null && widget.onOpenGuide != null)
+        _HeaderAction(label: AppLocale.raGuides, onTap: widget.onOpenGuide!),
     ];
   }
 
