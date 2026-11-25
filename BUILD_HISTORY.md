@@ -40,3 +40,11 @@ The Steam shortcut target was rechecked and points to the existing 2140 path. Bu
 ## Build 2143 DS split-window bezel
 
 `~/Downloads/neostation-linux-x86_64-0.16.1+2143-steamos-ds-split-bezel.AppImage` uses `e68ecbd` with `LIBRETRO_ARTWORK=true`. SHA-256 `812a742714baf7b06348f12866fe54cc698b7376014f6ac0ba58bb8f246d0ec1`. Packaging verified extraction, checksum, dependencies and isolated startup. The existing Steam target remained at 2140 pending physical validation.
+
+## Build 2144 roadmap preview
+
+`/home/deck/Downloads/neostation-linux-x86_64-0.16.1+2144-steamos-roadmap-preview.AppImage` was built from `c87abce91c395fb1f0df9f07e02caa67ae174b56` with `LIBRETRO_ARTWORK=true`. SHA-256 `0816820dbc1d06528bff692fe2cd97adb0cdaeefd10d9e80c2fddfb2af6be423`. It adds the artwork layouts, Guides shortcut, official award badges, frontend connection alerts, GD-ROM hashing fix, compatibility home page, launch preflight and artwork search improvements.
+
+Static analysis passed and all 54 changed Dart files passed the formatting check. The offline suites passed 4,160 Flutter and 478 pure Dart tests. Package extraction, version, native dependencies, and byte comparison of the runner, Dart AOT library and CHD library passed. The package excludes private bezel artwork.
+
+Extract-and-run opened the packaged app in a 1280 × 720 window on a 1280 × 800 isolated X11 display. The copied database remained consistent with 1,413 ROM entries. The final home card opened the RetroAchievements Compatibility page. No physical controller, game launch, or live achievement session was verified for this candidate. No gameplay performance benchmark was run. The fixed 2140 Steam target matched its rollback copy and was kept in place pending physical validation.
