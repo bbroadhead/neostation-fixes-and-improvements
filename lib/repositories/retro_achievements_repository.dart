@@ -574,9 +574,9 @@ class RetroAchievementsRepository {
         .where((term) => term.isNotEmpty);
     if (terms.isEmpty) return [];
     final pattern = '%${terms.join('%')}%';
-    final alternate = pattern.replaceFirst(
-      RegExp(r'^%dragon%warrior%'),
-      '%dragon%quest%',
+    final alternate = pattern.replaceFirstMapped(
+      RegExp(r'^%dragon%(warrior|quest)%'),
+      (match) => match[1] == 'warrior' ? '%dragon%quest%' : '%dragon%warrior%',
     );
     final rows = await db.rawQuery(
       '''

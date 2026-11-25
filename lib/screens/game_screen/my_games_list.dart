@@ -2400,6 +2400,22 @@ class _SystemGamesListState extends State<SystemGamesList> {
         return results.expand((images) => images).toList();
       }
 
+      Future<bool> titleWrite = Future<bool>.value(true);
+      void rememberConfirmedSearch(String title, bool Function() cancelled) {
+        titleWrite = titleWrite.then((_) async {
+          if (cancelled()) return true;
+          final saved = await ScraperRepository.saveSearchTitle(romPath, title);
+          if (!saved && mounted && !cancelled()) {
+            AppNotification.showNotification(
+              context,
+              AppLocale.failedToSaveSetting.getString(context),
+              type: NotificationType.error,
+            );
+          }
+          return saved;
+        });
+      }
+
       final selection = await showDialog<List<ArtworkPreview>>(
         context: context,
         builder: (_) => ArtworkGalleryDialog(
@@ -2424,8 +2440,10 @@ class _SystemGamesListState extends State<SystemGamesList> {
             cancelled,
             byName: savedTitle != null && title == savedTitle,
           ),
-          search: (title, cancelled) =>
-              loadGallery(title, cancelled, byName: true),
+          search: (title, cancelled) {
+            rememberConfirmedSearch(title, cancelled);
+            return loadGallery(title, cancelled, byName: true);
+          },
         ),
       );
       if (selection == null || !mounted) return;

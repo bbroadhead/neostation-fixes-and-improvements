@@ -822,11 +822,26 @@ class ScreenScraperService {
       if (identified != null) {
         candidates = [ScreenScraperGameCandidate(id: identified, name: title)];
       } else {
-        final result = await searchGames(
+        var result = await searchGames(
           appSystemId: appSystemId,
           query: title,
           shouldCancel: shouldCancel,
         );
+        if (byName &&
+            result.failure == null &&
+            result.games.isEmpty &&
+            !shouldCancel()) {
+          final alternate = ArtworkTitle.queries(title)
+              .where((value) => value != title)
+              .firstOrNull;
+          if (alternate != null) {
+            result = await searchGames(
+              appSystemId: appSystemId,
+              query: alternate,
+              shouldCancel: shouldCancel,
+            );
+          }
+        }
         if (result.failure != null && !shouldCancel()) onFailure?.call();
         candidates = exactTitleOnly
             ? result.games

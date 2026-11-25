@@ -160,13 +160,33 @@ class LibretroThumbnailService {
           response.bodyBytes.length > 2 * 1024 * 1024) {
         return {};
       }
-      return RegExp(r'href="([^"<>/]+\.png)"', caseSensitive: false)
-          .allMatches(response.body)
-          .map((match) => Uri.decodeComponent(match[1]!))
-          .map((filename) => filename.substring(0, filename.length - 4))
-          .where((label) => ArtworkTitle.normalized(label) == wanted)
-          .take(4)
-          .toSet();
+      final exact = <String>{};
+      final partial = <String>{};
+      for (final match in RegExp(
+        r'href="([^"<>/]+\.png)"',
+        caseSensitive: false,
+      ).allMatches(response.body)) {
+        if (shouldCancel?.call() ?? false) return {};
+        String filename;
+        try {
+          filename = Uri.decodeComponent(match[1]!);
+        } on FormatException {
+          continue;
+        } on ArgumentError {
+          continue;
+        }
+        final label = filename.substring(0, filename.length - 4);
+        final comparable = ArtworkTitle.normalized(label);
+        if (comparable == wanted) {
+          exact.add(label);
+          if (exact.length == 4) return exact;
+        } else if (partial.length < 4 &&
+            wanted.length >= 4 &&
+            ' $comparable '.contains(' $wanted ')) {
+          partial.add(label);
+        }
+      }
+      return exact.isEmpty ? partial : exact;
     } catch (error) {
       if (!(shouldCancel?.call() ?? false)) {
         _log.w('Libretro title index unavailable (${error.runtimeType})');

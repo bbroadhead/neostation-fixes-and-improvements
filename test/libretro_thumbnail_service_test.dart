@@ -158,18 +158,23 @@ void main() {
       }
       request.response.close();
     });
-    final previews = await LibretroThumbnailService.gallery(
-      appSystemId: 'gbc',
-      romName: "Dragon Warrior Monsters 2 - Tara's Adventure (U) [C][!].gbc",
-      gameName: "Dragon Warrior Monsters 2 - Tara's Adventure",
-      searchTitle: 'Dragon Warrior Monsters 2 - Tara’s Adventure',
-      catalog: Uri.parse('http://127.0.0.1:${catalogue.port}'),
-    );
-    expect(
-      previews.map((image) => image.category),
-      unorderedEquals(['box2d', 'screenshots', 'title_screens']),
-    );
-    expect(previews.every((image) => image.title == label), isTrue);
+    for (final query in [
+      'Dragon Warrior Monsters 2 - Tara’s Adventure',
+      'Tara’s Adventure',
+    ]) {
+      final previews = await LibretroThumbnailService.gallery(
+        appSystemId: 'gbc',
+        romName: "Dragon Warrior Monsters 2 - Tara's Adventure (U) [C][!].gbc",
+        gameName: "Dragon Warrior Monsters 2 - Tara's Adventure",
+        searchTitle: query,
+        catalog: Uri.parse('http://127.0.0.1:${catalogue.port}'),
+      );
+      expect(
+        previews.map((image) => image.category),
+        unorderedEquals(['box2d', 'screenshots', 'title_screens']),
+      );
+      expect(previews.every((image) => image.title == label), isTrue);
+    }
   });
 
   test('a manual cover skips network downloads for the same slot', () async {
