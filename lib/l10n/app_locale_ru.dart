@@ -1,6 +1,7 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleRu = {
+  AppLocale.visualBorderZoomed: 'Увеличенный',
   AppLocale.visualCustomBorder: 'Импортированный PNG',
   AppLocale.visualBorderSearch: 'Поиск рамок',
   AppLocale.visualBorderImport: 'Импорт PNG',

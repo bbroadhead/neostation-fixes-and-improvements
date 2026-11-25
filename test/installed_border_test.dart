@@ -111,7 +111,7 @@ void main() {
       await original.delete();
       final catalog = await InstalledBorder.discover(config, 'gb');
       expect(catalog.single.id, first.id);
-      expect(await catalog.single.image.exists(), isTrue);
+      expect(await catalog.single.image!.exists(), isTrue);
       expect(await InstalledBorder.discover(config, 'gba'), isEmpty);
     },
   );
@@ -152,6 +152,9 @@ void main() {
       await add('ctr/borders', 'psx-integer');
       await add('pegasus', 'Dreamcast');
       await add('pegasus', 'saturn');
+      await add('pegasus', 'famicom');
+      await add('pegasus', 'megadrive');
+      await add('pegasus', 'MarkIII');
       await add('pegasus', 'atari2600', controls: 1);
 
       expect(
@@ -159,7 +162,10 @@ void main() {
         'ctr/borders/a2600-integer',
       );
       expect(
-        (await InstalledBorder.discover(root.path, 'ps1-hacks')).single.id,
+        (await InstalledBorder.discover(
+          root.path,
+          'ps1-hacks',
+        )).where((border) => border.source != 'GermanTacos').single.id,
         'ctr/borders/psx-integer',
       );
       expect(
@@ -170,9 +176,40 @@ void main() {
         (await InstalledBorder.discover(root.path, 'sat')).single.id,
         'pegasus/saturn',
       );
+      for (final entry in {
+        'fc': 'famicom',
+        'fds-hacks': 'famicom',
+        'md': 'megadrive',
+        'mark3': 'MarkIII',
+      }.entries) {
+        expect(
+          (await InstalledBorder.discover(root.path, entry.key)).single.id,
+          'pegasus/${entry.value}',
+        );
+      }
       expect(await InstalledBorder.discover(root.path, 'ds'), isEmpty);
     },
   );
+
+  test('bundled N64 and PlayStation artwork fits the Deck display', () async {
+    final root = await Directory.systemTemp.createTemp('bundled-border-test');
+    addTearDown(() => root.delete(recursive: true));
+    for (final system in ['n64', 'ps1']) {
+      final borders = await InstalledBorder.discover(root.path, system);
+      expect(borders, hasLength(3));
+      for (final border in borders) {
+        expect(border.source, 'GermanTacos');
+        final rendered = await border.render(4 / 3);
+        expect(rendered, isNotNull, reason: border.name);
+        final viewport = GameplayViewport.fit(
+          opening: rendered!.opening,
+          aspectRatio: 4 / 3,
+        );
+        expect(viewport, isNotNull, reason: border.name);
+        expect(viewport!.height, greaterThan(600), reason: border.name);
+      }
+    }
+  });
 
   test('RocketLauncher coordinates select the intended clear area', () async {
     final root = await Directory.systemTemp.createTemp('handheld-pack-test-');
@@ -214,10 +251,9 @@ void main() {
         'Bezel Screen Bottom Right Y Coordinate=56\r\n',
       );
     }
-    final border = (await InstalledBorder.discover(
-      root.path,
-      'gb-hacks',
-    )).single;
+    final borders = await InstalledBorder.discover(root.path, 'gb-hacks');
+    final border = borders.singleWhere((border) => !border.zoomed);
+    final zoomed = borders.singleWhere((border) => border.zoomed);
     expect(await InstalledBorder.discover(root.path, 'gbc'), isEmpty);
     expect(border.source, contains('ci2own'));
     final result = (await border.render(
@@ -227,5 +263,19 @@ void main() {
     expect(result.opening.x, lessThan(100));
     expect(result.opening.width, greaterThan(30));
     expect(result.opening.x + result.opening.width, lessThan(320));
+    final enlarged = (await zoomed.render(
+      10 / 9,
+      display: (width: 320, height: 200),
+    ))!;
+    expect(zoomed.image!.path, border.image!.path);
+    expect(enlarged.opening.height, greaterThan(result.opening.height * 2));
+    final gameplay = GameplayViewport.fit(
+      opening: enlarged.opening,
+      aspectRatio: 10 / 9,
+    )!;
+    expect(gameplay.x, greaterThan(0));
+    expect(gameplay.y, greaterThan(0));
+    expect(gameplay.x + gameplay.width, lessThan(320));
+    expect(gameplay.y + gameplay.height, lessThan(200));
   });
 }

@@ -18,6 +18,8 @@ The reader matches the system folder, validates the sibling RocketLauncher INI, 
 
 The available single-opening catalog covers Game Boy, Game Boy Color, Game Boy Advance, Game Gear, PSP, Atari Lynx, Neo Geo Pocket/Color, WonderSwan/Color, Mega Duck, Pokémon Mini and Watara Supervision. WonderSwan variants are filtered by portrait/landscape where the active geometry is available. Existing compatible single-opening DS and 3DS borders remain available. Switch and the remaining legacy systems lack a supported native overlay path or system mapping in this integration. Standalone Dolphin retains the previous launch-only resolution profiles.
 
+Small single-screen openings in the ci2own collection also offer a **Zoomed** choice. It crops the decorative artwork at render time, positions the opening inside the display, and recomputes the clear gameplay area. The regular choice and PNG stay available. See the [1280 × 800 bezel coverage audit](BEZEL_COVERAGE.md) for measurements and the six bundled GermanTacos overlays for N64 and PlayStation.
+
 | System | Compatible local variants |
 |---|---:|
 | Game Boy, Game Boy Color, Game Boy Advance | 1 each |

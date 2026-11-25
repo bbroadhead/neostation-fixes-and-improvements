@@ -1402,6 +1402,7 @@ mixin AppLocale {
   static const String resetToDefault = 'reset_to_default';
   static const String romDirectories = 'rom_directories';
   static const String visualCustomBorder = 'visualCustomBorder';
+  static const String visualBorderZoomed = 'visualBorderZoomed';
   static const String visualBorderSearch = 'visualBorderSearch';
   static const String visualBorderImport = 'visualBorderImport';
   static const String visualBorderFavorites = 'visualBorderFavorites';

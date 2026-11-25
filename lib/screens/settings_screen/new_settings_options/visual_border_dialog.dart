@@ -136,7 +136,6 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
     InstalledBorder border,
     double aspect,
   ) async {
-    if (border.configuredOpening == null) return border;
     try {
       final preview = await border.render(
         aspect,
@@ -518,6 +517,9 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
                   title: Text(
                     _index == 0
                         ? AppLocale.systemArtNone.getString(context)
+                        : _borders[_index - 1].zoomed
+                        ? '${_borders[_index - 1].name} · '
+                              '${AppLocale.visualBorderZoomed.getString(context)}'
                         : _borders[_index - 1].name,
                   ),
                   subtitle: _index == 0
@@ -535,11 +537,14 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
                         onPressed: () => _choose(-1),
                       ),
                       if (_index != 0)
-                        Image.file(
-                          _borders[_index - 1].image,
+                        Image(
+                          image: ResizeImage.resizeIfNeeded(
+                            96,
+                            null,
+                            _borders[_index - 1].thumbnail,
+                          ),
                           width: 48,
                           height: 32,
-                          cacheWidth: 96,
                           fit: BoxFit.contain,
                           errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),

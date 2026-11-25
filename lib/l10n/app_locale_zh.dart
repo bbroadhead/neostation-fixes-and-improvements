@@ -1,6 +1,7 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleZh = {
+  AppLocale.visualBorderZoomed: '放大',
   AppLocale.visualCustomBorder: '导入的 PNG',
   AppLocale.visualBorderSearch: '搜索边框',
   AppLocale.visualBorderImport: '导入 PNG',

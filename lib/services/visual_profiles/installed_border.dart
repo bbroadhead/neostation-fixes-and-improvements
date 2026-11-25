@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/painting.dart'
+    show AssetImage, FileImage, ImageProvider;
 import 'package:path/path.dart' as path;
 
 import 'gameplay_viewport.dart';
@@ -21,19 +23,27 @@ class InstalledBorder {
     this.portrait,
     this.combinedScreens = false,
     this.stackedDs = false,
+    this.zoomed = false,
+    this.asset,
+    this.imageSize,
   });
 
   final PixelRect? configuredOpening;
   final bool? portrait;
   final bool combinedScreens;
   final bool stackedDs;
+  final bool zoomed;
 
   bool supportsAspect(double aspect) =>
       portrait == null || portrait == (aspect < 1);
   static const _maxImageBytes = 16 * 1024 * 1024;
 
   final String id;
-  final File image;
+  final File? image;
+  final String? asset;
+  final ({int width, int height})? imageSize;
+  ImageProvider get thumbnail =>
+      asset == null ? FileImage(image!) : AssetImage(asset!);
   final String source;
 
   final String name;
@@ -119,10 +129,14 @@ class InstalledBorder {
     '3do',
     'chf',
     'dc',
+    'fc',
+    'fds',
     'genesis',
     'intv',
     'jag',
     'jagcd',
+    'mark3',
+    'md',
     'megadrive',
     'n64',
     'neogeo',
@@ -183,11 +197,13 @@ class InstalledBorder {
       'atarijaguar' => slug == 'jag' || slug == 'jagcd',
       'channelf' => slug == 'chf',
       'dreamcast' => slug == 'dc',
-      'famicom' => slug == 'nes',
-      'genesis' || 'megadrive' => slug == 'genesis' || slug == 'megadrive',
+      'famicom' => slug == 'nes' || slug == 'fc' || slug == 'fds',
+      'genesis' => slug == 'genesis' || slug == 'megadrive',
+      'megadrive' => slug == 'genesis' || slug == 'megadrive' || slug == 'md',
       'gg' => slug == 'gg' || slug == 'gamegear',
       'intellivision' => slug == 'intv',
-      'markiii' || 'mastersystem' => slug == 'sms',
+      'markiii' => slug == 'sms' || slug == 'mark3',
+      'mastersystem' => slug == 'sms',
       'pcengine' || 'supergrafx' => slug == 'pce',
       'pcenginecd' => slug == 'pccd',
       'psx' => slug == 'ps1',
@@ -206,7 +222,7 @@ class InstalledBorder {
     String system,
   ) async {
     if (geometry(system) == null) return [];
-    final borders = <InstalledBorder>[];
+    final borders = _bundledBorders(_baseSystem(system));
     const packs = {
       'borders': 'RetroArch',
       'ctr/borders': 'RetroArch CTR',
@@ -241,8 +257,37 @@ class InstalledBorder {
         }
       }
     }
-    return borders
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return borders..sort((a, b) {
+      final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      return byName != 0 ? byName : a.id.compareTo(b.id);
+    });
+  }
+
+  static List<InstalledBorder> _bundledBorders(String system) {
+    const germanTacos = {
+      'n64': {
+        '2560-1600-int-n64-1-bk-cl-bl': 'N64 Black',
+        '2560-1600-int-n64-2-bk-cl-bl': 'Ultra 64 Black',
+        '2560-1600-int-n64-3-bk-cl-bl': 'N64 Box Art',
+      },
+      'ps1': {
+        '2560-1600-int-ps1-1-bk-cl-wh': 'PSX Black',
+        '2560-1600-int-ps1-2-bk-cl-wh': 'PSX SCE Black',
+        '2560-1600-int-ps1-3-bk-cl-wh': 'PSX SCE Black II',
+      },
+    };
+    return [
+      for (final entry in (germanTacos[system] ?? const {}).entries)
+        InstalledBorder._(
+          'germantacos/${entry.key}',
+          null,
+          'GermanTacos',
+          entry.value,
+          asset: 'assets/bezels/germantacos/${entry.key}.png',
+          imageSize: (width: 2560, height: 1600),
+          configuredOpening: (x: 340, y: 101, width: 1880, height: 1398),
+        ),
+    ];
   }
 
   static const _handheldFolders = {
@@ -306,22 +351,34 @@ class InstalledBorder {
           final name = path.basenameWithoutExtension(image.path);
           final relativePath = path.relative(image.path, from: directory.path);
           final orientation = path.split(relativePath);
-          result.add(
-            InstalledBorder._(
-              'handheld-2.1.0/$folder/$relativePath',
-              image,
-              'ci2own · Handheld Bezels 2.1.0',
-              name.replaceFirst(RegExp('^Bezel '), ''),
-              configuredOpening: opening,
-              portrait: orientation.contains('Vertical')
-                  ? true
-                  : orientation.contains('Horizontal')
-                  ? false
-                  : null,
-              combinedScreens: system == 'ds' || system == '3ds',
-              stackedDs: system == 'ds',
-            ),
+          final border = InstalledBorder._(
+            'handheld-2.1.0/$folder/$relativePath',
+            image,
+            'ci2own · Handheld Bezels 2.1.0',
+            name.replaceFirst(RegExp('^Bezel '), ''),
+            configuredOpening: opening,
+            portrait: orientation.contains('Vertical')
+                ? true
+                : orientation.contains('Horizontal')
+                ? false
+                : null,
+            combinedScreens: system == 'ds' || system == '3ds',
+            stackedDs: system == 'ds',
           );
+          result.add(border);
+          if (!border.combinedScreens) {
+            result.add(
+              InstalledBorder._(
+                '${border.id}#zoom',
+                image,
+                border.source,
+                border.name,
+                configuredOpening: opening,
+                portrait: border.portrait,
+                zoomed: true,
+              ),
+            );
+          }
         } on FileSystemException {
           continue;
         } on FormatException {
@@ -412,11 +469,17 @@ class InstalledBorder {
         display.height > 4096) {
       return null;
     }
-    final buffer = await ui.ImmutableBuffer.fromFilePath(image.path);
+    final buffer = asset == null
+        ? await ui.ImmutableBuffer.fromFilePath(image!.path)
+        : await ui.ImmutableBuffer.fromAsset(asset!);
     try {
       final descriptor = await ui.ImageDescriptor.encoded(buffer);
       try {
         if (descriptor.width > 4096 || descriptor.height > 4096) return null;
+        if (imageSize != null &&
+            imageSize != (width: descriptor.width, height: descriptor.height)) {
+          return null;
+        }
         final codec = await descriptor.instantiateCodec();
         try {
           if (codec.frameCount != 1) return null;
@@ -481,22 +544,31 @@ class InstalledBorder {
       display.width / frame.width,
       display.height / frame.height,
     );
-    final scale = sourceOpening == null
-        ? cover
-        : math.min(
-            cover,
-            math.min(
-              display.width / sourceOpening.width,
-              display.height / sourceOpening.height,
-            ),
-          );
+    var scale = cover;
+    if (sourceOpening != null) {
+      final maximum = math.min(
+        display.width / sourceOpening.width,
+        display.height / sourceOpening.height,
+      );
+      // Keep room for decorative housing and leave existing larger
+      // openings with a single choice in the picker.
+      if (zoomed && cover >= maximum * 0.5) return null;
+      scale = math.min(zoomed ? maximum * 0.8 : cover, maximum);
+    }
 
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     final width = frame.width * scale;
     final height = frame.height * scale;
     double offset(int available, double extent, int? start, int? length) {
-      final center = (available - extent) / 2;
+      final center = zoomed && start != null && length != null
+          ? (available / 2 - (start + length / 2) * scale)
+                .clamp(
+                  math.min(available - extent, 0.0),
+                  math.max(available - extent, 0.0),
+                )
+                .toDouble()
+          : (available - extent) / 2;
       if (start == null || length == null) return center;
       return center.clamp(
         -start * scale,

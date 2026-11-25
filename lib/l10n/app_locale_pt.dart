@@ -1,6 +1,7 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocalePt = {
+  AppLocale.visualBorderZoomed: 'Ampliado',
   AppLocale.visualCustomBorder: 'PNG importado',
   AppLocale.visualBorderSearch: 'Pesquisar molduras',
   AppLocale.visualBorderImport: 'Importar PNG',

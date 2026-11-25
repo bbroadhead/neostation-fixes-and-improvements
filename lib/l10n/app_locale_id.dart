@@ -1,6 +1,7 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleId = {
+  AppLocale.visualBorderZoomed: 'Diperbesar',
   AppLocale.visualCustomBorder: 'PNG impor',
   AppLocale.visualBorderSearch: 'Cari bingkai',
   AppLocale.visualBorderImport: 'Impor PNG',

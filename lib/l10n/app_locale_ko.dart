@@ -1,6 +1,7 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleKo = {
+  AppLocale.visualBorderZoomed: '확대',
   AppLocale.visualCustomBorder: '가져온 PNG',
   AppLocale.visualBorderSearch: '테두리 검색',
   AppLocale.visualBorderImport: 'PNG 가져오기',

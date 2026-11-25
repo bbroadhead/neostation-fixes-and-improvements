@@ -1,6 +1,7 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleJa = {
+  AppLocale.visualBorderZoomed: '拡大',
   AppLocale.visualCustomBorder: 'インポートしたPNG',
   AppLocale.visualBorderSearch: 'フレームを検索',
   AppLocale.visualBorderImport: 'PNGをインポート',
