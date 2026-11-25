@@ -1833,6 +1833,11 @@ mixin AppLocale {
   // ==========================================================================
   // Localization Maps
   // ==========================================================================
+  static const String raConnectionNotices = 'ra_connection_notices';
+  static const String raConnectionRestored = 'ra_connection_restored';
+  static const String raConnectionNetwork = 'ra_connection_network';
+  static const String raConnectionAuth = 'ra_connection_auth';
+  static const String raConnectionService = 'ra_connection_service';
   static const String raGuides = 'ra_guides';
   static const String artworkLayout = 'artwork_layout';
   static const String artworkLayoutDynamic = 'artwork_layout_dynamic';

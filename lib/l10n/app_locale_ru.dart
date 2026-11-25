@@ -1708,6 +1708,14 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.genreEducational: 'Обучающая',
   AppLocale.genreQuiz: 'Викторина',
   AppLocale.genreCompilation: 'Сборник',
+  AppLocale.raConnectionNotices:
+      'Уведомления о подключении к RetroAchievements',
+  AppLocale.raConnectionRestored:
+      'Подключение к RetroAchievements восстановлено.',
+  AppLocale.raConnectionNetwork:
+      'NeoStation не может подключиться к RetroAchievements.',
+  AppLocale.raConnectionAuth: 'RetroAchievements отклонил вход.',
+  AppLocale.raConnectionService: 'RetroAchievements временно недоступен.',
   AppLocale.raGuides: 'Руководства',
   AppLocale.artworkLayout: 'Расположение изображений',
   AppLocale.artworkLayoutDynamic: 'Динамическое',

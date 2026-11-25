@@ -1728,6 +1728,13 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.genreEducational: 'Educativo',
   AppLocale.genreQuiz: 'Quiz',
   AppLocale.genreCompilation: 'Compilação',
+  AppLocale.raConnectionNotices: 'Alertas de conexão do RetroAchievements',
+  AppLocale.raConnectionRestored: 'Conexão com o RetroAchievements restaurada.',
+  AppLocale.raConnectionNetwork:
+      'O NeoStation não consegue acessar o RetroAchievements.',
+  AppLocale.raConnectionAuth: 'O RetroAchievements rejeitou seu login.',
+  AppLocale.raConnectionService:
+      'O RetroAchievements está temporariamente indisponível.',
   AppLocale.raGuides: 'Guias',
   AppLocale.artworkLayout: 'Disposição das imagens',
   AppLocale.artworkLayoutDynamic: 'Dinâmica',

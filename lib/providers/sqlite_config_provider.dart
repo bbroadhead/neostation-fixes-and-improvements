@@ -39,6 +39,7 @@ import '../constants/system_folder_names.dart';
 import '../l10n/app_locale.dart';
 import '../utils/rom_folder_path.dart';
 import '../services/global_notification_service.dart';
+import '../services/retro_achievements_service.dart';
 import '../services/game_session_persistence.dart';
 import '../utils/nav_tabs.dart';
 import '../services/saf_directory_service.dart';
@@ -69,6 +70,30 @@ class SqliteConfigProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _sfxMutation = Future.value();
   ConfigModel _config = ConfigModel.empty;
   static const _artworkLayoutKey = 'gameArtworkLayout';
+  bool _raConnectionNotifications = true;
+  bool get raConnectionNotifications => _raConnectionNotifications;
+
+  Future<void> updateRaConnectionNotifications(bool enabled) async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      if (!await preferences.setBool(
+        RetroAchievementsService.connectionNotificationsPreference,
+        enabled,
+      )) {
+        return;
+      }
+      _raConnectionNotifications = enabled;
+      if (!enabled) {
+        GlobalNotificationService()
+          ..dismiss(RetroAchievementsService.connectionWarningId)
+          ..dismiss(RetroAchievementsService.connectionRestoredId);
+      }
+      notifyListeners();
+    } catch (error) {
+      _log.w('Could not save achievement connection notifications: $error');
+    }
+  }
+
   GameArtworkLayout _artworkLayout = GameArtworkLayout.dynamic;
   GameArtworkLayout get artworkLayout => _artworkLayout;
   Future<void> _artworkSave = Future<void>.value();
@@ -509,6 +534,11 @@ class SqliteConfigProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _loadConfig();
       try {
         final preferences = await SharedPreferences.getInstance();
+        _raConnectionNotifications =
+            preferences.getBool(
+              RetroAchievementsService.connectionNotificationsPreference,
+            ) ??
+            true;
         _artworkLayout = GameArtworkLayout.fromPreference(
           preferences.getString(_artworkLayoutKey),
         );

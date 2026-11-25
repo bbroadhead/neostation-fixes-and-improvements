@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,6 +15,13 @@ import '../models/retro_achievement_comment.dart';
 import '../models/retro_achievements_dashboard_models.dart';
 import '../models/retro_achievements_leaderboard.dart';
 
+enum RaConnectionStatus {
+  available,
+  networkUnavailable,
+  authorizationFailed,
+  serviceUnavailable,
+}
+
 /// Service for interacting with the RetroAchievements API.
 ///
 /// Provides access to user profiles, game achievements, and global community
@@ -26,6 +34,41 @@ import '../models/retro_achievements_leaderboard.dart';
 /// and the request-level guards reject it.
 class RetroAchievementsService {
   static const String _baseUrl = 'https://retroachievements.org/API';
+
+  static const connectionNotificationsPreference = 'raConnectionNotifications';
+  static const connectionWarningId = 'ra-connection-warning';
+  static const connectionRestoredId = 'ra-connection-restored';
+
+  static Future<RaConnectionStatus> probeConnection(
+    String username,
+    String apiKey, {
+    http.Client? client,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/API_GetUserProfile.php')
+        .replace(queryParameters: {'u': username, 'y': apiKey});
+    try {
+      final response = await (client == null ? http.get(uri) : client.get(uri))
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data is Map && data['User'] != null
+            ? RaConnectionStatus.available
+            : RaConnectionStatus.serviceUnavailable;
+      }
+      return switch (response.statusCode) {
+        401 || 403 => RaConnectionStatus.authorizationFailed,
+        _ => RaConnectionStatus.serviceUnavailable,
+      };
+    } on http.ClientException {
+      return RaConnectionStatus.networkUnavailable;
+    } on SocketException {
+      return RaConnectionStatus.networkUnavailable;
+    } on TimeoutException {
+      return RaConnectionStatus.networkUnavailable;
+    } on FormatException {
+      return RaConnectionStatus.serviceUnavailable;
+    }
+  }
 
   /// Returns the trimmed [apiKey], or an empty string if none was supplied.
   /// Callers must pass the signed-in user's key; there is no shared fallback.

@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/global_notification_service.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:neostation/services/credential_store.dart';
 import 'package:neostation/services/logger_service.dart';
@@ -51,6 +55,7 @@ class RetroAchievementsProvider extends ChangeNotifier {
     // In-flight session reads must not update or notify a disposed provider.
     _sessionGeneration++;
     _disposed = true;
+    _connectionTimer?.cancel();
     GameSessionManager.removeSessionEndListener(invalidateCachedReads);
     super.dispose();
   }
@@ -287,6 +292,74 @@ class RetroAchievementsProvider extends ChangeNotifier {
     return rows;
   }
 
+  Timer? _connectionTimer;
+  bool _connectionProbeRunning = false;
+  RaConnectionStatus? _lastConnectionStatus;
+
+  Future<void> checkConnectionStatus() async {
+    if (_connectionProbeRunning ||
+        _disposed ||
+        !isConnected ||
+        !hasResolvedApiKey) {
+      return;
+    }
+    _connectionProbeRunning = true;
+    final generation = sessionGeneration;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!(prefs.getBool(
+            RetroAchievementsService.connectionNotificationsPreference,
+          ) ??
+          true)) {
+        _lastConnectionStatus = null;
+        return;
+      }
+      final status = await RetroAchievementsService.probeConnection(
+        _username,
+        _apiKey,
+        client: sessionHttpClient,
+      );
+      if (_disposed ||
+          generation != sessionGeneration ||
+          !(prefs.getBool(
+                RetroAchievementsService.connectionNotificationsPreference,
+              ) ??
+              true)) {
+        return;
+      }
+      final previous = _lastConnectionStatus;
+      if (status == previous) return;
+      _lastConnectionStatus = status;
+      final notices = GlobalNotificationService();
+      if (status == RaConnectionStatus.available) {
+        if (previous == null) return;
+        notices.dismiss(RetroAchievementsService.connectionWarningId);
+        notices.show(
+          id: RetroAchievementsService.connectionRestoredId,
+          message: AppLocale.raConnectionRestored.getStringForCurrentLocale(),
+          type: GlobalNotificationType.success,
+        );
+      } else {
+        notices.dismiss(RetroAchievementsService.connectionRestoredId);
+        final label = switch (status) {
+          RaConnectionStatus.networkUnavailable =>
+            AppLocale.raConnectionNetwork,
+          RaConnectionStatus.authorizationFailed => AppLocale.raConnectionAuth,
+          _ => AppLocale.raConnectionService,
+        };
+        notices.show(
+          id: RetroAchievementsService.connectionWarningId,
+          message: label.getStringForCurrentLocale(),
+          type: GlobalNotificationType.error,
+        );
+      }
+    } catch (_) {
+      // An unreadable notification preference must not affect authentication.
+    } finally {
+      _connectionProbeRunning = false;
+    }
+  }
+
   Map<int, String> _libraryAwards = {};
   DateTime? _libraryAwardsAttemptedAt;
   int? _libraryAwardsLoadingGeneration;
@@ -449,6 +522,8 @@ class RetroAchievementsProvider extends ChangeNotifier {
       return false;
     }
 
+    _connectionTimer?.cancel();
+    _lastConnectionStatus = null;
     final sessionGeneration = ++_sessionGeneration;
     _libraryAwards = {};
     _libraryAwardsAttemptedAt = null;
@@ -473,6 +548,12 @@ class RetroAchievementsProvider extends ChangeNotifier {
         _credentialsPersisted = await _saveRAApiKeyToConfig(_apiKey);
         await loadLocalStats();
         unawaited(loadUserSummary());
+        if (sessionHttpClient == null) {
+          _connectionTimer = Timer.periodic(
+            const Duration(minutes: 2),
+            (_) => unawaited(checkConnectionStatus()),
+          );
+        }
 
         notifyListeners();
         return true;
@@ -1090,6 +1171,11 @@ class RetroAchievementsProvider extends ChangeNotifier {
   ///
   /// If [clearSavedUser] is true, the credentials are removed from persistent storage.
   void disconnect({bool clearSavedUser = true}) {
+    _connectionTimer?.cancel();
+    _lastConnectionStatus = null;
+    GlobalNotificationService()
+      ..dismiss(RetroAchievementsService.connectionWarningId)
+      ..dismiss(RetroAchievementsService.connectionRestoredId);
     _sessionGeneration++;
     _libraryAwards = {};
     _libraryAwardsAttemptedAt = null;

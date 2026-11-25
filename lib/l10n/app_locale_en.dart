@@ -1696,6 +1696,12 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.genreEducational: 'Educational',
   AppLocale.genreQuiz: 'Quiz',
   AppLocale.genreCompilation: 'Compilation',
+  AppLocale.raConnectionNotices: 'RetroAchievements connection alerts',
+  AppLocale.raConnectionRestored: 'RetroAchievements connection restored.',
+  AppLocale.raConnectionNetwork: 'NeoStation cannot reach RetroAchievements.',
+  AppLocale.raConnectionAuth: 'RetroAchievements rejected your sign-in.',
+  AppLocale.raConnectionService:
+      'RetroAchievements is temporarily unavailable.',
   AppLocale.raGuides: 'Guides',
   AppLocale.artworkLayout: 'Artwork layout',
   AppLocale.artworkLayoutDynamic: 'Dynamic',

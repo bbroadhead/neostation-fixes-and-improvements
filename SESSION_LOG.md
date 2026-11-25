@@ -28,3 +28,5 @@ Session IDs and start times refer to local Codex rollout history. Results below 
 **Roadmap Phase 3 fallback.** Added a controller-reachable Guides action to the in-app achievement panel. The community directory is matched by the exact RA game ID. Missing, inaccessible and unsupported entries open the official RA game page. The action does not launch or terminate an emulator. The SteamOS in-game sidebar remains open. The 17 focused tests passed.
 
 **Roadmap Phase 4.** The library completion badge uses cached official highest awards, distinct from the existing achievement-set count. Gold Mastered outranks Beaten at the API, and silver distinguishes Hardcore and Casual by tooltip. Added to grid, carousel, list, collection views, and search. The existing General setting controls display. 34 focused tests passed.
+
+**Roadmap Phase 5.** Added opt-out, deduplicated frontend RetroAchievements connectivity alerts and separate recovery notices. A periodic authenticated probe distinguishes failed transport, rejected credentials and service errors. The probe measures the app’s API session and cannot confirm an emulator submission. 50 focused tests passed.
