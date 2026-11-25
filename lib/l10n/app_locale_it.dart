@@ -1,6 +1,26 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleIt = {
+  AppLocale.visualCustomBorder: 'PNG importato',
+  AppLocale.visualBorderSearch: 'Cerca cornici',
+  AppLocale.visualBorderImport: 'Importa PNG',
+  AppLocale.visualBorderFavorites: 'Solo preferiti',
+  AppLocale.visualGameOverride: 'Imposta la grafica di questo gioco',
+  AppLocale.visualPreset: 'Preimpostazione',
+  AppLocale.visualShader: 'Shader',
+  AppLocale.visualEnhanced: 'Potenziato',
+  AppLocale.visualAuthentic: 'Autentico',
+  AppLocale.visualCustom: 'Personalizzato',
+  AppLocale.visualPresetDefault: 'Valore predefinito',
+  AppLocale.visualBorder: 'Cornice console',
+  AppLocale.visualBorderUnavailable: 'Cornice incompatibile',
+  AppLocale.visualGameplaySize: 'Dimensione di gioco',
+  AppLocale.visualHorizontal: 'Orizzontale',
+  AppLocale.visualVertical: 'Verticale',
+  AppLocale.visualProfiles: 'Profili visivi',
+  AppLocale.visualProfilesSubtitle:
+      'Applica una resa nitida e pulita per sistema con RetroArch Flatpak.',
+  AppLocale.visualSharpAndClean: 'Nitido e pulito',
   AppLocale.raCatalogueRefreshFailed: 'Impossibile aggiornare il catalogo RetroAchievements. La ricerca delle corrispondenze ha usato i dati salvati.',
   AppLocale.smartMatchesOne: '1 gioco corrispondente',
   AppLocale.smartCollection: 'Raccolta intelligente',

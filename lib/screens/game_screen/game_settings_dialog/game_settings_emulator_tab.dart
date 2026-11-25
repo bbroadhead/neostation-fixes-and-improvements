@@ -1,3 +1,8 @@
+import 'package:neostation/services/visual_profiles/dolphin_visual_profile.dart';
+import 'package:neostation/services/visual_profiles/retroarch_visual_session.dart';
+
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -6,11 +11,16 @@ import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/core_emulator_model.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/models/system_model.dart';
+import 'package:neostation/models/visual_profile.dart';
 import 'package:neostation/repositories/game_repository.dart';
+import 'package:neostation/repositories/visual_profile_repository.dart';
 import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/emulator_loader.dart';
 import 'package:neostation/widgets/settings_rows.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../settings_screen/new_settings_options/visual_border_dialog.dart';
 
 /// Per-game emulator override tab for [GameSettingsDialog].
 ///
@@ -56,8 +66,84 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
       ? widget.game.emulatorName
       : _activeEmulatorId as String?;
 
-  int get _totalItems =>
-      _availableEmulators.isEmpty ? 0 : 1 + _availableEmulators.length;
+  int get _visualIndex => 1 + _availableEmulators.length;
+
+  bool get _hasVisualProfiles =>
+      Platform.isLinux &&
+      widget.game.romPath != null &&
+      _availableEmulators.any(
+        (emulator) =>
+            emulator.isInstalled &&
+            (!emulator.isStandalone ||
+                DolphinVisualProfile.supports(emulator.uniqueId)) &&
+            (_resolvedEmulatorId == null ||
+                emulator.uniqueId == _resolvedEmulatorId),
+      );
+
+  int get _totalItems => _availableEmulators.isEmpty
+      ? 0
+      : _visualIndex + (_hasVisualProfiles ? 1 : 0);
+
+  bool _editingProfile = false;
+
+  Future<void> _editVisualProfile() async {
+    if (_editingProfile || !_hasVisualProfiles) return;
+    _editingProfile = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      final repository = VisualProfileRepository(prefs);
+      final system = (
+        systemId: widget.system.id ?? widget.system.folderName,
+        emulatorId: null,
+      );
+      final scope = (
+        systemId: system.systemId,
+        emulatorId: _resolvedEmulatorId,
+      );
+      final rom = widget.game.romPath!;
+      final current =
+          repository.read(scope, gameKey: rom) ??
+          repository.read(system, gameKey: rom) ??
+          repository.read(scope) ??
+          repository.read(system) ??
+          const VisualProfile();
+      final selectedCore = _availableEmulators
+          .where((emulator) => emulator.uniqueId == scope.emulatorId)
+          .firstOrNull;
+      final previewGeometry =
+          await RetroArchVisualSession.previewBorderGeometry(
+            system: widget.system.folderName,
+            coreFilename: selectedCore?.coreFilename,
+            romPath: rom,
+          );
+      if (!mounted) return;
+      final result = await showDialog<VisualBorderResult>(
+        context: context,
+        builder: (_) => VisualBorderDialog(
+          system: widget.system.folderName,
+          profile: current,
+          resolutionOnly: DolphinVisualProfile.supports(scope.emulatorId),
+          previewGeometry: previewGeometry,
+        ),
+      );
+      if (result == null) return;
+      final profile = result.profile;
+      final saved = profile == null
+          ? await repository.reset(scope, gameKey: rom)
+          : await repository.save(scope, profile, gameKey: rom);
+      if (!saved) throw StateError('Could not persist game visual profile');
+    } catch (error) {
+      _log.w('Game visual profile persistence failed: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocale.error.getString(context))),
+        );
+      }
+    } finally {
+      _editingProfile = false;
+    }
+  }
 
   @override
   void initState() {
@@ -96,6 +182,10 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
     if (_totalItems == 0) return;
     if (_selectedIndex == 0) {
       _setEmulatorOverride(null);
+      return;
+    }
+    if (_selectedIndex >= _visualIndex) {
+      _editVisualProfile();
       return;
     }
     final emulator = _availableEmulators[_selectedIndex - 1];
@@ -219,6 +309,18 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
               emulator: e,
             );
           }),
+          if (_hasVisualProfiles)
+            SettingsRow(
+              key: _itemKey(_visualIndex),
+              isSelected: _selectedIndex == _visualIndex,
+              icon: Symbols.aspect_ratio_rounded,
+              label: AppLocale.visualProfiles.getString(context),
+              subtitle: AppLocale.visualGameOverride.getString(context),
+              onTap: () {
+                setState(() => _selectedIndex = _visualIndex);
+                _editVisualProfile();
+              },
+            ),
         ],
       ),
     );

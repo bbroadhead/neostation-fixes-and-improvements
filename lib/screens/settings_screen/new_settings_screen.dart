@@ -12,6 +12,7 @@ import 'new_settings_options/general_settings_content.dart';
 import 'new_settings_options/secondary_settings_content.dart';
 import 'new_settings_options/directories_settings_content.dart';
 import 'new_settings_options/tools_settings_content.dart';
+import 'new_settings_options/visual_profiles_content.dart';
 import 'new_settings_options/systems_settings_content.dart';
 import 'new_settings_options/launcher_settings_content.dart';
 import 'new_settings_options/about_settings_content.dart';
@@ -92,6 +93,7 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       GlobalKey<ScreenScraperSettingsContentState>();
   final GlobalKey<DirectoriesSettingsContentState> _directoriesSettingsKey =
       GlobalKey<DirectoriesSettingsContentState>();
+  final _visualProfilesKey = GlobalKey<VisualProfilesContentState>();
   final GlobalKey<ToolsSettingsContentState> _toolsSettingsKey =
       GlobalKey<ToolsSettingsContentState>();
   final GlobalKey<SystemsSettingsContentState> _systemsSettingsKey =
@@ -157,6 +159,17 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
         isVisible: true,
       ),
     );
+
+    if (Platform.isLinux) {
+      _menuItems.add(
+        SettingsMenuItem(
+          title: '',
+          localeKey: AppLocale.visualProfiles,
+          icon: Symbols.aspect_ratio_rounded,
+          isVisible: true,
+        ),
+      );
+    }
 
     _menuItems.add(
       SettingsMenuItem(
@@ -292,6 +305,8 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       );
     } else if (selectedKey == AppLocale.tools) {
       _toolsSettingsKey.currentState?.scrollToIndex(_selectedContentIndex);
+    } else if (selectedKey == AppLocale.visualProfiles) {
+      _visualProfilesKey.currentState?.scrollToIndex(_selectedContentIndex);
     } else if (selectedKey == AppLocale.systemsSettings) {
       _systemsSettingsKey.currentState?.scrollToIndex(_selectedContentIndex);
     } else if (selectedKey == AppLocale.about) {
@@ -454,6 +469,8 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       return _directoriesSettingsKey.currentState?.getItemCount() ?? 0;
     } else if (selectedKey == AppLocale.tools) {
       return _toolsSettingsKey.currentState?.getItemCount() ?? 0;
+    } else if (selectedKey == AppLocale.visualProfiles) {
+      return _visualProfilesKey.currentState?.getItemCount() ?? 0;
     } else if (selectedKey == AppLocale.systemsSettings) {
       final provider = context.read<SqliteConfigProvider>();
       return _systemsSettingsKey.currentState?.getItemCount(provider) ?? 0;
@@ -481,6 +498,8 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
       _directoriesSettingsKey.currentState?.selectItem(_selectedContentIndex);
     } else if (selectedKey == AppLocale.tools) {
       _toolsSettingsKey.currentState?.selectItem(_selectedContentIndex);
+    } else if (selectedKey == AppLocale.visualProfiles) {
+      _visualProfilesKey.currentState?.selectItem(_selectedContentIndex);
     } else if (selectedKey == AppLocale.secondaryDisplay) {
       _secondarySettingsKey.currentState?.selectItem(_selectedContentIndex);
     } else if (selectedKey == AppLocale.systemsSettings) {
@@ -675,6 +694,12 @@ class _NewSettingsScreenState extends State<NewSettingsScreen> {
     } else if (selectedKey == AppLocale.tools) {
       return ToolsSettingsContent(
         key: _toolsSettingsKey,
+        isContentFocused: !_focusOnMenu,
+        selectedContentIndex: _selectedContentIndex,
+      );
+    } else if (selectedKey == AppLocale.visualProfiles) {
+      return VisualProfilesContent(
+        key: _visualProfilesKey,
         isContentFocused: !_focusOnMenu,
         selectedContentIndex: _selectedContentIndex,
       );

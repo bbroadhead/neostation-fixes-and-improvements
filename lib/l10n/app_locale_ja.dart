@@ -1,6 +1,26 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleJa = {
+  AppLocale.visualCustomBorder: 'インポートしたPNG',
+  AppLocale.visualBorderSearch: 'フレームを検索',
+  AppLocale.visualBorderImport: 'PNGをインポート',
+  AppLocale.visualBorderFavorites: 'お気に入りのみ',
+  AppLocale.visualGameOverride: 'このゲームの描画設定を変更',
+  AppLocale.visualPreset: 'プリセット',
+  AppLocale.visualShader: 'シェーダー',
+  AppLocale.visualEnhanced: '高画質',
+  AppLocale.visualAuthentic: '実機風',
+  AppLocale.visualCustom: 'カスタム',
+  AppLocale.visualPresetDefault: 'プリセットの既定値',
+  AppLocale.visualBorder: '本体フレーム',
+  AppLocale.visualBorderUnavailable: '非対応のフレーム',
+  AppLocale.visualGameplaySize: 'ゲーム画面のサイズ',
+  AppLocale.visualHorizontal: '水平',
+  AppLocale.visualVertical: '垂直',
+  AppLocale.visualProfiles: '画面プロファイル',
+  AppLocale.visualProfilesSubtitle:
+      'RetroArch Flatpakでシステムごとにシャープで鮮明な表示を適用します。',
+  AppLocale.visualSharpAndClean: 'シャープで鮮明',
   AppLocale.raCatalogueRefreshFailed:
       'RetroAchievementsカタログを更新できませんでした。保存済みのデータで照合しました。',
   AppLocale.smartMatchesOne: '一致するゲーム：1件',

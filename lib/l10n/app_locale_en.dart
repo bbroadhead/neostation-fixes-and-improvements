@@ -1,6 +1,26 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleEn = {
+  AppLocale.visualCustomBorder: 'Imported PNG',
+  AppLocale.visualBorderSearch: 'Search borders',
+  AppLocale.visualBorderImport: 'Import PNG',
+  AppLocale.visualBorderFavorites: 'Favorites only',
+  AppLocale.visualGameOverride: 'Override graphics for this game',
+  AppLocale.visualPreset: 'Preset',
+  AppLocale.visualShader: 'Shader',
+  AppLocale.visualEnhanced: 'Enhanced',
+  AppLocale.visualAuthentic: 'Authentic',
+  AppLocale.visualCustom: 'Custom',
+  AppLocale.visualPresetDefault: 'Preset default',
+  AppLocale.visualBorder: 'Console border',
+  AppLocale.visualBorderUnavailable: 'Incompatible border',
+  AppLocale.visualGameplaySize: 'Gameplay size',
+  AppLocale.visualHorizontal: 'Horizontal',
+  AppLocale.visualVertical: 'Vertical',
+  AppLocale.visualProfiles: 'Visual Profiles',
+  AppLocale.visualProfilesSubtitle:
+      'Apply Sharp & Clean to RetroArch Flatpak launches for each system.',
+  AppLocale.visualSharpAndClean: 'Sharp & Clean',
   AppLocale.raCatalogueRefreshFailed: 'Could not refresh the RetroAchievements catalogue. Matching used saved data.',
   AppLocale.smartMatchesOne: '1 matching game',
   AppLocale.smartCollection: 'Smart collection',

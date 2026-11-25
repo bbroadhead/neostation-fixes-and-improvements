@@ -1098,6 +1098,19 @@ class _SystemGamesListState extends State<SystemGamesList> {
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar:
+            !_isGameLaunching &&
+                _games.isNotEmpty &&
+                SystemFolderNames.isCollection(widget.system.folderName)
+            ? AppBar(
+                automaticallyImplyLeading: false,
+                title: FilledButton.tonalIcon(
+                  onPressed: _goBack,
+                  icon: const Icon(Icons.arrow_back),
+                  label: Text(AppLocale.back.getString(context)),
+                ),
+              )
+            : null,
         body: Stack(
           children: [
             // Ambient UI Layer: Shared fluid gradient for depth (non-OLED only).

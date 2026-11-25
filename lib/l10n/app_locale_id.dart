@@ -1,6 +1,26 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleId = {
+  AppLocale.visualCustomBorder: 'PNG impor',
+  AppLocale.visualBorderSearch: 'Cari bingkai',
+  AppLocale.visualBorderImport: 'Impor PNG',
+  AppLocale.visualBorderFavorites: 'Hanya favorit',
+  AppLocale.visualGameOverride: 'Atur grafis untuk permainan ini',
+  AppLocale.visualPreset: 'Prasetel',
+  AppLocale.visualShader: 'Shader',
+  AppLocale.visualEnhanced: 'Ditingkatkan',
+  AppLocale.visualAuthentic: 'Autentik',
+  AppLocale.visualCustom: 'Kustom',
+  AppLocale.visualPresetDefault: 'Bawaan prasetel',
+  AppLocale.visualBorder: 'Bingkai konsol',
+  AppLocale.visualBorderUnavailable: 'Bingkai tidak kompatibel',
+  AppLocale.visualGameplaySize: 'Ukuran permainan',
+  AppLocale.visualHorizontal: 'Horizontal',
+  AppLocale.visualVertical: 'Vertikal',
+  AppLocale.visualProfiles: 'Profil Visual',
+  AppLocale.visualProfilesSubtitle:
+      'Terapkan gambar tajam dan jernih per sistem dengan RetroArch Flatpak.',
+  AppLocale.visualSharpAndClean: 'Tajam dan jernih',
   AppLocale.raCatalogueRefreshFailed: 'Katalog RetroAchievements tidak dapat diperbarui. Pencocokan menggunakan data tersimpan.',
   AppLocale.smartMatchesOne: '1 game cocok',
   AppLocale.smartCollection: 'Koleksi pintar',

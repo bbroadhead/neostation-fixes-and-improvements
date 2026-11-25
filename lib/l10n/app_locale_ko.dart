@@ -1,6 +1,26 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleKo = {
+  AppLocale.visualCustomBorder: '가져온 PNG',
+  AppLocale.visualBorderSearch: '테두리 검색',
+  AppLocale.visualBorderImport: 'PNG 가져오기',
+  AppLocale.visualBorderFavorites: '즐겨찾기만',
+  AppLocale.visualGameOverride: '이 게임의 그래픽 설정 변경',
+  AppLocale.visualPreset: '프리셋',
+  AppLocale.visualShader: '셰이더',
+  AppLocale.visualEnhanced: '향상',
+  AppLocale.visualAuthentic: '실기 재현',
+  AppLocale.visualCustom: '사용자 지정',
+  AppLocale.visualPresetDefault: '프리셋 기본값',
+  AppLocale.visualBorder: '콘솔 테두리',
+  AppLocale.visualBorderUnavailable: '호환되지 않는 테두리',
+  AppLocale.visualGameplaySize: '게임 화면 크기',
+  AppLocale.visualHorizontal: '가로',
+  AppLocale.visualVertical: '세로',
+  AppLocale.visualProfiles: '화면 프로필',
+  AppLocale.visualProfilesSubtitle:
+      'RetroArch Flatpak에서 시스템별로 선명하고 깔끔한 화면을 적용합니다.',
+  AppLocale.visualSharpAndClean: '선명하고 깔끔',
   AppLocale.raCatalogueRefreshFailed:
       'RetroAchievements 카탈로그를 새로 고칠 수 없습니다. 저장된 데이터로 일치하는 게임을 찾았습니다.',
   AppLocale.smartMatchesOne: '일치하는 게임 1개',

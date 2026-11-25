@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_localization/flutter_localization.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter/services.dart';
@@ -14,6 +15,7 @@ import '../../models/emulator_model.dart';
 import '../../models/core_emulator_model.dart';
 import '../../repositories/emulator_repository.dart';
 import '../../repositories/game_repository.dart';
+import '../../repositories/visual_profile_repository.dart';
 import '../../utils/emulator_loader.dart';
 import '../config_service.dart';
 import '../android_service.dart';
@@ -22,6 +24,8 @@ import '../linux_emulator_discovery.dart';
 import '../windows_emulator_discovery.dart';
 import '../linux_host_process.dart';
 import '../macos_application_service.dart';
+import '../visual_profiles/retroarch_visual_session.dart';
+import '../visual_profiles/dolphin_visual_profile.dart';
 import 'emulator_launch_diagnostics.dart';
 import 'shortcut_resolver.dart';
 import 'favorites_service.dart';
@@ -395,7 +399,25 @@ class GameLaunchService {
       if (Platform.isAndroid) {
         return await _launchGameAndroid(context, system, game, coreName);
       } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-        return await _launchGameDesktop(context, system, game, coreName);
+        final profileEmulatorId =
+            Platform.isLinux &&
+                preferredPlayerId != null &&
+                (isExplicitChoice ||
+                    await _emulatorProvidesCore(
+                      system,
+                      preferredPlayerId,
+                      coreName,
+                    ))
+            ? preferredPlayerId
+            : null;
+        if (!context.mounted) return GameLaunchResult.failure('', '');
+        return await _launchGameDesktop(
+          context,
+          system,
+          game,
+          coreName,
+          profileEmulatorId,
+        );
       } else {
         _log.e('Platform not supported: ${Platform.operatingSystem}');
         return GameLaunchResult.failure(
@@ -788,12 +810,68 @@ class GameLaunchService {
     }
   }
 
+  static Future<List<String>> _dolphinVisualArguments(
+    SystemModel system,
+    GameModel game,
+    String? emulatorId,
+    List<String> arguments,
+  ) async {
+    if (!Platform.isLinux || !DolphinVisualProfile.supports(emulatorId)) {
+      return arguments;
+    }
+    try {
+      final repository = VisualProfileRepository(
+        await SharedPreferences.getInstance(),
+      );
+      final profile = repository.resolve(
+        systemId: system.id ?? system.folderName,
+        emulatorId: emulatorId,
+        romPath: game.romPath,
+      );
+      return profile == null
+          ? arguments
+          : DolphinVisualProfile.arguments(arguments, profile);
+    } catch (error) {
+      _log.w('Could not apply Dolphin visual profile: $error');
+      return arguments;
+    }
+  }
+
+  static Future<Process> _startWithVisualSession(
+    String executable,
+    List<String> args,
+    RetroArchVisualSession? session, {
+    Map<String, String>? environment,
+    String? workingDirectory,
+  }) async {
+    final Process process;
+    try {
+      process = await LinuxHostProcess.start(
+        executable,
+        args,
+        environment: environment,
+        workingDirectory: workingDirectory,
+      );
+    } catch (_) {
+      await session?.dispose();
+      rethrow;
+    }
+    if (session != null) {
+      process.exitCode.then(
+        (_) => session.dispose(),
+        onError: (Object _) => session.dispose(),
+      );
+    }
+    return process;
+  }
+
   /// Internal logic for launching RetroArch cores on Desktop.
   static Future<GameLaunchResult> _launchGameDesktop(
     BuildContext context,
     SystemModel system,
     GameModel game,
     String coreName,
+    String? profileEmulatorId,
   ) async {
     try {
       final detectedEmulators =
@@ -917,8 +995,27 @@ class GameLaunchService {
         process = await Process.start(executable, args, environment: env);
       } else {
         args = ['-f', '-L', coreFullPath, game.romPath!];
-
-        process = await LinuxHostProcess.start(executable, args);
+        if (!context.mounted) return GameLaunchResult.failure('', '');
+        final display = View.of(context).display.size;
+        final visualSession = await RetroArchVisualSession.prepare(
+          executable: executable,
+          systemId: system.id ?? system.folderName,
+          emulatorId: profileEmulatorId,
+          corePath: coreFullPath,
+          systemFolder: system.folderName,
+          display: (
+            width: display.width.round(),
+            height: display.height.round(),
+          ),
+          romPath: game.romPath,
+          arguments: args,
+        );
+        args = visualSession?.arguments ?? args;
+        process = await _startWithVisualSession(
+          executable,
+          args,
+          visualSession,
+        );
       }
 
       final diagnostics = EmulatorLaunchDiagnostics.attach(
@@ -1265,9 +1362,38 @@ class GameLaunchService {
         }
       }
 
-      final process = await LinuxHostProcess.start(
+      if (!context.mounted) return GameLaunchResult.failure('', '');
+      final display = View.of(context).display.size;
+      final visualCore = _retroArchCoreFromArgs(args);
+      final visualSession =
+          executable.toLowerCase().contains('retroarch') && visualCore != null
+          ? await RetroArchVisualSession.prepare(
+              executable: executable,
+              systemId: system.id ?? system.folderName,
+              emulatorId: launchCmd['unique_id']?.toString(),
+              corePath: visualCore,
+              systemFolder: system.folderName,
+              display: (
+                width: display.width.round(),
+                height: display.height.round(),
+              ),
+              romPath: game.romPath,
+              arguments: args,
+            )
+          : null;
+      args =
+          visualSession?.arguments ??
+          await _dolphinVisualArguments(
+            system,
+            game,
+            launchCmd['unique_id']?.toString(),
+            args,
+          );
+
+      final process = await _startWithVisualSession(
         processExecutable,
         args,
+        visualSession,
         environment: env,
         workingDirectory: launchCmd['working_directory']?.toString(),
       );
@@ -1773,12 +1899,18 @@ class GameLaunchService {
       final romPath = game.romPath!;
       // Split first, then fill: the ROM path stays inside one argument
       // whatever characters its file name contains.
-      final argList = [
+      final originalArgs = [
         for (final token in _parseCommandArguments(launchArgs))
           token
               .replaceAll('{rom_path}', romPath)
               .replaceAll('{emulator_path}', emulatorPath),
       ];
+      final argList = await _dolphinVisualArguments(
+        system,
+        game,
+        emulator['unique_identifier']?.toString(),
+        originalArgs,
+      );
       final process = await LinuxHostProcess.start(emulatorPath, argList);
 
       final diagnostics = EmulatorLaunchDiagnostics.attach(

@@ -1,6 +1,26 @@
 part of 'app_locale.dart';
 
 const Map<String, dynamic> appLocaleRu = {
+  AppLocale.visualCustomBorder: 'Импортированный PNG',
+  AppLocale.visualBorderSearch: 'Поиск рамок',
+  AppLocale.visualBorderImport: 'Импорт PNG',
+  AppLocale.visualBorderFavorites: 'Только избранное',
+  AppLocale.visualGameOverride: 'Настроить графику для этой игры',
+  AppLocale.visualPreset: 'Предустановка',
+  AppLocale.visualShader: 'Шейдер',
+  AppLocale.visualEnhanced: 'Улучшенный',
+  AppLocale.visualAuthentic: 'Аутентичный',
+  AppLocale.visualCustom: 'Пользовательский',
+  AppLocale.visualPresetDefault: 'По умолчанию для профиля',
+  AppLocale.visualBorder: 'Рамка консоли',
+  AppLocale.visualBorderUnavailable: 'Несовместимая рамка',
+  AppLocale.visualGameplaySize: 'Размер изображения',
+  AppLocale.visualHorizontal: 'По горизонтали',
+  AppLocale.visualVertical: 'По вертикали',
+  AppLocale.visualProfiles: 'Профили изображения',
+  AppLocale.visualProfilesSubtitle:
+      'Применяет чёткое изображение для каждой системы в RetroArch Flatpak.',
+  AppLocale.visualSharpAndClean: 'Чётко и чисто',
   AppLocale.raCatalogueRefreshFailed: 'Не удалось обновить каталог RetroAchievements. Сопоставление выполнено по сохранённым данным.',
   AppLocale.smartMatchesOne: 'Подходящих игр: 1',
   AppLocale.smartCollection: 'Умная коллекция',

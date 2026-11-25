@@ -781,22 +781,16 @@ class _CollectionsBrowserScreenState extends State<CollectionsBrowserScreen> {
       },
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: FilledButton.tonalIcon(
+            onPressed: _goBack,
+            icon: const Icon(Icons.arrow_back),
+            label: Text(AppLocale.back.getString(context)),
+          ),
+        ),
         body: Column(
           children: [
-            SafeArea(
-              bottom: false,
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: Padding(
-                  padding: EdgeInsetsDirectional.only(start: 12.r),
-                  child: TextButton.icon(
-                    onPressed: _goBack,
-                    icon: const Icon(Icons.arrow_back),
-                    label: Text(AppLocale.back.getString(context)),
-                  ),
-                ),
-              ),
-            ),
             if (!showSpinner && collections.isEmpty) _buildEmptyHint(theme),
             Expanded(
               child: showSpinner

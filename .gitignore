@@ -301,3 +301,6 @@ ROMs/
 
 # Local test timing reports
 test-results*.json
+
+# Privately obtained Handheld Bezels Pack artwork and RocketLauncher files.
+/assets/images/bezels/

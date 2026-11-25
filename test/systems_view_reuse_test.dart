@@ -590,7 +590,7 @@ void main() {
       await tester.tap(find.text('Open Collections'));
       await tester.pumpAndSettle();
 
-      final back = find.widgetWithText(TextButton, 'Back');
+      final back = find.widgetWithText(FilledButton, 'Back');
       expect(back, findsOneWidget);
       expect(
         tester.getBottomLeft(back).dy,
