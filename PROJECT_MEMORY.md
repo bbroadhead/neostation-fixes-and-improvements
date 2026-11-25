@@ -4,9 +4,9 @@ Snapshot 2026-11-24. The project is a gamepad-first Flutter emulation frontend. 
 
 ## Current state
 
-The active development checkout is on `feature/steam-deck-visual-profiles` based on `289915e`. The pre-consolidation working tree had 19 modified tracked files across localization, settings, launch, game/Collections UI and a systems-view test. Untracked work included the visual profile model and repository, Visual Profiles and border dialogs, visual launch services, six focused test files, a local visual audit, bezel assets, private audit reports and Python cache files. The older `fix/screenscraper-steamos` worktree was clean at `bc765f3`. The source of the latest preview includes uncommitted work. See [BUILD_HISTORY.md](BUILD_HISTORY.md) for artifact evidence.
+The active checkout is `feature/steam-deck-visual-profiles`. Commit `06fbdce` preserves the recovered 2140 Visual Profiles, GBA viewport and Collections Back source and adds local handheld-pack integration for 2141. The local visual audit and private reports remain outside Git. The older `fix/screenscraper-steamos` worktree was clean at `bc765f3`. See [BUILD_HISTORY.md](BUILD_HISTORY.md) for artifact evidence.
 
-The Steam shortcut was rechecked targeting 2140 before the handheld-border work. Builds 2137 and 2140 were backed up. 2140 still has an open GBA gameplay validation issue. Flatpak RetroArch via EmuDeck was the actual launch path. The November 23 audit found Vulkan, Hardcore enabled and 94 installed cores. Keep selected emulators and cores, the working graphics backend, live configs and native overrides. Prefer temporary launch configuration and emulator-native mechanisms.
+The Steam shortcut was rechecked targeting 2140 before the handheld-border work. Builds 2137 and 2140 were backed up. Build 2141 is the latest candidate and preserves the existing shortcut path for promotion after hardware validation. GBA gameplay alignment remains unverified on the physical device. Flatpak RetroArch via EmuDeck was the actual launch path. The November 23 audit found Vulkan, Hardcore enabled and 94 installed cores. Keep selected emulators and cores, the working graphics backend, live configs and native overrides. Prefer temporary launch configuration and emulator-native mechanisms.
 
 ## Decisions and requirements
 

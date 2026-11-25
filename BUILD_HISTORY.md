@@ -26,3 +26,9 @@ The November 24 consolidation verified the 2140 SHA-256 sidecar and read its Squ
 Use one fixed filename and path for the current launchable AppImage. Keep the existing Steam shortcut target as the stable path unless the owner explicitly chooses another one. Build and verify each candidate separately, archive the previous artifact under a versioned filename with its checksum, then atomically replace the file at the stable path on the same filesystem. Record each build’s source SHA and checksum. Failed or unfinished previews stay separate from the current launchable AppImage. Keep rollback copies under `~/Downloads/neostation-archive/` or the applicable release archive. Native dependency reuse was used for historical builds where the host lacked the full toolchain.
 
 Build 2140 SHA-256 `234ef6a20426af7dff78a36c3ea4b42c470c3ea7188487ff7be14ef9095cedec`.
+
+## Build 2141 handheld bezels
+
+The descriptive candidate is `~/Downloads/neostation-linux-x86_64-0.16.1+2141-steamos-handheld-bezels.AppImage`. Source commit `06fbdce` records the recovered Visual Profiles code and the new local pack integration. Built with `LIBRETRO_ARTWORK=true` and verified version, extraction, launcher/shared-library binary parity and native dependencies. SHA-256 `7b76fd104ea1459cff72f638707d2e4fcb4ff0027894fb89031fa4044f0539fc`. The package excludes the private artwork.
+
+The Steam shortcut target was rechecked and points to the existing 2140 path. Builds 2137 and 2140 were backed up under `~/Downloads/neostation-archive/` and compared byte-for-byte. The candidate started on the isolated desktop display, retained all 1,413 records in the current library snapshot, and showed the imported GBA thumbnail and large preview. The selection survived an app restart. The packaged picker returned to None on selection. Physical gameplay alignment, controller behavior, save/resume and Hardcore verification remain open, so the shortcut still launches 2140.
