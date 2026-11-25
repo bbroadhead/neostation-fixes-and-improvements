@@ -1711,6 +1711,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.raConnectionService:
       'RetroAchievements is temporarily unavailable.',
   AppLocale.raGuides: 'Guides',
+  AppLocale.artworkPreferredSource: 'Preferred artwork source',
   AppLocale.artworkLayout: 'Artwork layout',
   AppLocale.artworkLayoutDynamic: 'Dynamic',
   AppLocale.artworkLayoutStacked: 'Stacked',

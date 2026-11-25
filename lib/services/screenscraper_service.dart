@@ -1,3 +1,5 @@
+import '../utils/artwork_title.dart';
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
@@ -18,7 +20,6 @@ import 'rom_fingerprint_service.dart';
 import 'libretro_thumbnail_service.dart';
 import 'neo_assets_game_service.dart';
 import 'steam_grid_db_artwork_service.dart';
-import 'artwork_assignment_service.dart';
 import '../models/artwork_preview.dart';
 import '../models/artwork_scrape_event.dart';
 import 'scrape_batch_checkpoint.dart';
@@ -831,8 +832,8 @@ class ScreenScraperService {
             ? result.games
                   .where(
                     (game) =>
-                        game.name.trim().toLowerCase() ==
-                        title.trim().toLowerCase(),
+                        ArtworkTitle.normalized(game.name) ==
+                        ArtworkTitle.normalized(title),
                   )
                   .toList()
             : result.games;
@@ -1215,8 +1216,7 @@ class ScreenScraperService {
       },
     );
     Future<List<ArtworkPreview>>? verifiedArtwork;
-    Stream<ArtworkPreview> preferred(String category) async* {
-      yield* Stream.fromIterable(await steam.inCategory(category, limit: 1));
+    Stream<ArtworkPreview> verifiedRetroAchievements(String category) async* {
       if (!const {
             'box2d',
             'screenshots',
@@ -1256,12 +1256,7 @@ class ScreenScraperService {
     }
 
     Future<_ArtworkMedia?>? screenScraperMedia;
-    Future<ArtworkPreview?> otherArtwork(String category) async {
-      for (final image in await neoAssets.inCategory(category)) {
-        if (cancelled()) return null;
-        if (await ArtworkAssignmentService.isReadable(image)) return image;
-        failures.add(category);
-      }
+    Future<ArtworkPreview?> screenScraperArtwork(String category) async {
       final type = _previewMediaTypes[category];
       if (type == null || cancelled()) return null;
       final entry = await (screenScraperMedia ??= lookupScreenScraperMedia());
@@ -1275,6 +1270,40 @@ class ScreenScraperService {
         cancelled,
         onFailure: () => failures.add(category),
       );
+    }
+
+    final order = await ScraperRepository.artworkOrder();
+    Stream<ArtworkPreview> prioritized(
+      String category,
+      Future<ArtworkPreview?> Function() readLibretro,
+    ) async* {
+      for (final provider in order) {
+        if (cancelled()) break;
+        try {
+          switch (provider) {
+            case ArtworkProvider.steamGridDb:
+              yield* Stream.fromIterable(
+                await steam.inCategory(category, limit: 1),
+              );
+            case ArtworkProvider.retroAchievements:
+              yield* verifiedRetroAchievements(category);
+            case ArtworkProvider.libretro:
+              if (await readLibretro() case final image?) yield image;
+            case ArtworkProvider.neoAssets:
+              yield* Stream.fromIterable(await neoAssets.inCategory(category));
+            case ArtworkProvider.screenScraper:
+              if (await screenScraperArtwork(category) case final image?) {
+                yield image;
+              }
+          }
+        } catch (error) {
+          if (cancelled()) break;
+          failures.add(category);
+          _log.w(
+            '${provider.name} artwork lookup failed (${error.runtimeType})',
+          );
+        }
+      }
     }
 
     return LibretroThumbnailService.download(
@@ -1293,8 +1322,7 @@ class ScreenScraperService {
       forceOverwrite: forceOverwrite,
       shouldCancel: shouldCancel,
       onProgress: onProgress,
-      preferred: preferred,
-      fallback: otherArtwork,
+      prioritized: prioritized,
       onArtwork: onArtwork,
       providerFailed: (category) =>
           neoAssets.failedFor(category) ||

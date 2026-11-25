@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../models/artwork_preview.dart';
+import '../utils/artwork_title.dart';
 import 'artwork_assignment_service.dart';
 import 'credential_store.dart';
 import 'logger_service.dart';
@@ -172,40 +173,13 @@ class SteamGridDbArtworkService {
     return result['data'] as List;
   }
 
-  static final _dumpSuffix = RegExp(
-    r'(?:\s+\((?:(?:USA|Europe|Japan|World|Australia|Canada|Korea|China|Brazil)(?:, (?:USA|Europe|Japan|World|Australia|Canada|Korea|China|Brazil))*|Rev [0-9A-Z.]+)\))+$',
-    caseSensitive: false,
-  );
-
-  static String _cleanTitle(String title) => title
-      .trim()
-      .replaceFirst(RegExp(r'(?:\s*\[[^\]]+\])+\s*$'), '')
-      .replaceFirst(RegExp(r'\s+\([UEJ]\)$'), '')
-      .replaceFirst(_dumpSuffix, '')
-      .trim();
-
   Future<({int id, String name})?> _findGame() async {
     if ((await _key).isEmpty) return null;
-    String normalize(String value) => value
-        .toLowerCase()
-        .replaceAll(RegExp(r"['’]"), '')
-        .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ')
-        .trim();
-    final names = <String>{};
-    for (final rawTitle in [title, ?alternateTitle]) {
-      final name = _cleanTitle(rawTitle);
-      if (name.isEmpty) continue;
-      final alternate = name.replaceFirst(
-        RegExp(r'^Dragon Quest\b', caseSensitive: false),
-        'Dragon Warrior',
-      );
-      names.addAll([
-        name,
-        name.replaceFirst(RegExp(r'\s+-\s+'), ': '),
-        alternate,
-        alternate.replaceFirst(RegExp(r'\s+-\s+'), ': '),
-      ]);
-    }
+    final names = {
+      ...ArtworkTitle.queries(title),
+      if (alternateTitle case final alternate?)
+        ...ArtworkTitle.queries(alternate),
+    };
     try {
       ({int id, String name})? partial;
       for (final name in names) {
@@ -220,13 +194,18 @@ class SteamGridDbArtworkService {
             if (game['id'] is int && game['name'] is String)
               (id: game['id'] as int, name: (game['name'] as String).trim()),
         };
-        final query = normalize(name);
-        final exact = matches.where((game) => normalize(game.name) == query);
+        final query = ArtworkTitle.normalized(name);
+        final exact = matches.where(
+          (game) => ArtworkTitle.normalized(game.name) == query,
+        );
         if (exact.length == 1) return exact.single;
         if (allowPartialMatch && exact.isNotEmpty) return exact.first;
         if (allowPartialMatch) {
           partial ??= matches
-              .where((game) => normalize(game.name).startsWith('$query '))
+              .where(
+                (game) =>
+                    ArtworkTitle.normalized(game.name).startsWith('$query '),
+              )
               .firstOrNull;
         }
       }

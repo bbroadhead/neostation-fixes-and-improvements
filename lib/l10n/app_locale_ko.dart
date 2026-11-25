@@ -1639,6 +1639,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.raConnectionAuth: 'RetroAchievements가 로그인을 거부했습니다.',
   AppLocale.raConnectionService: 'RetroAchievements를 일시적으로 사용할 수 없습니다.',
   AppLocale.raGuides: '가이드',
+  AppLocale.artworkPreferredSource: '기본 아트워크 제공처',
   AppLocale.artworkLayout: '아트워크 배치',
   AppLocale.artworkLayoutDynamic: '동적',
   AppLocale.artworkLayoutStacked: '세로 배열',

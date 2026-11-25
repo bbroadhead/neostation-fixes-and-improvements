@@ -1846,6 +1846,7 @@ mixin AppLocale {
   static const String raConnectionAuth = 'ra_connection_auth';
   static const String raConnectionService = 'ra_connection_service';
   static const String raGuides = 'ra_guides';
+  static const String artworkPreferredSource = 'artwork_preferred_source';
   static const String artworkLayout = 'artwork_layout';
   static const String artworkLayoutDynamic = 'artwork_layout_dynamic';
   static const String artworkLayoutStacked = 'artwork_layout_stacked';

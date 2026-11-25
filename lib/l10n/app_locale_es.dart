@@ -1742,6 +1742,7 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.raConnectionService:
       'RetroAchievements no está disponible temporalmente.',
   AppLocale.raGuides: 'Guías',
+  AppLocale.artworkPreferredSource: 'Fuente de imágenes preferida',
   AppLocale.artworkLayout: 'Distribución de imágenes',
   AppLocale.artworkLayoutDynamic: 'Dinámica',
   AppLocale.artworkLayoutStacked: 'Apilada',

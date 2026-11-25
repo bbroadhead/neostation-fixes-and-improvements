@@ -1725,6 +1725,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.raConnectionAuth: 'RetroAchievements отклонил вход.',
   AppLocale.raConnectionService: 'RetroAchievements временно недоступен.',
   AppLocale.raGuides: 'Руководства',
+  AppLocale.artworkPreferredSource: 'Предпочтительный источник изображений',
   AppLocale.artworkLayout: 'Расположение изображений',
   AppLocale.artworkLayoutDynamic: 'Динамическое',
   AppLocale.artworkLayoutStacked: 'Столбцы',

@@ -1632,6 +1632,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.raConnectionAuth: 'RetroAchievementsがサインインを拒否しました。',
   AppLocale.raConnectionService: 'RetroAchievementsは一時的に利用できません。',
   AppLocale.raGuides: '攻略ガイド',
+  AppLocale.artworkPreferredSource: '優先する画像ソース',
   AppLocale.artworkLayout: 'アートワークの配置',
   AppLocale.artworkLayoutDynamic: 'ダイナミック',
   AppLocale.artworkLayoutStacked: '縦並び',

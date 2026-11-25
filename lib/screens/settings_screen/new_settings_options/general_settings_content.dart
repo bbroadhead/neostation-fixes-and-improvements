@@ -92,7 +92,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
 
     // Pre-allocate keys for maximum theoretical setting items (the fixed rows
     // plus one per navigation tab that can be toggled).
-    for (int i = 0; i < 22 + NavTab.values.length; i++) {
+    for (int i = 0; i < 23 + NavTab.values.length; i++) {
       _itemKeys.add(GlobalKey());
     }
   }
@@ -265,6 +265,7 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
     count++; // Play preview videos
     count++; // Show subfolders (every system)
     count++; // Cloud-save mark in the game views
+    count++; // Preferred artwork provider
     count++; // Achievement badges on game tiles
     count++; // RetroAchievements compatibility home
     count++; // RetroAchievements connection notices
@@ -474,6 +475,12 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
       configProvider.updateShowCloudSyncIcon(
         !configProvider.config.showCloudSyncIcon,
       );
+      return;
+    }
+    currentItemIndex++;
+
+    if (index == currentItemIndex) {
+      configProvider.cyclePreferredArtworkSource();
       return;
     }
     currentItemIndex++;
@@ -994,6 +1001,24 @@ class GeneralSettingsContentState extends State<GeneralSettingsContent>
                             .updateShowCloudSyncIcon(value);
                       },
                       activeColor: theme.colorScheme.primary,
+                    ),
+                  );
+                }(),
+
+                SizedBox(height: 12.r),
+                () {
+                  final index = currentItemIdx++;
+                  final provider = context.watch<SqliteConfigProvider>();
+                  return SettingRow(
+                    key: _itemKeys[index],
+                    onTap: () => selectItem(index),
+                    focused:
+                        widget.isContentFocused &&
+                        widget.selectedContentIndex == index,
+                    title: AppLocale.artworkPreferredSource.getString(context),
+                    subtitle: '',
+                    trailing: SettingValueChip(
+                      text: provider.preferredArtworkSource.displayName,
                     ),
                   );
                 }(),

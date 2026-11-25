@@ -1737,6 +1737,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.raConnectionService:
       'RetroAchievements tidak tersedia untuk sementara.',
   AppLocale.raGuides: 'Panduan',
+  AppLocale.artworkPreferredSource: 'Sumber gambar pilihan',
   AppLocale.artworkLayout: 'Tata letak gambar',
   AppLocale.artworkLayoutDynamic: 'Dinamis',
   AppLocale.artworkLayoutStacked: 'Bertumpuk',

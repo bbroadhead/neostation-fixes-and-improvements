@@ -1,3 +1,5 @@
+import '../utils/artwork_title.dart';
+
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -138,14 +140,7 @@ class LibretroThumbnailService {
     String query,
     bool Function()? shouldCancel,
   ) async {
-    String normalize(String name) => name
-        .split(RegExp(r'\s*[\[(]'))
-        .first
-        .toLowerCase()
-        .replaceAll(RegExp(r"['’]"), '')
-        .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ')
-        .trim();
-    final wanted = normalize(query);
+    final wanted = ArtworkTitle.normalized(query);
     if (wanted.isEmpty) return {};
     try {
       final response = await ScreenscraperClient.httpGetWithRetry(
@@ -169,7 +164,7 @@ class LibretroThumbnailService {
           .allMatches(response.body)
           .map((match) => Uri.decodeComponent(match[1]!))
           .map((filename) => filename.substring(0, filename.length - 4))
-          .where((label) => normalize(label) == wanted)
+          .where((label) => ArtworkTitle.normalized(label) == wanted)
           .take(4)
           .toSet();
     } catch (error) {
@@ -231,7 +226,13 @@ class LibretroThumbnailService {
     }..remove('');
     for (final label in labels.toList()) {
       final modern = label
-          .replaceFirst(RegExp(r'(?<=\([UEJ]\))\s*(?:\[[^\]]+\]\s*)+$'), '')
+          .replaceFirst(
+            RegExp(
+              r'(?<=\([UEJ]\))\s*(?:\[(?:!|c|[abfhopt][0-9]+)\]\s*)+$',
+              caseSensitive: false,
+            ),
+            '',
+          )
           .replaceAll('(U)', '(USA)')
           .replaceAll('(E)', '(Europe)')
           .replaceAll('(J)', '(Japan)');
@@ -288,10 +289,17 @@ class LibretroThumbnailService {
     Uri? catalog,
     bool Function()? shouldCancel,
     Stream<ArtworkPreview> Function(String category)? preferred,
+    Stream<ArtworkPreview> Function(
+      String category,
+      Future<ArtworkPreview?> Function() readLibretro,
+    )?
+    prioritized,
     Future<ArtworkPreview?> Function(String category)? fallback,
   }) async {
     final playlist = _playlists[parentSystemId(appSystemId)];
-    if (playlist == null && preferred == null) return false;
+    if (playlist == null && preferred == null && prioritized == null) {
+      return false;
+    }
 
     final stem = await ScreenscraperRomHasher.getCleanRomName(
       romName,
@@ -313,7 +321,7 @@ class LibretroThumbnailService {
           (type) =>
               enabledMediaTypes.contains(type) &&
               (_folders.containsKey(type) ||
-                  (preferred != null &&
+                  ((preferred != null || prioritized != null) &&
                       const {'fanart', 'wheel', 'icons'}.contains(type))),
         )
         .toList();
@@ -339,9 +347,30 @@ class LibretroThumbnailService {
       if (!hasManual && (!cached || forceOverwrite)) {
         ArtworkPreview? selected;
         var failed = false;
-        await for (final image
-            in preferred?.call(folder) ??
-                const Stream<ArtworkPreview>.empty()) {
+        Future<ArtworkPreview?> readLibretro() async {
+          final libretroFolder = _folders[type];
+          if (playlist == null || libretroFolder == null) return null;
+          for (final label in labels) {
+            final result = await _preview(
+              base,
+              playlist,
+              MapEntry(type, libretroFolder),
+              label,
+              shouldCancel,
+              onFailure: () => failed = true,
+            );
+            if (result != null || (shouldCancel?.call() ?? false)) {
+              return result;
+            }
+          }
+          return null;
+        }
+
+        final candidates =
+            prioritized?.call(folder, readLibretro) ??
+            preferred?.call(folder) ??
+            const Stream<ArtworkPreview>.empty();
+        await for (final image in candidates) {
           if (shouldCancel?.call() ?? false) return available;
           if (image.category != folder) continue;
           if (await ArtworkAssignmentService.isReadable(image)) {
@@ -350,19 +379,8 @@ class LibretroThumbnailService {
           }
           failed = true;
         }
-        final libretroFolder = _folders[type];
-        if (selected == null && playlist != null && libretroFolder != null) {
-          for (final label in labels) {
-            selected = await _preview(
-              base,
-              playlist,
-              MapEntry(type, libretroFolder),
-              label,
-              shouldCancel,
-              onFailure: () => failed = true,
-            );
-            if (selected != null || (shouldCancel?.call() ?? false)) break;
-          }
+        if (selected == null && prioritized == null) {
+          selected = await readLibretro();
         }
         if (shouldCancel?.call() ?? false) return available;
         if (selected == null && fallback != null) {

@@ -1583,6 +1583,7 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.raConnectionAuth: 'RetroAchievements 拒绝了登录。',
   AppLocale.raConnectionService: 'RetroAchievements 暂时不可用。',
   AppLocale.raGuides: '攻略',
+  AppLocale.artworkPreferredSource: '首选图片来源',
   AppLocale.artworkLayout: '游戏画面布局',
   AppLocale.artworkLayoutDynamic: '动态',
   AppLocale.artworkLayoutStacked: '堆叠',

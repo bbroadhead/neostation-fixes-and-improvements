@@ -17,6 +17,8 @@ import '../models/system_model.dart';
 import '../models/rom_import_result.dart';
 import '../models/config_model.dart';
 import '../models/game_artwork_layout.dart';
+import '../models/artwork_preview.dart';
+import '../repositories/scraper_repository.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -70,6 +72,23 @@ class SqliteConfigProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _sfxMutation = Future.value();
   ConfigModel _config = ConfigModel.empty;
   static const _artworkLayoutKey = 'gameArtworkLayout';
+  ArtworkProvider _preferredArtworkSource = ArtworkProvider.steamGridDb;
+  ArtworkProvider get preferredArtworkSource => _preferredArtworkSource;
+
+  Future<void> cyclePreferredArtworkSource() async {
+    final order = ScraperRepository.defaultArtworkOrder;
+    final next =
+        order[(order.indexOf(_preferredArtworkSource) + 1) % order.length];
+    try {
+      if (await ScraperRepository.savePreferredArtworkSource(next)) {
+        _preferredArtworkSource = next;
+        notifyListeners();
+      }
+    } catch (error) {
+      _log.w('Could not save artwork source preference: $error');
+    }
+  }
+
   static const _raCompatibilityHomeKey = 'raCompatibilityHome';
   bool _raCompatibilityHome = true;
   bool get raCompatibilityHome => _raCompatibilityHome;
@@ -548,6 +567,7 @@ class SqliteConfigProvider extends ChangeNotifier with WidgetsBindingObserver {
       // Load config first so persisted sort settings are available before
       // detected systems are loaded and ordered from the database.
       await _loadConfig();
+      _preferredArtworkSource = (await ScraperRepository.artworkOrder()).first;
       try {
         final preferences = await SharedPreferences.getInstance();
         _raCompatibilityHome =

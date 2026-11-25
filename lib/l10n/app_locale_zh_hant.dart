@@ -1582,6 +1582,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.raConnectionAuth: 'RetroAchievements 拒絕了登入。',
   AppLocale.raConnectionService: 'RetroAchievements 暫時無法使用。',
   AppLocale.raGuides: '攻略',
+  AppLocale.artworkPreferredSource: '偏好的圖片來源',
   AppLocale.artworkLayout: '遊戲圖片配置',
   AppLocale.artworkLayoutDynamic: '動態',
   AppLocale.artworkLayoutStacked: '堆疊',

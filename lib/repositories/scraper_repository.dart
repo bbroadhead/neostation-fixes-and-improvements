@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/datasources/sqlite_service.dart';
 import '../models/rom_fingerprint.dart';
+import '../models/artwork_preview.dart';
 import '../services/credential_store.dart';
 
 import 'package:neostation/services/logger_service.dart';
@@ -21,6 +22,39 @@ class MetadataTransferResult {
 /// Repository for ScreenScraper system configuration data access.
 class ScraperRepository {
   static final _log = LoggerService.instance;
+
+  static const _artworkSourcePreference = 'preferredArtworkSource';
+  static const defaultArtworkOrder = [
+    ArtworkProvider.steamGridDb,
+    ArtworkProvider.retroAchievements,
+    ArtworkProvider.libretro,
+    ArtworkProvider.neoAssets,
+    ArtworkProvider.screenScraper,
+  ];
+
+  static Future<List<ArtworkProvider>> artworkOrder() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_artworkSourcePreference);
+      final preferred = defaultArtworkOrder
+          .where((source) => source.name == saved)
+          .firstOrNull;
+      if (preferred != null) {
+        return [
+          preferred,
+          ...defaultArtworkOrder.where((source) => source != preferred),
+        ];
+      }
+    } catch (_) {
+      // The standard order remains available while preference storage is offline.
+    }
+    return defaultArtworkOrder;
+  }
+
+  static Future<bool> savePreferredArtworkSource(ArtworkProvider source) async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.setString(_artworkSourcePreference, source.name);
+  }
 
   // Keep these preferences readable by older AppImages without bumping the
   // main database version, whose downgrade path can recreate the database.

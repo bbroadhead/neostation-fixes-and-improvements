@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto/crypto.dart';
 import 'package:neostation/models/artwork_preview.dart';
+import 'package:neostation/repositories/scraper_repository.dart';
 import 'package:neostation/services/artwork_assignment_service.dart';
 import 'package:neostation/services/libretro_thumbnail_service.dart';
 import 'package:neostation/models/game_model.dart';
@@ -61,6 +62,28 @@ void main() {
     forceOverwrite: force,
     romPath: romPath,
     catalog: Uri.parse('http://127.0.0.1:${server.port}'),
+  );
+
+  test(
+    'promotes the preferred source and preserves the remaining fallback order',
+    () async {
+      final defaults = await ScraperRepository.artworkOrder();
+      expect(defaults, ScraperRepository.defaultArtworkOrder);
+      try {
+        expect(
+          await ScraperRepository.savePreferredArtworkSource(
+            ArtworkProvider.libretro,
+          ),
+          isTrue,
+        );
+        expect(await ScraperRepository.artworkOrder(), [
+          ArtworkProvider.libretro,
+          ...defaults.where((provider) => provider != ArtworkProvider.libretro),
+        ]);
+      } finally {
+        await ScraperRepository.savePreferredArtworkSource(defaults.first);
+      }
+    },
   );
 
   test(
