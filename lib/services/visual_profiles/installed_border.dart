@@ -20,11 +20,13 @@ class InstalledBorder {
     this.configuredOpening,
     this.portrait,
     this.combinedScreens = false,
+    this.stackedDs = false,
   });
 
   final PixelRect? configuredOpening;
   final bool? portrait;
   final bool combinedScreens;
+  final bool stackedDs;
 
   bool supportsAspect(double aspect) =>
       portrait == null || portrait == (aspect < 1);
@@ -317,6 +319,7 @@ class InstalledBorder {
                   ? false
                   : null,
               combinedScreens: system == 'ds' || system == '3ds',
+              stackedDs: system == 'ds',
             ),
           );
         } on FileSystemException {
@@ -440,6 +443,10 @@ class InstalledBorder {
     ({int width, int height}) display,
   ) async {
     PixelRect? sourceOpening;
+    final gap = stackedDs && aspect.isFinite && aspect > 0
+        ? (256 / aspect).round() - 384
+        : 0;
+    if (stackedDs && (gap < 1 || gap > 126)) return null;
     final configured = configuredOpening;
     if (configured != null) {
       if (configured.x + configured.width > frame.width ||
@@ -448,18 +455,21 @@ class InstalledBorder {
       }
       final data = await frame.toByteData();
       if (data == null) return null;
-      sourceOpening = transparentOpening(
-        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-        width: frame.width,
-        height: frame.height,
-        aspect: aspect,
-        region: configured,
-      );
+      sourceOpening = stackedDs
+          ? configured
+          : transparentOpening(
+              data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+              width: frame.width,
+              height: frame.height,
+              aspect: aspect,
+              region: configured,
+            );
       if (sourceOpening == null) return null;
       // A native combined framebuffer cannot span an opaque hinge. Require
       // the transparent rectangle to cover the declared screen region in both
       // dimensions, so one half cannot pass as the complete dual-screen area.
       if (combinedScreens &&
+          !stackedDs &&
           (sourceOpening.height < configured.height * 0.85 ||
               sourceOpening.width < configured.width * 0.85 ||
               (sourceOpening.width / sourceOpening.height / aspect - 1).abs() >
@@ -518,20 +528,27 @@ class InstalledBorder {
       try {
         final data = await image.toByteData();
         if (data == null) return null;
-        final opening = transparentOpening(
-          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-          width: image.width,
-          height: image.height,
-          aspect: aspect,
-          region: sourceOpening == null
-              ? null
-              : (
-                  x: (left + sourceOpening.x * scale).ceil(),
-                  y: (top + sourceOpening.y * scale).ceil(),
-                  width: (sourceOpening.width * scale).floor() - 1,
-                  height: (sourceOpening.height * scale).floor() - 1,
-                ),
+        final rgba = data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
         );
+        final region = sourceOpening == null
+            ? null
+            : (
+                x: (left + sourceOpening.x * scale).ceil(),
+                y: (top + sourceOpening.y * scale).ceil(),
+                width: (sourceOpening.width * scale).floor() - 1,
+                height: (sourceOpening.height * scale).floor() - 1,
+              );
+        final opening = stackedDs && region != null
+            ? _stackedDsOpening(rgba, image.width, image.height, region, gap)
+            : transparentOpening(
+                rgba,
+                width: image.width,
+                height: image.height,
+                aspect: aspect,
+                region: region,
+              );
         if (opening == null) return null;
         final png = await image.toByteData(format: ui.ImageByteFormat.png);
         if (png == null) return null;
@@ -545,6 +562,27 @@ class InstalledBorder {
     } finally {
       picture.dispose();
     }
+  }
+
+  static PixelRect? _stackedDsOpening(
+    Uint8List rgba,
+    int width,
+    int height,
+    PixelRect region,
+    int gap,
+  ) {
+    final half = region.height ~/ 2;
+    PixelRect? screen(int y, int h) => transparentOpening(
+      rgba,
+      width: width,
+      height: height,
+      aspect: 4 / 3,
+      region: (x: region.x, y: y, width: region.width, height: h),
+    );
+    final top = screen(region.y, half);
+    final bottom = screen(region.y + half, region.height - half);
+    if (top == null || bottom == null) return null;
+    return GameplayViewport.fitStackedDs(top, bottom, gap);
   }
 
   /// Find the clear rectangle that can hold the largest complete frame.

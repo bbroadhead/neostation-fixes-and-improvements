@@ -539,14 +539,19 @@ class RetroArchVisualSession {
       };
     }
     if (family == 'ds') {
-      if (_value(config, 'melonds_screen_gap') != '0') return null;
+      final gap = int.tryParse(_value(config, 'melonds_screen_gap') ?? '');
+      if (gap == null || gap < 0 || gap > 126 || (!modernMelonDs && gap != 0)) {
+        return null;
+      }
       if (modernMelonDs) {
         if (_value(config, 'melonds_number_of_screen_layouts') != '1') {
           return null;
         }
         return switch (_value(config, 'melonds_screen_layout1')) {
-          'left-right' || 'right-left' => (aspect: 8 / 3, nativeHeight: 192),
-          'top-bottom' || 'bottom-top' => (aspect: 2 / 3, nativeHeight: 384),
+          'left-right' ||
+          'right-left' when gap == 0 => (aspect: 8 / 3, nativeHeight: 192),
+          'top-bottom' ||
+          'bottom-top' => (aspect: 256 / (384 + gap), nativeHeight: 384 + gap),
           _ => null,
         };
       }
@@ -602,14 +607,16 @@ class RetroArchVisualSession {
       if (border.id != profile.borderId) continue;
       final rendered = await border.render(geometry.aspect, display: display);
       if (rendered == null) return null;
-      final viewport = GameplayViewport.fit(
-        opening: rendered.opening,
-        aspectRatio: geometry.aspect,
-        nativeHeight: geometry.nativeHeight,
-        size: profile.size.clamp(0.25, 1.0),
-        horizontal: profile.horizontal,
-        vertical: profile.vertical,
-      );
+      final viewport = border.stackedDs
+          ? rendered.opening
+          : GameplayViewport.fit(
+              opening: rendered.opening,
+              aspectRatio: geometry.aspect,
+              nativeHeight: geometry.nativeHeight,
+              size: profile.size.clamp(0.25, 1.0),
+              horizontal: profile.horizontal,
+              vertical: profile.vertical,
+            );
       if (viewport == null) return null;
       final scratch = await Directory(root).createTemp('.neostation-border-');
       try {

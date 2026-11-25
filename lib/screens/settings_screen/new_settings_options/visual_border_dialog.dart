@@ -54,6 +54,8 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   int _index = 0;
   int _loadRevision = 0;
   bool _busy = true;
+  bool get _fixedPlacement => _index > 0 && _borders[_index - 1].stackedDs;
+
   late double _size = widget.profile.size.clamp(0.25, 1.0);
   late double _x = widget.profile.horizontal;
   late double _y = widget.profile.vertical;
@@ -138,7 +140,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
     try {
       final preview = await border.render(
         aspect,
-        display: (width: 320, height: 200),
+        display: border.stackedDs ? deckDisplay : (width: 320, height: 200),
       );
       return preview == null ? null : border;
     } catch (_) {
@@ -188,6 +190,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   }
 
   void _adjust(int direction) {
+    if (_fixedPlacement && _row >= 1 && _row <= 3) return;
     switch (_row) {
       case 0:
         _choose(direction);
@@ -388,14 +391,16 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       );
     }
     final geometry = _geometry!;
-    final viewport = GameplayViewport.fit(
-      opening: preview.opening,
-      aspectRatio: geometry.aspect,
-      nativeHeight: geometry.nativeHeight,
-      size: _size,
-      horizontal: _x,
-      vertical: _y,
-    );
+    final viewport = _fixedPlacement
+        ? preview.opening
+        : GameplayViewport.fit(
+            opening: preview.opening,
+            aspectRatio: geometry.aspect,
+            nativeHeight: geometry.nativeHeight,
+            size: _size,
+            horizontal: _x,
+            vertical: _y,
+          );
     return Center(
       child: AspectRatio(
         aspectRatio: deckDisplay.width / deckDisplay.height,
@@ -445,10 +450,12 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
         min: minimum,
         max: 1,
         value: value,
-        onChanged: (value) => setState(() {
-          _row = row;
-          change(value);
-        }),
+        onChanged: _fixedPlacement
+            ? null
+            : (value) => setState(() {
+                _row = row;
+                change(value);
+              }),
       ),
     ),
   );

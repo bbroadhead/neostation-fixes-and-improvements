@@ -71,4 +71,17 @@ void main() {
       (x: 115, y: 100, width: 150, height: 100),
     );
   });
+
+  test('fits two DS screens around the opaque hinge at native gap', () {
+    const top = (x: 770, y: 182, width: 384, height: 288);
+    const bottom = (x: 770, y: 608, width: 384, height: 288);
+    expect(GameplayViewport.fitStackedDs(top, bottom, 92), (
+      x: 770,
+      y: 182,
+      width: 384,
+      height: 714,
+    ));
+    expect(GameplayViewport.fitStackedDs(top, bottom, 0), isNull);
+    expect(GameplayViewport.fitStackedDs(top, bottom, 15), isNull);
+  });
 }

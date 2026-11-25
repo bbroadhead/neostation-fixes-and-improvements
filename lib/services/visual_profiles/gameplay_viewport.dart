@@ -48,6 +48,33 @@ class GameplayViewport {
     return (x: x, y: y, width: right - x, height: bottom - y);
   }
 
+  /// Place a stacked 256×192 DS pair with the gap rendered by the core.
+  /// Check each screen independently so the opaque hinge can cover only gap.
+  static PixelRect? fitStackedDs(PixelRect top, PixelRect bottom, int gap) {
+    if (gap < 1 || gap > 126) return null;
+    final left = math.max(top.x, bottom.x);
+    final right = math.min(top.x + top.width, bottom.x + bottom.width);
+    for (var width = right - left; width > 0; width--) {
+      final frameHeight = (width * (384 + gap) / 256).round();
+      final topHeight = (frameHeight * 192 / (384 + gap)).ceil();
+      final lowerStart = (frameHeight * (192 + gap) / (384 + gap)).floor();
+      final minY = math.max(top.y, bottom.y - lowerStart);
+      final maxY = math.min(
+        top.y + top.height - topHeight,
+        bottom.y + bottom.height - frameHeight,
+      );
+      if (minY <= maxY) {
+        return (
+          x: left + (right - left - width) ~/ 2,
+          y: (minY + maxY) ~/ 2,
+          width: width,
+          height: frameHeight,
+        );
+      }
+    }
+    return null;
+  }
+
   /// [horizontal] and [vertical] range from -1 to 1, with zero centering
   /// gameplay. [size] is the fraction of the largest fitting viewport.
   ///

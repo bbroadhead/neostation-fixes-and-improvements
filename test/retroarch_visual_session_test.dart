@@ -396,13 +396,17 @@ void main() {
         'Game.nds',
       );
 
-      Future<String> modernDs(int count) => configFor(
+      Future<String> modernDs(
+        int count, {
+        int gap = 0,
+        String layout = 'left-right',
+      }) => configFor(
         'ds',
         'melondsds',
         'melonDS DS',
-        'melonds_screen_gap = "0"\n'
+        'melonds_screen_gap = "$gap"\n'
             'melonds_number_of_screen_layouts = "$count"\n'
-            'melonds_screen_layout1 = "left-right"',
+            'melonds_screen_layout1 = "$layout"',
         'pegasus/ds',
         'Game.nds',
       );
@@ -430,6 +434,11 @@ void main() {
       expect(await ds('Hybrid Bottom'), isNot(contains('input_overlay =')));
       expect(aspect(await modernDs(1)), closeTo(8 / 3, .02));
       expect(await modernDs(2), isNot(contains('input_overlay =')));
+      expect(
+        aspect(await modernDs(1, gap: 100, layout: 'top-bottom')),
+        closeTo(256 / 484, .005),
+      );
+      expect(await modernDs(1, gap: 100), isNot(contains('input_overlay =')));
 
       expect(
         aspect(await citra('Default Top-Bottom Screen')),
