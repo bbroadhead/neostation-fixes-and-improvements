@@ -1,3 +1,5 @@
+import 'package:neostation/widgets/achievement_completion_badge.dart';
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -2682,7 +2684,25 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             child: Row(
               children: [
-                _buildBoxArt(theme, g, foreground: foreground),
+                Selector<SqliteConfigProvider?, bool>(
+                  selector: (_, provider) =>
+                      provider?.config.showAchievementsBadge == true,
+                  child: _buildBoxArt(theme, g, foreground: foreground),
+                  builder: (_, showBadge, artwork) => Stack(
+                    children: [
+                      artwork!,
+                      if (showBadge && (g.idRa ?? 0) > 0)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: AchievementCompletionBadge(
+                            gameId: g.idRa,
+                            size: 12.r,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                 SizedBox(width: 10.r),
                 Expanded(
                   child: Column(

@@ -287,6 +287,43 @@ class RetroAchievementsProvider extends ChangeNotifier {
     return rows;
   }
 
+  Map<int, String> _libraryAwards = {};
+  DateTime? _libraryAwardsAttemptedAt;
+  int? _libraryAwardsLoadingGeneration;
+
+  String? libraryAward(int? gameId) =>
+      _isConnected ? _libraryAwards[gameId] : null;
+
+  Future<void> refreshLibraryAwards() async {
+    if (_disposed || !isConnected || !hasResolvedApiKey) return;
+    final generation = sessionGeneration;
+    final attempted = _libraryAwardsAttemptedAt;
+    final now = DateTime.now();
+    if (_libraryAwardsLoadingGeneration == generation ||
+        (attempted != null &&
+            now.difference(attempted) < const Duration(minutes: 5))) {
+      return;
+    }
+    _libraryAwardsAttemptedAt = now;
+    _libraryAwardsLoadingGeneration = generation;
+    try {
+      final results = await getAwardProgress();
+      if (generation != sessionGeneration) return;
+      _libraryAwards = {
+        for (final item in results)
+          if (item.gameId > 0 && item.highestAwardKind.isNotEmpty)
+            item.gameId: item.highestAwardKind,
+      };
+      notifyListeners();
+    } catch (_) {
+      // Use previously reported official awards through transient failures.
+    } finally {
+      if (_libraryAwardsLoadingGeneration == generation) {
+        _libraryAwardsLoadingGeneration = null;
+      }
+    }
+  }
+
   int get sessionGeneration => _sessionGeneration;
 
   int get totalLocalRoms => _totalLocalRoms;
@@ -413,6 +450,8 @@ class RetroAchievementsProvider extends ChangeNotifier {
     }
 
     final sessionGeneration = ++_sessionGeneration;
+    _libraryAwards = {};
+    _libraryAwardsAttemptedAt = null;
     _setLoading(true);
     _error = null;
     _username = username.trim();
@@ -888,6 +927,7 @@ class RetroAchievementsProvider extends ChangeNotifier {
   void invalidateCachedReads() {
     _cacheGeneration++;
     _dashboardAttemptedAt = null;
+    _libraryAwardsAttemptedAt = null;
     // Infrequent (a finished session, a sign-out, or a press of the header's
     // REFRESH action) and the only trace this leaves, so it is worth a line:
     // without it there is no way to tell a dashboard that reloaded because
@@ -1051,6 +1091,8 @@ class RetroAchievementsProvider extends ChangeNotifier {
   /// If [clearSavedUser] is true, the credentials are removed from persistent storage.
   void disconnect({bool clearSavedUser = true}) {
     _sessionGeneration++;
+    _libraryAwards = {};
+    _libraryAwardsAttemptedAt = null;
     _user = null;
     _isConnected = false;
     _username = '';

@@ -20,6 +20,7 @@ import 'package:neostation/utils/letter_bar.dart';
 import 'package:neostation/utils/letter_jump.dart';
 import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/widgets/achievements_badge.dart';
+import 'package:neostation/widgets/achievement_completion_badge.dart';
 import 'package:neostation/widgets/collection_badge.dart';
 import 'package:neostation/widgets/native_carousel.dart';
 import 'package:neostation/widgets/game_media_composite.dart';
@@ -836,6 +837,18 @@ class _GamesCarouselState extends State<GamesCarousel> {
               top: (game.isFavorite == true ? 44.r : 8.r),
               right: 8.r,
               child: CollectionBadge(size: 32.r),
+            ),
+          if (_showAchievementsBadge && (game.idRa ?? 0) > 0)
+            Positioned(
+              top: 8.r,
+              right:
+                  (game.isFavorite == true ||
+                              _collections?.isInAnyCollection(game.romPath) ==
+                                  true
+                          ? 44
+                          : 8)
+                      .r,
+              child: AchievementCompletionBadge(gameId: game.idRa, size: 18.r),
             ),
           if (_showAchievementsBadge && AchievementsBadge.showsFor(game))
             Positioned(

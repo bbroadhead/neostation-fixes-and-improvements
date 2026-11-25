@@ -19,6 +19,7 @@ import 'package:neostation/utils/gamepad_nav.dart';
 import 'package:neostation/utils/game_utils.dart';
 import 'package:neostation/providers/collections_provider.dart';
 import 'package:neostation/widgets/achievements_badge.dart';
+import 'package:neostation/widgets/achievement_completion_badge.dart';
 import 'package:neostation/widgets/collection_badge.dart';
 import 'package:neostation/services/game_service.dart';
 import 'package:neostation/repositories/game_repository.dart';
@@ -1475,6 +1476,21 @@ class _GamesGridState extends State<GamesGrid> {
                 top: (game.isFavorite == true ? 32.r : 6.r),
                 right: 6.r,
                 child: CollectionBadge(size: 22.r),
+              ),
+            if (_showAchievementsBadge && (game.idRa ?? 0) > 0)
+              Positioned(
+                top: 6.r,
+                right:
+                    (game.isFavorite == true ||
+                                _collections?.isInAnyCollection(game.romPath) ==
+                                    true
+                            ? 32
+                            : 6)
+                        .r,
+                child: AchievementCompletionBadge(
+                  gameId: game.idRa,
+                  size: 12.r,
+                ),
               ),
             if (_showAchievementsBadge && AchievementsBadge.showsFor(game))
               Positioned(

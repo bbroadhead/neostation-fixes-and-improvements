@@ -22,6 +22,7 @@ import '../../sync/sync_manager.dart';
 import '../../utils/effective_system.dart';
 import '../../utils/game_list_size.dart';
 import '../../widgets/achievements_badge.dart';
+import '../../widgets/achievement_completion_badge.dart';
 import '../../widgets/collection_badge.dart';
 import '../../widgets/marquee_text.dart';
 import '../../widgets/neo_sync_status_icon.dart';
@@ -463,7 +464,22 @@ class GameListViewState extends State<GameListView>
                               children: [
                                 Padding(
                                   padding: EdgeInsets.only(right: 6.r),
-                                  child: _gameIcon(game, gameIconSize),
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      _gameIcon(game, gameIconSize),
+                                      if (_showAchievementsBadge &&
+                                          (game.idRa ?? 0) > 0)
+                                        Positioned(
+                                          top: 0,
+                                          right: 0,
+                                          child: AchievementCompletionBadge(
+                                            gameId: game.idRa,
+                                            size: gameIconSize * .42,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                                 Expanded(
                                   child: RepaintBoundary(
