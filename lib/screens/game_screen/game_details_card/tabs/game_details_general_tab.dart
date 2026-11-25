@@ -3,10 +3,13 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../models/system_model.dart';
 import '../../../../models/game_model.dart';
 import '../../../../providers/file_provider.dart';
+import '../../../../providers/sqlite_config_provider.dart';
+import '../../../../widgets/game_media_composite.dart';
 
 /// The default view for the game details card, rendering high-fidelity artwork.
 ///
@@ -41,6 +44,33 @@ class GameDetailsGeneralTab extends StatelessWidget {
       fileProvider,
     );
     final wheelExists = File(wheelPath).existsSync();
+
+    if (system.folderName != 'android') {
+      String artwork(String category) {
+        final file = File(
+          game.getImagePath(imageSystemFolder, category, fileProvider),
+        );
+        return file.existsSync() ? file.path : '';
+      }
+
+      return Positioned.fill(
+        left: 10.r,
+        right: 10.r,
+        top: 44.r,
+        bottom: 88.r,
+        child: GameMediaComposite(
+          key: ValueKey(imageVersion),
+          cover: artwork('box2d'),
+          titleScreen: artwork('title_screens'),
+          screenshot: artwork('screenshots'),
+          logo: wheelExists ? wheelPath : '',
+          layout: context.select(
+            (SqliteConfigProvider provider) => provider.artworkLayout,
+          ),
+          fallback: const SizedBox.shrink(),
+        ),
+      );
+    }
 
     return Positioned.fill(
       left: 10.r,

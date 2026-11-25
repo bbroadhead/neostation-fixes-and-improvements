@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/config_model.dart';
+import 'package:neostation/models/game_artwork_layout.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/screens/game_screen/game_options_dialog.dart';
 import 'package:neostation/services/sfx_service.dart';
@@ -183,6 +184,24 @@ void main() {
     for (final size in const ['S', 'M', 'L', 'XL']) {
       expect(find.text(size), findsOneWidget);
     }
+  });
+
+  testWidgets('artwork layout publishes immediately and persists', (
+    tester,
+  ) async {
+    final provider = _GridConfig();
+    await tester.pumpWidget(host(config: provider));
+    await openDialog(tester);
+    final context = tester.element(find.byType(GameOptionsDialog));
+    await tester.tap(find.text(AppLocale.viewMode.getString(context)));
+    await tester.pumpAndSettle();
+    final rows = find.text(AppLocale.artworkLayoutRows.getString(context));
+    await tester.ensureVisible(rows);
+    await tester.tap(rows);
+    await tester.pumpAndSettle();
+    expect(provider.artworkLayout, GameArtworkLayout.rows);
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getString('gameArtworkLayout'), 'rows');
   });
 
   testWidgets('remounting the game view keeps input in Options', (

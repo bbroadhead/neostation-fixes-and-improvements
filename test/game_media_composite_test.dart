@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:neostation/models/game_artwork_layout.dart';
 import 'package:neostation/widgets/game_media_composite.dart';
 
 void main() {
@@ -64,4 +65,43 @@ void main() {
     expect(find.text('Missing media'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'switches the four artwork roles without clipping or repeating files',
+    (tester) async {
+      for (final layout in GameArtworkLayout.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Center(
+              child: SizedBox(
+                width: 550,
+                height: 300,
+                child: GameMediaComposite(
+                  cover: 'cover.png',
+                  titleScreen: 'title.png',
+                  screenshot: 'shot.png',
+                  logo: 'logo.png',
+                  icon: 'logo.png',
+                  layout: layout,
+                  fallback: const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ),
+        );
+        final images = find.byType(Image);
+        expect(images, findsNWidgets(4));
+        final first = tester.getTopLeft(images.at(0));
+        final second = tester.getTopLeft(images.at(1));
+        if (layout == GameArtworkLayout.stacked) {
+          expect(first.dx, second.dx);
+          expect(first.dy, lessThan(second.dy));
+        } else if (layout == GameArtworkLayout.rows) {
+          expect(first.dy, second.dy);
+          expect(first.dx, lessThan(second.dx));
+        }
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
 }

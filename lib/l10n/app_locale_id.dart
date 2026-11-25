@@ -1721,4 +1721,8 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.genreEducational: 'Edukasi',
   AppLocale.genreQuiz: 'Kuis',
   AppLocale.genreCompilation: 'Kompilasi',
+  AppLocale.artworkLayout: 'Tata letak gambar',
+  AppLocale.artworkLayoutDynamic: 'Dinamis',
+  AppLocale.artworkLayoutStacked: 'Bertumpuk',
+  AppLocale.artworkLayoutRows: 'Baris',
 };

@@ -780,7 +780,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
     final title = _resolveImagePath(game, 'title_screens');
     final screenshot = _resolveImagePath(game, 'screenshots');
     final logo = _resolveImagePath(game, 'wheels');
-    final logoHeight = logo.isEmpty ? 0.0 : 42.r;
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -802,25 +801,16 @@ class _GamesCarouselState extends State<GamesCarousel> {
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
-          Padding(
-            padding: EdgeInsets.only(bottom: logoHeight),
-            child: GameMediaComposite(
-              key: ValueKey(widget.artworkVersion),
-              cover: _resolveImagePath(game, 'box2d'),
-              titleScreen: title,
-              screenshot: screenshot == title ? '' : screenshot,
-              icon: _resolveImagePath(game, 'icons'),
-              fallback: _buildFallbackCard(game, theme),
-            ),
+          GameMediaComposite(
+            key: ValueKey(widget.artworkVersion),
+            cover: _resolveImagePath(game, 'box2d'),
+            titleScreen: title,
+            screenshot: screenshot,
+            logo: logo,
+            icon: _resolveImagePath(game, 'icons'),
+            layout: context.read<SqliteConfigProvider>().artworkLayout,
+            fallback: _buildFallbackCard(game, theme),
           ),
-          if (logo.isNotEmpty)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: logoHeight,
-              child: _buildWheelOverlay(logo),
-            ),
           if (game.isFavorite == true)
             Positioned(
               top: 8.r,
@@ -1085,18 +1075,6 @@ class _GamesCarouselState extends State<GamesCarousel> {
       ),
     );
   }
-
-  Widget _buildWheelOverlay(String wheelPath) => Padding(
-    padding: EdgeInsets.fromLTRB(12.r, 3.r, 12.r, 5.r),
-    child: Image.file(
-      File(wheelPath),
-      key: ValueKey((wheelPath, widget.artworkVersion)),
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.medium,
-      cacheWidth: performanceCacheWidth(512, performanceMode: _performanceMode),
-      errorBuilder: (ctx, e, s) => const SizedBox.shrink(),
-    ),
-  );
 
   @override
   Widget build(BuildContext context) {

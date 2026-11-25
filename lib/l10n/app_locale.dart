@@ -1833,6 +1833,11 @@ mixin AppLocale {
   // ==========================================================================
   // Localization Maps
   // ==========================================================================
+  static const String artworkLayout = 'artwork_layout';
+  static const String artworkLayoutDynamic = 'artwork_layout_dynamic';
+  static const String artworkLayoutStacked = 'artwork_layout_stacked';
+  static const String artworkLayoutRows = 'artwork_layout_rows';
+
   static const Map<String, dynamic> en = appLocaleEn;
   static const Map<String, dynamic> es = appLocaleEs;
   static const Map<String, dynamic> ru = appLocaleRu;

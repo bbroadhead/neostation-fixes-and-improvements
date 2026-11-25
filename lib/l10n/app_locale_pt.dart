@@ -1728,4 +1728,8 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.genreEducational: 'Educativo',
   AppLocale.genreQuiz: 'Quiz',
   AppLocale.genreCompilation: 'Compilação',
+  AppLocale.artworkLayout: 'Disposição das imagens',
+  AppLocale.artworkLayoutDynamic: 'Dinâmica',
+  AppLocale.artworkLayoutStacked: 'Empilhada',
+  AppLocale.artworkLayoutRows: 'Linhas',
 };

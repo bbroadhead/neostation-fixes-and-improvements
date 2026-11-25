@@ -1743,4 +1743,8 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.genreEducational: 'Educativo',
   AppLocale.genreQuiz: 'Quiz',
   AppLocale.genreCompilation: 'Raccolta',
+  AppLocale.artworkLayout: 'Disposizione immagini',
+  AppLocale.artworkLayoutDynamic: 'Dinamica',
+  AppLocale.artworkLayoutStacked: 'Impilata',
+  AppLocale.artworkLayoutRows: 'Righe',
 };

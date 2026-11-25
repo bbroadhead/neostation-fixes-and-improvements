@@ -1570,4 +1570,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.genreEducational: '教育',
   AppLocale.genreQuiz: '问答',
   AppLocale.genreCompilation: '合集',
+  AppLocale.artworkLayout: '游戏画面布局',
+  AppLocale.artworkLayoutDynamic: '动态',
+  AppLocale.artworkLayoutStacked: '堆叠',
+  AppLocale.artworkLayoutRows: '分行',
 };

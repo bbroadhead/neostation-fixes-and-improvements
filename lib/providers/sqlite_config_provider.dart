@@ -16,6 +16,10 @@ import 'package:neostation/services/sfx_service.dart';
 import '../models/system_model.dart';
 import '../models/rom_import_result.dart';
 import '../models/config_model.dart';
+import '../models/game_artwork_layout.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/emulator_model.dart';
 import '../data/datasources/sqlite_service.dart';
 import '../data/datasources/sqlite_config_service.dart';
@@ -64,6 +68,28 @@ class SqliteConfigProvider extends ChangeNotifier with WidgetsBindingObserver {
   final SfxService _customSfxPlayback;
   Future<void> _sfxMutation = Future.value();
   ConfigModel _config = ConfigModel.empty;
+  static const _artworkLayoutKey = 'gameArtworkLayout';
+  GameArtworkLayout _artworkLayout = GameArtworkLayout.dynamic;
+  GameArtworkLayout get artworkLayout => _artworkLayout;
+  Future<void> _artworkSave = Future<void>.value();
+
+  Future<void> updateArtworkLayout(GameArtworkLayout layout) {
+    if (_artworkLayout == layout) return _artworkSave;
+    _artworkLayout = layout;
+    notifyListeners();
+    _artworkSave = _artworkSave.then((_) async {
+      try {
+        final preferences = await SharedPreferences.getInstance();
+        if (!await preferences.setString(_artworkLayoutKey, layout.name)) {
+          _log.w('Could not save the game artwork layout');
+        }
+      } catch (error) {
+        _log.w('Could not save the game artwork layout: $error');
+      }
+    });
+    return _artworkSave;
+  }
+
   List<SystemModel> _detectedSystems = [];
   List<SystemModel> _availableSystems = [];
   Map<String, EmulatorModel> _availableEmulators = {};
@@ -481,6 +507,14 @@ class SqliteConfigProvider extends ChangeNotifier with WidgetsBindingObserver {
       // Load config first so persisted sort settings are available before
       // detected systems are loaded and ordered from the database.
       await _loadConfig();
+      try {
+        final preferences = await SharedPreferences.getInstance();
+        _artworkLayout = GameArtworkLayout.fromPreference(
+          preferences.getString(_artworkLayoutKey),
+        );
+      } catch (error) {
+        _log.w('Could not load the game artwork layout: $error');
+      }
 
       // The remaining data can be loaded in parallel.
       await Future.wait([

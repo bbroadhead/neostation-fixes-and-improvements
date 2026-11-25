@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:provider/provider.dart';
 import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/config_model.dart';
+import 'package:neostation/models/game_artwork_layout.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/services/gamepad/gamepad_navigation_manager.dart';
 import 'package:neostation/services/sfx_service.dart';
@@ -294,6 +295,15 @@ class _GameOptionsDialogState extends State<GameOptionsDialog> {
           ),
         ),
       ],
+      _MenuEntry.group(AppLocale.artworkLayout.getString(context)),
+      _MenuEntry.row(
+        _OptionRow(
+          id: 'artwork_layout',
+          label: '',
+          icon: Symbols.image_rounded,
+          segmented: true,
+        ),
+      ),
       if (mode == 'list') ...[
         _MenuEntry.group(AppLocale.listSizeGroup.getString(context)),
         _MenuEntry.row(
@@ -887,6 +897,22 @@ class _GameOptionsDialogState extends State<GameOptionsDialog> {
           apply: (value) => context
               .read<SqliteConfigProvider>()
               .updateGameCarouselCardStyle(value),
+        );
+      case 'artwork_layout':
+        final provider = context.read<SqliteConfigProvider>();
+        return _SegmentSpec(
+          values: GameArtworkLayout.values
+              .map((layout) => layout.name)
+              .toList(),
+          labels: [
+            AppLocale.artworkLayoutDynamic.getString(context),
+            AppLocale.artworkLayoutStacked.getString(context),
+            AppLocale.artworkLayoutRows.getString(context),
+          ],
+          selectedIndex: provider.artworkLayout.index,
+          apply: (value) => provider.updateArtworkLayout(
+            GameArtworkLayout.fromPreference(value),
+          ),
         );
       case 'list_size':
         return _SegmentSpec(
