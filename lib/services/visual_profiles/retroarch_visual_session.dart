@@ -515,15 +515,16 @@ class RetroArchVisualSession {
     String? romPath,
   }) async {
     final fallback = InstalledBorder.geometry(system);
-    if (coreFilename == null || fallback == null) return fallback;
+    final family = system.replaceFirst(RegExp(r'-hacks$'), '');
+    if (!const {'ws', 'wsc', 'ds', '3ds'}.contains(family)) return fallback;
+    if (coreFilename == null) return null;
     try {
       final root = flatpakConfigRoot;
       final base = await File(path.join(root, 'retroarch.cfg')).readAsString();
-      if (base.contains('#include')) return fallback;
-      return await _borderGeometry(root, base, coreFilename, romPath, system) ??
-          fallback;
+      if (base.contains('#include')) return null;
+      return await _borderGeometry(root, base, coreFilename, romPath, system);
     } on FileSystemException {
-      return fallback;
+      return null;
     }
   }
 
@@ -569,6 +570,7 @@ class RetroArchVisualSession {
         null ||
         'Default Top-Bottom Screen' => (aspect: 5 / 6, nativeHeight: 480),
         'Side by Side' => (aspect: 3.0, nativeHeight: 240),
+        'Large Screen, Small Screen' => (aspect: 2.0, nativeHeight: 960),
         _ => null,
       };
     }

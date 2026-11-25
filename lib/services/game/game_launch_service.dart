@@ -1460,7 +1460,7 @@ class GameLaunchService {
 
   /// The emulator [game] is meant to launch with, before the extension rule:
   /// its per-game override, else the system default the user picked, else the
-  /// best installed default ([_resolveDefaultInstalledEmulator]). [explicit]
+  /// best installed default ([resolveDefaultInstalledEmulator]). [explicit]
   /// marks a choice the user made, which the launch fails on rather than
   /// replaces.
   static Future<({String? uniqueId, bool explicit, String source})>
@@ -1481,7 +1481,7 @@ class GameLaunchService {
         source: 'system default (user-selected)',
       );
     }
-    final defaultEmu = await _resolveDefaultInstalledEmulator(system);
+    final defaultEmu = await resolveDefaultInstalledEmulator(system);
     if (defaultEmu != null) {
       return (
         uniqueId: defaultEmu.uniqueId,
@@ -1543,21 +1543,24 @@ class GameLaunchService {
   /// return that core and the launch will fail. Step 2 (prefer an installed
   /// standalone) minimizes this but cannot eliminate it without root or an
   /// install-state API RetroArch does not expose.
-  static Future<CoreEmulatorModel?> _resolveDefaultInstalledEmulator(
-    SystemModel system,
-  ) async {
+  static Future<CoreEmulatorModel?> resolveDefaultInstalledEmulator(
+    SystemModel system, {
+    List<CoreEmulatorModel>? availableEmulators,
+  }) async {
+    final systemId = system.id;
+    if (systemId == null) return null;
     // 1. Explicit user choice wins outright.
     final userDefault =
-        await EmulatorRepository.getUserDefaultEmulatorForSystem(system.id!);
+        await EmulatorRepository.getUserDefaultEmulatorForSystem(systemId);
     if (userDefault != null) return userDefault;
 
     final configured = await EmulatorRepository.getDefaultEmulatorForSystem(
-      system.id!,
+      systemId,
     );
 
     List<CoreEmulatorModel> all;
     try {
-      all = await loadEmulatorsForSystem(system);
+      all = availableEmulators ?? await loadEmulatorsForSystem(system);
     } catch (_) {
       // Enumeration failed → preserve prior behavior.
       return configured;

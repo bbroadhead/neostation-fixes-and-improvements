@@ -26,6 +26,7 @@ class InstalledBorder {
     this.zoomed = false,
     this.asset,
     this.imageSize,
+    this.layoutAspect,
   });
 
   final PixelRect? configuredOpening;
@@ -33,9 +34,11 @@ class InstalledBorder {
   final bool combinedScreens;
   final bool stackedDs;
   final bool zoomed;
+  final double? layoutAspect;
 
   bool supportsAspect(double aspect) =>
-      portrait == null || portrait == (aspect < 1);
+      (portrait == null || portrait == (aspect < 1)) &&
+      (layoutAspect == null || (layoutAspect! - aspect).abs() < 0.001);
   static const _maxImageBytes = 16 * 1024 * 1024;
 
   final String id;
@@ -92,26 +95,31 @@ class InstalledBorder {
     try {
       final staged = await File(path.join(scratch.path, filename))
           .writeAsBytes(bytes, flush: true);
-      final candidate = _custom(staged);
+      final candidate = _custom(staged, system);
       try {
         if (await candidate.render(dimensions.aspect) == null) return null;
       } catch (_) {
         return null;
       }
       final destination = path.join(directory.path, filename);
-      return _custom(await staged.rename(destination));
+      return _custom(await staged.rename(destination), system);
     } finally {
       await scratch.delete(recursive: true);
     }
   }
 
-  static InstalledBorder _custom(File file) {
+  static InstalledBorder _custom(File file, String system) {
     final key = path.basenameWithoutExtension(file.path);
     return InstalledBorder._(
       'custom/$key',
       file,
       'custom',
       key.substring(0, key.lastIndexOf('--')),
+      layoutAspect: switch (_baseSystem(system)) {
+        '3ds' => 5 / 6,
+        'ds' => 8 / 3,
+        _ => null,
+      },
     );
   }
 
@@ -253,7 +261,7 @@ class InstalledBorder {
             RegExp(r'^.{1,80}--[0-9a-f]{64}\.png$')
                 .hasMatch(path.basename(file.path)) &&
             await file.length() <= _maxImageBytes) {
-          borders.add(_custom(file));
+          borders.add(_custom(file, system));
         }
       }
     }
@@ -276,6 +284,18 @@ class InstalledBorder {
         '2560-1600-int-ps1-3-bk-cl-wh': 'PSX SCE Black II',
       },
     };
+    final dualScreenLayouts = switch (system) {
+      'ds' => const [
+        (id: 'ds-stacked', aspect: 2 / 3, width: 480, height: 720),
+        (id: 'ds-wide', aspect: 8 / 3, width: 1152, height: 432),
+      ],
+      '3ds' => const [
+        (id: '3ds-stacked', aspect: 5 / 6, width: 600, height: 720),
+        (id: '3ds-wide', aspect: 3.0, width: 1152, height: 384),
+        (id: '3ds-large', aspect: 2.0, width: 1152, height: 576),
+      ],
+      _ => const <({String id, double aspect, int width, int height})>[],
+    };
     return [
       for (final entry in (germanTacos[system] ?? const {}).entries)
         InstalledBorder._(
@@ -286,6 +306,22 @@ class InstalledBorder {
           asset: 'assets/bezels/germantacos/${entry.key}.png',
           imageSize: (width: 2560, height: 1600),
           configuredOpening: (x: 340, y: 101, width: 1880, height: 1398),
+        ),
+      for (final layout in dualScreenLayouts)
+        InstalledBorder._(
+          'neostation/${layout.id}',
+          null,
+          'NeoStation',
+          'Graphite',
+          asset: 'assets/bezels/dual_screen/${layout.id}.png',
+          imageSize: deckDisplay,
+          configuredOpening: (
+            x: (deckDisplay.width - layout.width) ~/ 2,
+            y: (deckDisplay.height - layout.height) ~/ 2,
+            width: layout.width,
+            height: layout.height,
+          ),
+          layoutAspect: layout.aspect,
         ),
     ];
   }

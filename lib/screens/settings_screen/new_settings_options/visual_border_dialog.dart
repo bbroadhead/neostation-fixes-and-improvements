@@ -21,7 +21,7 @@ class VisualBorderDialog extends StatefulWidget {
     required this.system,
     required this.profile,
     this.resolutionOnly = false,
-    this.previewGeometry,
+    required this.previewGeometry,
   });
 
   final String system;
@@ -49,6 +49,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   bool _favoritesOnly = false;
   bool _importing = false;
   bool _importFailed = false;
+  bool _borderTouched = false;
   late final Set<String> _favorites = {...widget.profile.favoriteBorderIds};
   late int _row = widget.resolutionOnly ? 11 : 0;
   int _index = 0;
@@ -60,8 +61,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   late double _x = widget.profile.horizontal;
   late double _y = widget.profile.vertical;
 
-  ({double aspect, int? nativeHeight})? get _geometry =>
-      widget.previewGeometry ?? InstalledBorder.geometry(widget.system);
+  ({double aspect, int? nativeHeight})? get _geometry => widget.previewGeometry;
 
   late final Map<String, BorderPlacement> _placements = {
     ...widget.profile.borderPlacements,
@@ -256,6 +256,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
 
   void _changeBorder(int index) {
     setState(() {
+      _borderTouched = true;
       _rememberPlacement();
       _index = index;
       _restorePlacement();
@@ -271,7 +272,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   }
 
   Future<void> _importBorder() async {
-    if (_importing || InstalledBorder.geometry(widget.system) == null) return;
+    if (_importing || _geometry == null) return;
     setState(() {
       _importing = true;
       _importFailed = false;
@@ -293,6 +294,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
         return;
       }
       _rememberPlacement();
+      _borderTouched = true;
       await _discover(selectedId: border.id);
     } catch (_) {
       if (mounted) setState(() => _importFailed = true);
@@ -356,7 +358,11 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       profile: VisualProfile(
         preset: _preset,
         shaderId: _shader,
-        borderId: _index == 0 ? null : _borders[_index - 1].id,
+        borderId: _index == 0
+            ? _borderTouched
+                  ? null
+                  : widget.profile.borderId
+            : _borders[_index - 1].id,
         size: _size,
         horizontal: _x,
         vertical: _y,
@@ -382,7 +388,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
         child: _busy
             ? const CircularProgressIndicator()
             : Text(
-                (_index == 0
+                (_index == 0 && _geometry != null
                         ? AppLocale.systemArtNone
                         : AppLocale.visualBorderUnavailable)
                     .getString(context),
@@ -612,9 +618,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
                 ListTile(
                   key: _rowKeys[8],
                   selected: _row == 8,
-                  enabled:
-                      !_importing &&
-                      InstalledBorder.geometry(widget.system) != null,
+                  enabled: !_importing && _geometry != null,
                   title: Text(AppLocale.visualBorderImport.getString(context)),
                   subtitle: _importFailed
                       ? Text(

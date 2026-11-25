@@ -432,6 +432,13 @@ void main() {
       expect(aspect(await ds('Top/Bottom')), closeTo(2 / 3, .005));
       expect(aspect(await ds('Left/Right')), closeTo(8 / 3, .02));
       expect(await ds('Hybrid Bottom'), isNot(contains('input_overlay =')));
+      expect(
+        await RetroArchVisualSession.previewBorderGeometry(
+          system: 'ds',
+          coreFilename: 'melonds_libretro.so',
+        ),
+        isNull,
+      );
       expect(aspect(await modernDs(1)), closeTo(8 / 3, .02));
       expect(await modernDs(2), isNot(contains('input_overlay =')));
       expect(
@@ -445,6 +452,10 @@ void main() {
         closeTo(5 / 6, .005),
       );
       expect(aspect(await citra('Side by Side')), closeTo(3, .02));
+      expect(
+        aspect(await citra('Large Screen, Small Screen')),
+        closeTo(2, .02),
+      );
       expect(
         await citra('Single Screen Only'),
         isNot(contains('input_overlay =')),

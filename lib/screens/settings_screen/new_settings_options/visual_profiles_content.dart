@@ -12,6 +12,7 @@ import '../../../models/system_model.dart';
 import '../../../models/visual_profile.dart';
 import '../../../providers/sqlite_config_provider.dart';
 import '../../../repositories/visual_profile_repository.dart';
+import '../../../services/game/game_launch_service.dart';
 import '../../../services/visual_profiles/retroarch_visual_session.dart';
 import '../../../utils/adaptive_scroll.dart';
 import '../../../utils/emulator_loader.dart';
@@ -81,6 +82,11 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
     var saved = false;
     try {
       final emulators = await loadEmulatorsForSystem(system);
+      final defaultEmulator =
+          await GameLaunchService.resolveDefaultInstalledEmulator(
+            system,
+            availableEmulators: emulators,
+          );
       if (!mounted) return;
       final cores = emulators
           .where(
@@ -105,9 +111,11 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
         emulatorId: selection.emulatorId,
       );
       final stored = repository.read(scope) ?? repository.read(systemScope);
-      final core = cores
-          .where((emulator) => emulator.uniqueId == scope.emulatorId)
-          .firstOrNull;
+      final core = scope.emulatorId == null
+          ? defaultEmulator
+          : cores
+                .where((emulator) => emulator.uniqueId == scope.emulatorId)
+                .firstOrNull;
       final geometry = await RetroArchVisualSession.previewBorderGeometry(
         system: system.folderName,
         coreFilename: core?.coreFilename,
@@ -119,7 +127,7 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
           system: system.folderName,
           previewGeometry: geometry,
           profile: stored ?? const VisualProfile(),
-          resolutionOnly: DolphinVisualProfile.supports(scope.emulatorId),
+          resolutionOnly: DolphinVisualProfile.supports(core?.uniqueId),
         ),
       );
       final profile = updated?.profile;

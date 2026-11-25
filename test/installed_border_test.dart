@@ -187,7 +187,13 @@ void main() {
           'pegasus/${entry.value}',
         );
       }
-      expect(await InstalledBorder.discover(root.path, 'ds'), isEmpty);
+      expect(
+        (await InstalledBorder.discover(
+          root.path,
+          'ds',
+        )).where((border) => border.source != 'NeoStation'),
+        isEmpty,
+      );
     },
   );
 
@@ -208,6 +214,28 @@ void main() {
         expect(viewport, isNotNull, reason: border.name);
         expect(viewport!.height, greaterThan(600), reason: border.name);
       }
+    }
+  });
+
+  test('dual-screen bezels fit only their registered layout', () async {
+    final root = await Directory.systemTemp.createTemp('dual-screen-test');
+    addTearDown(() => root.delete(recursive: true));
+    for (final (system, layouts) in [
+      ('ds', [2 / 3, 8 / 3]),
+      ('3ds', [5 / 6, 3.0, 2.0]),
+    ]) {
+      final borders = await InstalledBorder.discover(root.path, system);
+      expect(borders, hasLength(layouts.length));
+      for (final aspect in layouts) {
+        final compatible = borders.singleWhere(
+          (border) => border.supportsAspect(aspect),
+        );
+        expect(await compatible.render(aspect), isNotNull);
+        for (final incompatible in layouts.where((other) => other != aspect)) {
+          expect(await compatible.render(incompatible), isNull);
+        }
+      }
+      expect(borders.any((border) => border.supportsAspect(4 / 3)), isFalse);
     }
   });
 

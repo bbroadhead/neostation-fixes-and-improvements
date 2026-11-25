@@ -14,6 +14,7 @@ import 'package:neostation/models/system_model.dart';
 import 'package:neostation/models/visual_profile.dart';
 import 'package:neostation/repositories/game_repository.dart';
 import 'package:neostation/repositories/visual_profile_repository.dart';
+import 'package:neostation/services/game/game_launch_service.dart';
 import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/emulator_loader.dart';
@@ -108,9 +109,14 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
           repository.read(scope) ??
           repository.read(system) ??
           const VisualProfile();
-      final selectedCore = _availableEmulators
-          .where((emulator) => emulator.uniqueId == scope.emulatorId)
-          .firstOrNull;
+      final selectedCore = scope.emulatorId == null
+          ? await GameLaunchService.resolveDefaultInstalledEmulator(
+              widget.system,
+              availableEmulators: _availableEmulators,
+            )
+          : _availableEmulators
+                .where((emulator) => emulator.uniqueId == scope.emulatorId)
+                .firstOrNull;
       final previewGeometry =
           await RetroArchVisualSession.previewBorderGeometry(
             system: widget.system.folderName,
@@ -123,7 +129,7 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
         builder: (_) => VisualBorderDialog(
           system: widget.system.folderName,
           profile: current,
-          resolutionOnly: DolphinVisualProfile.supports(scope.emulatorId),
+          resolutionOnly: DolphinVisualProfile.supports(selectedCore?.uniqueId),
           previewGeometry: previewGeometry,
         ),
       );
