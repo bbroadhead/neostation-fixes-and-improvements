@@ -119,36 +119,63 @@ class RetroArchVisualSession {
       }
 
       Directory? artwork;
+      String? appendedConfig;
       if (systemFolder != null &&
           display != null &&
           profile.borderId != null &&
           !base.contains('#include')) {
         try {
-          final native = await _nativeOverrides(
+          final native = await _nativeOverrideFiles(
             configRoot,
             base,
             corePath,
             romPath,
           );
-          // An existing native layout loads after the session configuration.
-          // Keep it intact as a mismatched overlay could obscure gameplay.
-          if (native != null && !native.any(_hasNativeLayout)) {
-            artwork = await _prepareBorder(
-              configRoot,
-              systemFolder,
-              profile,
-              overrides,
-              display,
-              await _borderGeometry(
-                configRoot,
-                base,
-                corePath,
-                romPath,
-                systemFolder,
-              ),
+          if (native != null) {
+            final conflicts = native.any(
+              (file) => _hasNativeLayout(file.config),
             );
+            if (!conflicts || _canReplayOverrides(native, romPath)) {
+              final layout = <String, String>{};
+              artwork = await _prepareBorder(
+                configRoot,
+                systemFolder,
+                profile,
+                layout,
+                display,
+                await _borderGeometry(
+                  configRoot,
+                  base,
+                  corePath,
+                  romPath,
+                  systemFolder,
+                ),
+              );
+              if (artwork != null) {
+                if (conflicts) {
+                  final finalLayout = File(
+                    path.join(artwork.path, 'layout.cfg'),
+                  );
+                  await finalLayout.writeAsString(
+                    _renderSettings({
+                      ...layout,
+                      'auto_overrides_enable': 'false',
+                      'config_save_on_exit': 'false',
+                    }),
+                  );
+                  appendedConfig = [
+                    for (final file in native) file.filename,
+                    finalLayout.path,
+                  ].join('|');
+                } else {
+                  overrides.addAll(layout);
+                }
+              }
+            }
           }
         } catch (error) {
+          await artwork?.delete(recursive: true);
+          artwork = null;
           _log.w('Could not apply RetroArch border: $error');
         }
       }
@@ -190,6 +217,7 @@ class RetroArchVisualSession {
       }
       return RetroArchVisualSession._(sessionConfig, [
         '--config=${sessionConfig.path}',
+        if (appendedConfig != null) '--appendconfig=$appendedConfig',
         if (shader != null) '--set-shader=$shader',
         ...arguments,
       ], scratch);
@@ -260,6 +288,16 @@ class RetroArchVisualSession {
     String corePath,
     String? romPath,
   ) async {
+    final files = await _nativeOverrideFiles(root, config, corePath, romPath);
+    return files?.map((file) => file.config).toList();
+  }
+
+  static Future<List<({String filename, String config})>?> _nativeOverrideFiles(
+    String root,
+    String config,
+    String corePath,
+    String? romPath,
+  ) async {
     if (_value(config, 'auto_overrides_enable') == 'false') return [];
     final location = await _coreLocation(root, config, corePath);
     if (location == null) return null;
@@ -272,11 +310,14 @@ class RetroArchVisualSession {
         path.basenameWithoutExtension(romPath),
       ],
     ];
-    final contents = <String>[];
+    final contents = <({String filename, String config})>[];
     for (final name in names.toSet()) {
       final override = File(path.join(configDirectory, core, '$name.cfg'));
       if (await override.exists()) {
-        contents.add(await override.readAsString());
+        contents.add((
+          filename: override.path,
+          config: await override.readAsString(),
+        ));
       }
     }
     return contents;
@@ -525,6 +566,24 @@ class RetroArchVisualSession {
     };
   }
 
+  static bool _canReplayOverrides(
+    List<({String filename, String config})> native,
+    String? romPath,
+  ) {
+    if (romPath == null ||
+        romPath.contains('#') ||
+        const {'.zip', '.7z'}.contains(path.extension(romPath).toLowerCase())) {
+      return false;
+    }
+    final unsafe = RegExp(
+      r'^\s*(?:#include\b|(?:video_rotation|video_driver|rgui_config_directory)\s*=)',
+      multiLine: true,
+    );
+    return native.every(
+      (file) => !file.filename.contains('|') && !unsafe.hasMatch(file.config),
+    );
+  }
+
   static bool _hasNativeLayout(String config) => RegExp(
     r'^\s*(?:(?:custom_viewport_|input_overlay|video_scale_integer|video_rotation|video_fullscreen|video_windowed_fullscreen|video_viewport_bias)\w*|aspect_ratio_index|video_force_aspect)\s*=|^\s*#include ',
     multiLine: true,
@@ -666,12 +725,14 @@ class RetroArchVisualSession {
 
   /// Native includes inherit all base settings while leaving the base config
   /// outside the session's write path.
-  static String _renderConfig(Map<String, String> overrides) {
+  static String _renderConfig(Map<String, String> overrides) =>
+      '${_renderSettings(overrides)}#include "retroarch.cfg"\n';
+
+  static String _renderSettings(Map<String, String> overrides) {
     final output = StringBuffer();
     for (final setting in overrides.entries) {
       output.writeln('${setting.key} = "${setting.value}"');
     }
-    output.writeln('#include "retroarch.cfg"');
     return output.toString();
   }
 

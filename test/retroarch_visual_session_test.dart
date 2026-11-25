@@ -182,6 +182,62 @@ void main() {
     },
     skip: !Platform.isLinux,
   );
+  test('replays native override settings before an opted-in border', () async {
+    final pack = await Directory(path.join(root.path, 'overlays', 'borders'))
+        .create(recursive: true);
+    await createTestBorder(pack, 'psp');
+    final native = await Directory(path.join(root.path, 'config', 'PPSSPP'))
+        .create(recursive: true);
+    final core = await File(path.join(native.path, 'PPSSPP.cfg')).writeAsString(
+      'input_overlay = "native.cfg"\ninput_player1_joypad_index = "2"',
+    );
+    final folder = await File(path.join(native.path, 'games.cfg'))
+        .writeAsString('aspect_ratio_index = "21"');
+    final game = await File(path.join(native.path, 'Game.cfg'))
+        .writeAsString('audio_volume = "-4"');
+    Future<RetroArchVisualSession> launch(String? border) async {
+      await profiles.save(scope, VisualProfile(borderId: border));
+      return (await RetroArchVisualSession.prepare(
+        executable: wrapper.path,
+        systemId: scope.systemId,
+        systemFolder: 'psp',
+        emulatorId: 'psp.ra.ppsspp',
+        romPath: args.last,
+        corePath: args[2],
+        display: (width: 1280, height: 800),
+        arguments: args,
+      ))!;
+    }
+
+    final session = await launch('psp');
+    final files = session.arguments
+        .singleWhere((arg) => arg.startsWith('--appendconfig='))
+        .substring('--appendconfig='.length)
+        .split('|');
+    expect(files.take(3), [core.path, folder.path, game.path]);
+    final generated = File(files.last);
+    expect(
+      await generated.readAsString(),
+      contains('auto_overrides_enable = "false"'),
+    );
+    expect(
+      await generated.readAsString(),
+      contains('aspect_ratio_index = "23"'),
+    );
+    expect(await core.readAsString(), contains('input_overlay = "native.cfg"'));
+    await session.dispose();
+    expect(await generated.exists(), isFalse);
+
+    final noBorder = await launch(null);
+    expect(noBorder.arguments.skip(1), args);
+    await noBorder.dispose();
+
+    await game.writeAsString('video_rotation = "1"');
+    final rotated = await launch('psp');
+    expect(rotated.arguments.skip(1), args);
+    await rotated.dispose();
+  }, skip: !Platform.isLinux);
+
   test(
     'Enhanced resolves its installed shader while preserving the ROM and core',
     () async {
