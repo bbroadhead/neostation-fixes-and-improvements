@@ -35,11 +35,15 @@ Small single-screen openings in the ci2own collection also offer a **Zoomed** ch
 
 ### Nintendo DS split-window shell
 
+Build 2147 also provides Graphite choices for fixed stacked and side-by-side DS layouts with no gap. The system editor and per-game editor resolve the chosen core and use its effective layout before showing bezels. A packaged side-by-side melonDS DS session produced a complete 1024 × 384 viewport with both game screens. The active eight-layout cycling configuration still uses the core's native framing.
+
 Build 2143 fits the pack’s two DS openings separately when the selected core is **melonDS DS** with one fixed **Top/Bottom** or **Bottom/Top** layout and a compatible gap. The local artwork passed validation at 1280 × 800 with a **100-pixel gap**. The border picker uses the active core or game options. For a per-core profile, set the layout and gap in RetroArch’s native core options before opening the picker. Size and position are fixed for this shell so neither game screen drifts under the hinge. NeoStation reads the options and leaves them on disk unchanged. Layout cycling, incompatible gaps, and unsupported cores keep the native presentation. On-device touch and gameplay validation remain open. [melonDS DS core documentation](https://docs.libretro.com/library/melonds_ds/)
 
 The pack’s 3DS shell still requires independent screen placement. The documented Citra libretro core offers fixed layouts without a gap adjustment. NeoStation skips this shell to prevent occlusion. [Citra core options](https://docs.libretro.com/library/citra/#core-options)
 
 ### Nintendo 3DS local alternatives
+
+Build 2147 includes Graphite variants for stacked, side-by-side and large-and-small layouts in Citra. The installed core reported a 1920 × 960 framebuffer for large-and-small. A packaged launch fitted that framebuffer inside a clear 1150 × 575 viewport. Earlier imported PNGs were validated against the stacked configuration and appear only for that layout. Physical touch, other cores and Gaming Mode remain open.
 
 The Retro808 Nintendo 2DS and Nintendo 3DS XL archives from Downloads supplied 13 distinct local choices, six 2DS and seven 3DS XL. Their contiguous openings passed geometry checks for Citra's stacked Top/Bottom layout at a combined 5:6 aspect ratio. Other archive variants were excluded when the opening could not safely fit both screens or the PNG duplicated an accepted variant. The imported PNGs are under the Flatpak RetroArch configuration's `neostation-borders/3ds/` directory. Keep both original archives for their creator notes and RetroArch coordinate references. The artwork stays local. Build 2145 centers the width-limited stacked viewport in the opening. Both screens were visible in an isolated 1280 × 800 Citra launch using the black 3DS XL variant. Physical touchscreen and Gaming Mode validation remain open.
 
