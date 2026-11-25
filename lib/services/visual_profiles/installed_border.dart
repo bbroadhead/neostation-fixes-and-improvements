@@ -548,6 +548,7 @@ class InstalledBorder {
                 height: image.height,
                 aspect: aspect,
                 region: region,
+                preferVerticalRoom: source == 'custom' && aspect == 5 / 6,
               );
         if (opening == null) return null;
         final png = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -593,6 +594,7 @@ class InstalledBorder {
     required int height,
     required double aspect,
     PixelRect? region,
+    bool preferVerticalRoom = false,
   }) {
     if (width < 3 ||
         height < 3 ||
@@ -653,11 +655,21 @@ class InstalledBorder {
           final left = count == 0 ? 0 : stack[count - 1] + 1;
           final w = x - left;
           final fittedHeight = math.min(h.toDouble(), w / aspect);
+          // A stacked frame can be width-limited. Keep the full height of
+          // the same clear strip so its midpoint stays near the screen split.
+          final extendsBestStrip =
+              preferVerticalRoom &&
+              best != null &&
+              fittedHeight == bestFrameHeight &&
+              left == best.x &&
+              w == best.width &&
+              y + 1 - h == best.y &&
+              h > best.height;
           if (left > 0 &&
               x < width &&
               y + 1 > h &&
               y + 1 < height &&
-              fittedHeight > bestFrameHeight) {
+              (fittedHeight > bestFrameHeight || extendsBestStrip)) {
             bestFrameHeight = fittedHeight;
             best = (x: left, y: y + 1 - h, width: w, height: h);
           }

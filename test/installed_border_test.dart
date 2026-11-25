@@ -37,6 +37,26 @@ void main() {
     expect(opening(pixels), (x: 4, y: 2, width: 9, height: 6));
   });
 
+  test('retains vertical room for a width-limited stacked frame', () {
+    final pixels = alpha(
+      (x, y) => y >= 1 && y < 9 && x >= 5 && x < (y < 5 ? 12 : 10),
+    );
+    final bounds = InstalledBorder.transparentOpening(
+      pixels,
+      width: width,
+      height: height,
+      aspect: 5 / 6,
+      preferVerticalRoom: true,
+    );
+    expect(bounds, (x: 5, y: 1, width: 5, height: 8));
+    expect(GameplayViewport.fit(opening: bounds!, aspectRatio: 5 / 6), (
+      x: 5,
+      y: 2,
+      width: 5,
+      height: 6,
+    ));
+  });
+
   test('rejects completely empty, opaque and edge-only images', () {
     expect(opening(alpha((_, _) => true)), isNull);
     expect(opening(alpha((_, _) => false)), isNull);
