@@ -30,3 +30,5 @@ Session IDs and start times refer to local Codex rollout history. Results below 
 **Roadmap Phase 4.** The library completion badge uses cached official highest awards, distinct from the existing achievement-set count. Gold Mastered outranks Beaten at the API, and silver distinguishes Hardcore and Casual by tooltip. Added to grid, carousel, list, collection views, and search. The existing General setting controls display. 34 focused tests passed.
 
 **Roadmap Phase 5.** Added opt-out, deduplicated frontend RetroAchievements connectivity alerts and separate recovery notices. A periodic authenticated probe distinguishes failed transport, rejected credentials and service errors. The probe measures the app’s API session and cannot confirm an emulator submission. 50 focused tests passed.
+
+**Roadmap Phase 6.** Recovered the GD-ROM track padding fix from `933b8ad`, rebuilt the native library from source and passed 67 focused CHD, disc hash, M3U, Android launch and multi-disc import tests. Physical disc switching, save continuity, and achievement-session continuity remain open.

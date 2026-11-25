@@ -78,6 +78,23 @@ void main() {
       disc.close();
     }, skip: skip);
 
+    test('does not count the GD-ROM pad twice before the next track', () {
+      final disc = ChdDisc.open(
+        write(
+          buildChd(
+            tracks: [
+              ChdTrackSpec(type: 'AUDIO', frames: 8, gdPad: 5),
+              ChdTrackSpec(type: 'MODE1_RAW', frames: 8, gdPad: 0),
+            ],
+            sectors: {8: dataSector(List.filled(2048, 0x5A))},
+          ),
+        ),
+      );
+      addTearDown(disc.close);
+      expect(disc.tracks[1].startLba, 8);
+      expect(disc.readSector(1, 0)!.first, 0x5A);
+    }, skip: skip);
+
     test('puts a second track past the first, padded to four frames', () async {
       // 41 frames of audio occupy 44 in the file: tracks start on a multiple of
       // four. Get that wrong and every sector of the data track is off by
@@ -491,12 +508,14 @@ class ChdTrackSpec {
   /// pregap was absent from the source, not from the CHD.
   final int pregap;
   final String? pregapType;
+  final int? gdPad;
 
   const ChdTrackSpec({
     required this.type,
     required this.frames,
     this.pregap = 0,
     this.pregapType,
+    this.gdPad,
   });
 }
 
@@ -560,11 +579,13 @@ Uint8List buildChd({
     final track = tracks[i];
     final text =
         'TRACK:${i + 1} TYPE:${track.type} SUBTYPE:NONE '
-        'FRAMES:${track.frames} PREGAP:${track.pregap} '
+        'FRAMES:${track.frames} '
+        '${track.gdPad == null ? '' : 'PAD:${track.gdPad} '}'
+        'PREGAP:${track.pregap} '
         'PGTYPE:${track.pregapType ?? 'V'} PGSUB:RW POSTGAP:0';
     final data = Uint8List.fromList([...text.codeUnits, 0]);
 
-    view.setUint32(offset, 0x43485432); // 'CHT2'
+    view.setUint32(offset, track.gdPad == null ? 0x43485432 : 0x43484744);
     view.setUint32(offset + 4, data.length);
     final next = offset + 16 + data.length;
     view.setUint64(offset + 8, i == tracks.length - 1 ? 0 : next);

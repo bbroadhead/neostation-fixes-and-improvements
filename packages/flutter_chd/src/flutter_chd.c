@@ -129,7 +129,7 @@ static uint32_t nchd_read_track_metadata(chd_file *chd, uint32_t index,
   } else if (chd_get_metadata(chd, GDROM_TRACK_METADATA_TAG, index, metadata,
                               sizeof(metadata), &length, NULL,
                               NULL) == CHDERR_NONE) {
-    /* GD-ROM states its own padding rather than implying it. */
+    /* GD-ROM PAD is already included in FRAMES (e.g. the gap before track 3). */
     if (sscanf(metadata, GDROM_TRACK_METADATA_FORMAT, &number, type, subtype,
                &frames, &pad, &pregap, pgtype, pgsub, &postgap) != 9) {
       return 0;
@@ -157,7 +157,6 @@ static uint32_t nchd_read_track_metadata(chd_file *chd, uint32_t index,
   track->pregap = pregap > 0 ? (uint32_t)pregap : 0u;
   if (track->pregap > track->frames) track->pregap = 0u;
 
-  if (pad > 0) return track->frames + (uint32_t)pad;
   return track->frames + nchd_padding_frames(track->frames);
 }
 
