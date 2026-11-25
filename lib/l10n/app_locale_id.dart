@@ -1721,6 +1721,11 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.genreEducational: 'Edukasi',
   AppLocale.genreQuiz: 'Kuis',
   AppLocale.genreCompilation: 'Kompilasi',
+  AppLocale.raLaunchVerified: 'RetroAchievements: Konfigurasi terverifikasi',
+  AppLocale.raLaunchWarning: 'RetroAchievements: Peringatan',
+  AppLocale.raLaunchUnsupported: 'RetroAchievements: Tidak didukung',
+  AppLocale.raLaunchUnknown: 'RetroAchievements: Gagal memverifikasi',
+  AppLocale.raLaunchChecking: 'RetroAchievements: Memeriksa…',
   AppLocale.raCompatibilityHome: 'Kompatibilitas RetroAchievements',
   AppLocale.raNoVerifiedEnglishHash:
       'Hash terverifikasi untuk versi bahasa Inggris tidak ditemukan',

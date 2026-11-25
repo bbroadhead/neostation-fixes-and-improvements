@@ -1741,6 +1741,11 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.genreEducational: 'Lernspiel',
   AppLocale.genreQuiz: 'Quiz',
   AppLocale.genreCompilation: 'Sammlung',
+  AppLocale.raLaunchVerified: 'RetroAchievements: Konfiguration geprüft',
+  AppLocale.raLaunchWarning: 'RetroAchievements: Warnung',
+  AppLocale.raLaunchUnsupported: 'RetroAchievements: Nicht unterstützt',
+  AppLocale.raLaunchUnknown: 'RetroAchievements: Prüfung nicht möglich',
+  AppLocale.raLaunchChecking: 'RetroAchievements: Prüfung…',
   AppLocale.raCompatibilityHome: 'RetroAchievements-Kompatibilität',
   AppLocale.raNoVerifiedEnglishHash:
       'Kein bestätigter Hash für eine englische Version gefunden',

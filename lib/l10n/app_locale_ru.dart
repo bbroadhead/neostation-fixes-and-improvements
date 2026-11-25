@@ -1708,6 +1708,11 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.genreEducational: 'Обучающая',
   AppLocale.genreQuiz: 'Викторина',
   AppLocale.genreCompilation: 'Сборник',
+  AppLocale.raLaunchVerified: 'RetroAchievements: Конфигурация проверена',
+  AppLocale.raLaunchWarning: 'RetroAchievements: Предупреждение',
+  AppLocale.raLaunchUnsupported: 'RetroAchievements: Не поддерживается',
+  AppLocale.raLaunchUnknown: 'RetroAchievements: Не удалось проверить',
+  AppLocale.raLaunchChecking: 'RetroAchievements: Проверка…',
   AppLocale.raCompatibilityHome: 'Совместимость с RetroAchievements',
   AppLocale.raNoVerifiedEnglishHash:
       'Подтверждённый хеш англоязычной версии не найден',

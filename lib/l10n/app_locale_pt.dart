@@ -1728,6 +1728,11 @@ const Map<String, dynamic> appLocalePt = {
   AppLocale.genreEducational: 'Educativo',
   AppLocale.genreQuiz: 'Quiz',
   AppLocale.genreCompilation: 'Compilação',
+  AppLocale.raLaunchVerified: 'RetroAchievements: Configuração verificada',
+  AppLocale.raLaunchWarning: 'RetroAchievements: Aviso',
+  AppLocale.raLaunchUnsupported: 'RetroAchievements: Sem suporte',
+  AppLocale.raLaunchUnknown: 'RetroAchievements: Não foi possível verificar',
+  AppLocale.raLaunchChecking: 'RetroAchievements: Verificando…',
   AppLocale.raCompatibilityHome: 'Compatibilidade com RetroAchievements',
   AppLocale.raNoVerifiedEnglishHash:
       'Nenhum hash verificado compatível com inglês encontrado',

@@ -1833,6 +1833,11 @@ mixin AppLocale {
   // ==========================================================================
   // Localization Maps
   // ==========================================================================
+  static const String raLaunchVerified = 'raLaunchVerified';
+  static const String raLaunchWarning = 'raLaunchWarning';
+  static const String raLaunchUnsupported = 'raLaunchUnsupported';
+  static const String raLaunchUnknown = 'raLaunchUnknown';
+  static const String raLaunchChecking = 'raLaunchChecking';
   static const String raCompatibilityHome = 'ra_compatibility_home';
   static const String raNoVerifiedEnglishHash = 'ra_no_verified_english_hash';
   static const String raConnectionNotices = 'ra_connection_notices';

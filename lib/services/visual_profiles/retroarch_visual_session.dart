@@ -227,6 +227,40 @@ class RetroArchVisualSession {
     }
   }
 
+  static Future<({bool? achievements, bool? hardcore, bool accountMatches})?>
+  configuredAchievementSettings({
+    required String executable,
+    required String coreFilename,
+    required String romPath,
+    required String username,
+  }) async {
+    if (!Platform.isLinux || !await _isFlatpakWrapper(executable)) return null;
+    final root = flatpakConfigRoot;
+    final base = await File(path.join(root, 'retroarch.cfg')).readAsString();
+    final overrides = await _nativeOverrides(root, base, coreFilename, romPath);
+    if (overrides == null) return null;
+    final configs = [base, ...overrides];
+    if (configs.any((config) => config.contains('#include'))) return null;
+    String? setting(String key) => configs.reversed
+        .map((config) => _value(config, key))
+        .whereType<String>()
+        .firstOrNull;
+    bool? flag(String key) => switch (setting(key)) {
+      'true' => true,
+      'false' => false,
+      _ => null,
+    };
+    return (
+      achievements: flag('cheevos_enable'),
+      hardcore: flag('cheevos_hardcore_mode_enable'),
+      accountMatches:
+          setting('cheevos_username')?.toLowerCase() ==
+              username.toLowerCase() &&
+          ((setting('cheevos_token')?.isNotEmpty ?? false) ||
+              (setting('cheevos_password')?.isNotEmpty ?? false)),
+    );
+  }
+
   static Future<bool> _isFlatpakWrapper(String executable) async {
     if (path.basename(executable) == _flatpakId) return true;
     final file = File(executable);

@@ -1,3 +1,8 @@
+import 'package:provider/provider.dart';
+
+import '../providers/retro_achievements_provider.dart';
+import '../services/game/ra_launch_readiness.dart';
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
@@ -48,10 +53,20 @@ class _GameLaunchDialogState extends State<GameLaunchDialog> {
   bool _navLayerReleased = false;
   bool _postSyncStarted = false;
   String _gameStatus = '';
+  Future<RaLaunchReadiness>? _readiness;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_readiness == null) {
+      final provider = context.read<RetroAchievementsProvider?>();
+      _readiness = RaLaunchReadinessService.check(
+        widget.game,
+        widget.system,
+        username: provider?.username ?? '',
+        apiKey: provider?.apiKey ?? '',
+      );
+    }
     if (_gameStatus.isEmpty) {
       _gameStatus = AppLocale.launchingGame.getString(context);
     }
@@ -307,6 +322,27 @@ class _GameLaunchDialogState extends State<GameLaunchDialog> {
                   color: Theme.of(context).colorScheme.onSurface,
                   letterSpacing: 0.5.r,
                 ),
+              ),
+
+              FutureBuilder(
+                future: _readiness,
+                builder: (context, snapshot) {
+                  final label = switch (snapshot.data) {
+                    RaLaunchReadiness.verified => AppLocale.raLaunchVerified,
+                    RaLaunchReadiness.warning => AppLocale.raLaunchWarning,
+                    RaLaunchReadiness.unsupported =>
+                      AppLocale.raLaunchUnsupported,
+                    RaLaunchReadiness.unknown => AppLocale.raLaunchUnknown,
+                    null => AppLocale.raLaunchChecking,
+                  };
+                  return Padding(
+                    padding: EdgeInsets.only(top: 4.r),
+                    child: Text(
+                      label.getString(context),
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                },
               ),
 
               SizedBox(height: 4.r),
