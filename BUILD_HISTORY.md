@@ -32,3 +32,7 @@ Build 2140 SHA-256 `234ef6a20426af7dff78a36c3ea4b42c470c3ea7188487ff7be14ef9095c
 The descriptive candidate is `~/Downloads/neostation-linux-x86_64-0.16.1+2141-steamos-handheld-bezels.AppImage`. Source commit `06fbdce` records the recovered Visual Profiles code and the new local pack integration. Built with `LIBRETRO_ARTWORK=true` and verified version, extraction, launcher/shared-library binary parity and native dependencies. SHA-256 `7b76fd104ea1459cff72f638707d2e4fcb4ff0027894fb89031fa4044f0539fc`. The package excludes the private artwork.
 
 The Steam shortcut target was rechecked and points to the existing 2140 path. Builds 2137 and 2140 were backed up under `~/Downloads/neostation-archive/` and compared byte-for-byte. The candidate started on the isolated desktop display, retained all 1,413 records in the current library snapshot, and showed the imported GBA thumbnail and large preview. The selection survived an app restart. The packaged picker returned to None on selection. Physical gameplay alignment, controller behavior, save/resume and Hardcore verification remain open, so the shortcut still launches 2140.
+
+## Build 2142 native border overrides
+
+`~/Downloads/neostation-linux-x86_64-0.16.1+2142-steamos-native-border-overrides.AppImage` uses source commit `9bc1ed3` with `LIBRETRO_ARTWORK=true`. SHA-256 `28a5fc354b2de5eb1c79d7c436353f2f8d4f360c5595cd0c473b83d2af414750`. Package extraction, checksum, dependencies and isolated library startup passed. Steam still targets build 2140 at the same path pending hardware validation.
