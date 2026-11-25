@@ -14,7 +14,7 @@ Personal, machine-specific notes belong in an untracked `AGENTS.local.md` (alrea
 
 At the start of every NeoStation task, read [PROJECT_MEMORY.md](PROJECT_MEMORY.md), [ROADMAP.md](ROADMAP.md), [SESSION_LOG.md](SESSION_LOG.md), [KNOWN_ISSUES.md](KNOWN_ISSUES.md), and [BUILD_HISTORY.md](BUILD_HISTORY.md). Reconcile them with the active branch, working tree, and relevant installed or preview build before changing code. Follow the latest explicit owner decision. Record unresolved conflicts and preserve earlier decisions in the session log.
 
-Before closing a task, update the relevant memory files with decisions, work completed or still open, test results and limitations, and build provenance. Record the branch, commit, working-tree status, build suffix, checksum, and separate runtime verification when known. Use the roadmap for future work and the issue register for unresolved behavior. Keep original session histories, credentials, ROM inventories and user data out of Git. Preserve local changes and stage only files in scope.
+Before closing a task, update the relevant memory files with decisions, work completed or still open, test results and limitations, and build provenance. Record the branch, commit, working-tree status, build suffix, checksum, and separate runtime verification when known. Use the roadmap for future work and the issue register for unresolved behavior. Keep original session histories, credentials, ROM inventories and user data out of Git. Preserve local changes and stage only files in scope. Keep the current launchable AppImage at its fixed filename and path across updates. Build and verify candidates separately, archive the prior build, then promote the verified replacement at the existing path.
 
 ## Commands
 

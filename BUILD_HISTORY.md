@@ -23,6 +23,6 @@ Artifact filenames share the prefix `neostation-linux-x86_64-0.16.1+` and suffix
 
 The November 24 consolidation verified the 2140 SHA-256 sidecar and read its SquashFS listing, including AppRun, desktop entry, Flutter assets and libapp.so. The package listing did not establish that the newly identified bezel directory was bundled. No build, emulator launch or Steam shortcut change was made in this audit.
 
-Keep separately named packages and obtain a source SHA and checksum from each new build. Archive superseded Downloads copies under `~/Downloads/neostation-archive/` while preserving known working launch targets and originals. Native dependency reuse was used for historical builds where the host lacked the full toolchain.
+Use one fixed filename and path for the current launchable AppImage. Keep the existing Steam shortcut target as the stable path unless the owner explicitly chooses another one. Build and verify each candidate separately, archive the previous artifact under a versioned filename with its checksum, then atomically replace the file at the stable path on the same filesystem. Record each build’s source SHA and checksum. Failed or unfinished previews stay separate from the current launchable AppImage. Keep rollback copies under `~/Downloads/neostation-archive/` or the applicable release archive. Native dependency reuse was used for historical builds where the host lacked the full toolchain.
 
 Build 2140 SHA-256 `234ef6a20426af7dff78a36c3ea4b42c470c3ea7188487ff7be14ef9095cedec`.
