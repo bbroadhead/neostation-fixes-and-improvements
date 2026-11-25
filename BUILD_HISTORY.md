@@ -36,3 +36,7 @@ The Steam shortcut target was rechecked and points to the existing 2140 path. Bu
 ## Build 2142 native border overrides
 
 `~/Downloads/neostation-linux-x86_64-0.16.1+2142-steamos-native-border-overrides.AppImage` uses source commit `9bc1ed3` with `LIBRETRO_ARTWORK=true`. SHA-256 `28a5fc354b2de5eb1c79d7c436353f2f8d4f360c5595cd0c473b83d2af414750`. Package extraction, checksum, dependencies and isolated library startup passed. Steam still targets build 2140 at the same path pending hardware validation.
+
+## Build 2143 DS split-window bezel
+
+`~/Downloads/neostation-linux-x86_64-0.16.1+2143-steamos-ds-split-bezel.AppImage` uses `e68ecbd` with `LIBRETRO_ARTWORK=true`. SHA-256 `812a742714baf7b06348f12866fe54cc698b7376014f6ac0ba58bb8f246d0ec1`. Packaging verified extraction, checksum, dependencies and isolated startup. The existing Steam target remained at 2140 pending physical validation.
