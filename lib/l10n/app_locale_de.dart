@@ -8,6 +8,8 @@ const Map<String, dynamic> appLocaleDe = {
   AppLocale.visualBorderFavorites: 'Nur Favoriten',
   AppLocale.visualGameOverride: 'Bildprofil für dieses Spiel festlegen',
   AppLocale.visualPreset: 'Voreinstellung',
+  AppLocale.visualShaderPreviewUnavailable: 'Shader-Vorschau nicht verfügbar',
+  AppLocale.visualShaderStaticPreview: 'Statische RetroArch-Vorschau',
   AppLocale.visualShader: 'Shader',
   AppLocale.visualEnhanced: 'Verbessert',
   AppLocale.visualAuthentic: 'Originalgetreu',

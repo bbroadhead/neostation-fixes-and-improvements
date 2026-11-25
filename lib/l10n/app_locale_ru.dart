@@ -8,6 +8,8 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.visualBorderFavorites: 'Только избранное',
   AppLocale.visualGameOverride: 'Настроить графику для этой игры',
   AppLocale.visualPreset: 'Предустановка',
+  AppLocale.visualShaderPreviewUnavailable: 'Предпросмотр шейдера недоступен',
+  AppLocale.visualShaderStaticPreview: 'Статический предпросмотр RetroArch',
   AppLocale.visualShader: 'Шейдер',
   AppLocale.visualEnhanced: 'Улучшенный',
   AppLocale.visualAuthentic: 'Аутентичный',

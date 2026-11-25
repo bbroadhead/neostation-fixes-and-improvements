@@ -8,6 +8,8 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.visualBorderFavorites: '仅收藏',
   AppLocale.visualGameOverride: '覆盖此游戏的画面设置',
   AppLocale.visualPreset: '预设',
+  AppLocale.visualShaderPreviewUnavailable: '无法预览着色器',
+  AppLocale.visualShaderStaticPreview: 'RetroArch 静态预览',
   AppLocale.visualShader: '着色器',
   AppLocale.visualEnhanced: '增强',
   AppLocale.visualAuthentic: '原机风格',

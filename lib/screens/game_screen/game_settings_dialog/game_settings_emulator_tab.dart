@@ -50,6 +50,7 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
   static final _log = LoggerService.instance;
 
   List<CoreEmulatorModel> _availableEmulators = [];
+  CoreEmulatorModel? _systemDefault;
   int _selectedIndex = 0;
 
   /// Tracks the active emulator override. Uses a sentinel to differentiate
@@ -123,6 +124,10 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
             coreFilename: selectedCore?.coreFilename,
             romPath: rom,
           );
+      final shaderFormat = await RetroArchVisualSession.previewShaderFormat(
+        coreFilename: selectedCore?.coreFilename,
+        romPath: rom,
+      );
       if (!mounted) return;
       final result = await showDialog<VisualBorderResult>(
         context: context,
@@ -131,6 +136,7 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
           profile: current,
           resolutionOnly: DolphinVisualProfile.supports(selectedCore?.uniqueId),
           previewGeometry: previewGeometry,
+          shaderFormat: shaderFormat,
         ),
       );
       if (result == null) return;
@@ -165,7 +171,16 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
 
   Future<void> _loadEmulators() async {
     final emulators = await loadEmulatorsForSystem(widget.system);
-    if (mounted) setState(() => _availableEmulators = emulators);
+    final systemDefault =
+        await GameLaunchService.resolveDefaultInstalledEmulator(
+          widget.system,
+          availableEmulators: emulators,
+        );
+    if (!mounted) return;
+    setState(() {
+      _availableEmulators = emulators;
+      _systemDefault = systemDefault;
+    });
   }
 
   void moveUp() {
@@ -286,7 +301,10 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
           EmulatorRow(
             key: _itemKey(0),
             isSelected: _selectedIndex == 0,
-            label: AppLocale.systemDefault.getString(context),
+            label: [
+              AppLocale.systemDefault.getString(context),
+              if (_systemDefault case final emulator?) '(${emulator.name})',
+            ].join(' '),
             isActive:
                 _resolvedEmulatorId == null ||
                 !_availableEmulators.any(

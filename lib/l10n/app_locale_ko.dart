@@ -8,6 +8,8 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.visualBorderFavorites: '즐겨찾기만',
   AppLocale.visualGameOverride: '이 게임의 그래픽 설정 변경',
   AppLocale.visualPreset: '프리셋',
+  AppLocale.visualShaderPreviewUnavailable: '셰이더 미리 보기를 사용할 수 없음',
+  AppLocale.visualShaderStaticPreview: 'RetroArch 정적 미리 보기',
   AppLocale.visualShader: '셰이더',
   AppLocale.visualEnhanced: '향상',
   AppLocale.visualAuthentic: '실기 재현',

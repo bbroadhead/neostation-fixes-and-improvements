@@ -88,6 +88,7 @@ class RetroArchVisualSession {
         selectedShader,
       );
       final overrides = <String, String>{'config_save_on_exit': 'false'};
+      if (selectedShader == '@none') overrides['video_shader_enable'] = 'false';
       if (profile.preset != VisualPreset.custom) {
         overrides.addAll({
           'video_force_aspect': 'true',
@@ -739,17 +740,7 @@ class RetroArchVisualSession {
     String? shaderId,
   ) async {
     if (shaderId == null || path.isAbsolute(shaderId)) return null;
-    final native = await _nativeOverrides(root, config, corePath, romPath);
-    if (native == null) return null;
-    var driver = _value(config, 'video_driver');
-    for (final override in native) {
-      driver = _value(override, 'video_driver') ?? driver;
-    }
-    final format = switch (driver) {
-      'vulkan' || 'glcore' => 'slang',
-      'gl' => 'glsl',
-      _ => null,
-    };
+    final format = await _shaderFormat(root, config, corePath, romPath);
     if (format == null) return null;
     final relativePath = shaderId.startsWith('@')
         ? _presetPath(shaderId, format)
@@ -764,6 +755,40 @@ class RetroArchVisualSession {
     return path.isWithin(await shaders.resolveSymbolicLinks(), canonical)
         ? canonical
         : null;
+  }
+
+  static Future<String?> previewShaderFormat({
+    required String? coreFilename,
+    String? romPath,
+  }) async {
+    if (coreFilename == null) return null;
+    final root = flatpakConfigRoot;
+    try {
+      final config = await File(path.join(root, 'retroarch.cfg'))
+          .readAsString();
+      return await _shaderFormat(root, config, coreFilename, romPath);
+    } on FileSystemException {
+      return null;
+    }
+  }
+
+  static Future<String?> _shaderFormat(
+    String root,
+    String config,
+    String corePath,
+    String? romPath,
+  ) async {
+    final native = await _nativeOverrides(root, config, corePath, romPath);
+    if (native == null) return null;
+    var driver = _value(config, 'video_driver');
+    for (final override in native) {
+      driver = _value(override, 'video_driver') ?? driver;
+    }
+    return switch (driver) {
+      'vulkan' || 'glcore' => 'slang',
+      'gl' => 'glsl',
+      _ => null,
+    };
   }
 
   /// Native includes inherit all base settings while leaving the base config

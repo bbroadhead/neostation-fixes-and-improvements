@@ -8,6 +8,8 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.visualBorderFavorites: 'お気に入りのみ',
   AppLocale.visualGameOverride: 'このゲームの描画設定を変更',
   AppLocale.visualPreset: 'プリセット',
+  AppLocale.visualShaderPreviewUnavailable: 'シェーダーのプレビューは利用できません',
+  AppLocale.visualShaderStaticPreview: 'RetroArch の静止プレビュー',
   AppLocale.visualShader: 'シェーダー',
   AppLocale.visualEnhanced: '高画質',
   AppLocale.visualAuthentic: '実機風',

@@ -7,9 +7,14 @@ import '../../../services/gamepad/gamepad_navigation_manager.dart';
 import '../../../utils/gamepad_nav.dart';
 
 class VisualProfileScopeDialog extends StatefulWidget {
-  const VisualProfileScopeDialog({super.key, required this.cores});
+  const VisualProfileScopeDialog({
+    super.key,
+    required this.cores,
+    this.defaultEmulatorName,
+  });
 
   final List<CoreEmulatorModel> cores;
+  final String? defaultEmulatorName;
 
   @override
   State<VisualProfileScopeDialog> createState() =>
@@ -75,7 +80,10 @@ class _VisualProfileScopeDialogState extends State<VisualProfileScopeDialog> {
           selected: index == _index,
           title: Text(
             index == 0
-                ? AppLocale.systemDefault.getString(context)
+                ? [
+                    AppLocale.systemDefault.getString(context),
+                    if (widget.defaultEmulatorName case final name?) '($name)',
+                  ].join(' ')
                 : widget.cores[index - 1].name,
           ),
           onTap: () => _select(index),

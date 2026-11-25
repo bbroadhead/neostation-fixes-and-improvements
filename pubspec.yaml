@@ -106,6 +106,7 @@ flutter:
   assets:
     - assets/bezels/germantacos/
     - assets/bezels/dual_screen/
+    - assets/shader_previews/
     - assets/images/
     - assets/images/logos/
     - assets/images/emulators/

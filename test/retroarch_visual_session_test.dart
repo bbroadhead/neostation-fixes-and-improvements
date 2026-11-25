@@ -86,6 +86,22 @@ void main() {
     expect(await prepare(arguments: ['--config=/custom.cfg', ...args]), isNull);
   }, skip: !Platform.isLinux);
 
+  test('explicit None disables shaders for the session', () async {
+    await base.writeAsString('$settings\nvideo_shader_enable = "true"\n');
+    await profiles.save(scope, const VisualProfile(shaderId: '@none'));
+    final session = (await prepare())!;
+    final generated = File(
+      session.arguments.first.substring('--config='.length),
+    );
+    expect(
+      await generated.readAsString(),
+      contains('video_shader_enable = "false"'),
+    );
+    expect(await base.readAsString(), contains('video_shader_enable = "true"'));
+    expect(session.arguments.skip(1), args);
+    await session.dispose();
+  }, skip: !Platform.isLinux);
+
   test(
     'passes only an existing backend-compatible shader to the wrapper',
     () async {

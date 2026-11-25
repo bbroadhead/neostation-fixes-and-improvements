@@ -22,12 +22,14 @@ class VisualBorderDialog extends StatefulWidget {
     required this.profile,
     this.resolutionOnly = false,
     required this.previewGeometry,
+    this.shaderFormat,
   });
 
   final String system;
   final VisualProfile profile;
   final bool resolutionOnly;
   final ({double aspect, int? nativeHeight})? previewGeometry;
+  final String? shaderFormat;
 
   @override
   State<VisualBorderDialog> createState() => _VisualBorderDialogState();
@@ -38,10 +40,11 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   late final GamepadNavigation _nav;
   List<InstalledBorder> _borders = [];
   ({PixelRect opening, Uint8List png})? _preview;
-  final _rowKeys = List.generate(13, (_) => GlobalKey());
+  final _rowKeys = List.generate(14, (_) => GlobalKey());
+  bool _shaderTab = false;
   late VisualPreset _preset = widget.profile.preset;
   late String? _shader = widget.profile.shaderId;
-  static const _shaders = <String?>[null, '@sharp', '@lcd', '@crt'];
+  static const _shaders = <String?>[null, '@none', '@sharp', '@lcd', '@crt'];
 
   final _searchFocus = FocusNode();
   final _scrollController = ScrollController();
@@ -53,7 +56,8 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   late final Set<String> _favorites = {...widget.profile.favoriteBorderIds};
   late int _row = widget.resolutionOnly ? 11 : 0;
   int _index = 0;
-  int _loadRevision = 0;
+  final _previewCache = <String, ({PixelRect opening, Uint8List png})?>{};
+  bool _renderingPreview = false;
   bool _busy = true;
   bool get _fixedPlacement => _index > 0 && _borders[_index - 1].stackedDs;
 
@@ -85,7 +89,9 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       onNavigateLeft: () => _adjust(-1),
       onNavigateRight: () => _adjust(1),
       onSelectItem: _select,
-      onBack: () => Navigator.of(context).pop(),
+      onBack: _back,
+      onLeftBumper: () => _setShaderTab(false),
+      onRightBumper: () => _setShaderTab(true),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -148,27 +154,64 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   }
 
   Future<void> _render() async {
-    final revision = ++_loadRevision;
+    final selected = _index == 0 ? null : _borders[_index - 1];
     setState(() {
-      _busy = _index != 0;
-      _preview = null;
+      _busy = selected != null && !_previewCache.containsKey(selected.id);
+      _preview = selected == null ? null : _previewCache[selected.id];
     });
-    if (_index == 0) return;
-    ({PixelRect opening, Uint8List png})? rendered;
+    if (!_busy || _renderingPreview) return;
+    _renderingPreview = true;
     try {
-      rendered = await _borders[_index - 1].render(_geometry!.aspect);
-    } catch (_) {
-      // Keep the selection visible so the user can move to another border.
+      while (mounted && _index != 0 && _busy) {
+        final border = _borders[_index - 1];
+        final id = border.id;
+        ({PixelRect opening, Uint8List png})? rendered;
+        if (_previewCache.containsKey(id)) {
+          rendered = _previewCache.remove(id);
+        } else {
+          try {
+            rendered = await border.render(_geometry!.aspect);
+          } catch (_) {
+            // Leave the selection visible so the user can move to another.
+          }
+        }
+        if (!mounted) return;
+        _previewCache[id] = rendered;
+        if (_previewCache.length > 6) {
+          _previewCache.remove(_previewCache.keys.first);
+        }
+        if (_index != 0 && _borders[_index - 1].id == id) {
+          setState(() {
+            _busy = false;
+            _preview = rendered;
+          });
+        }
+      }
+    } finally {
+      _renderingPreview = false;
     }
-    if (!mounted || revision != _loadRevision) return;
-    setState(() {
-      _busy = false;
-      _preview = rendered;
-    });
   }
 
   bool get _canSave =>
       !_importing && !_busy && (_index == 0 || _preview != null);
+
+  void _back() {
+    if (_searchFocus.hasFocus) {
+      _searchFocus.unfocus();
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _setShaderTab(bool shaderTab) {
+    if (widget.resolutionOnly || _shaderTab == shaderTab) return;
+    _searchFocus.unfocus();
+    setState(() {
+      _shaderTab = shaderTab;
+      _row = shaderTab ? 12 : 0;
+    });
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+  }
 
   void _move(int direction) {
     if (widget.resolutionOnly) {
@@ -176,8 +219,20 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       setState(() => _row = rows[(rows.indexOf(_row) + direction + 3) % 3]);
       return;
     }
-    final count = _rowKeys.length;
-    setState(() => _row = (_row + direction + count) % count);
+    final rows = _shaderTab
+        ? const [12, 11, 13, 5, 6]
+        : [
+            0,
+            if (!_fixedPlacement) ...[1, 2, 3, 4],
+            7,
+            8,
+            9,
+            10,
+            5,
+            6,
+          ];
+    final current = rows.indexOf(_row);
+    setState(() => _row = rows[(current + direction) % rows.length]);
     final rowContext = _rowKeys[_row].currentContext;
     if (rowContext != null) {
       Scrollable.ensureVisible(rowContext);
@@ -231,15 +286,22 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   }).getString(context);
 
   String get _shaderLabel => switch (_shader) {
-    '@sharp' => 'Sharp Bilinear',
-    '@lcd' => 'LCD Grid',
+    '@none' => AppLocale.systemArtNone.getString(context),
+    '@sharp' => 'Sharp Bilinear Simple',
+    '@lcd' => 'LCD Grid v2',
     '@crt' => 'CRT Pi',
     final String custom => custom.split('/').last,
     null => AppLocale.visualPresetDefault.getString(context),
   };
 
   void _choose(int direction) {
-    if (_borders.isEmpty || _importing) return;
+    if (_importing) return;
+    if (_borders.isEmpty) {
+      if (!_busy && widget.profile.borderId != null) {
+        setState(() => _borderTouched = true);
+      }
+      return;
+    }
     final candidates = [
       0,
       for (var i = 0; i < _borders.length; i++)
@@ -339,6 +401,8 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
         _changePreset(1);
       case 12:
         _changeShader(1);
+      case 13:
+        setState(() => _shader = null);
     }
   }
 
@@ -396,6 +460,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       );
     }
     final geometry = _geometry!;
+    final shaderPreview = _shaderPreviewAsset;
     final viewport = _fixedPlacement
         ? preview.opening
         : GameplayViewport.fit(
@@ -422,9 +487,17 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
                     top: viewport.y * scale,
                     width: viewport.width * scale,
                     height: viewport.height * scale,
-                    child: ColoredBox(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                    ),
+                    child: shaderPreview == null
+                        ? ColoredBox(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primaryContainer,
+                          )
+                        : Image.asset(
+                            shaderPreview,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.none,
+                          ),
                   ),
                 Image.memory(
                   preview.png,
@@ -436,6 +509,51 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
           },
         ),
       ),
+    );
+  }
+
+  String? get _shaderPreviewAsset {
+    final effect = switch (_shader) {
+      '@sharp' => 'sharp',
+      '@lcd' => 'lcd',
+      '@crt' => 'crt',
+      _ => null,
+    };
+    final asset = switch ((widget.shaderFormat, effect)) {
+      ('glsl', final effect?) => 'gl-$effect.png',
+      ('slang', final effect?) => 'slang-$effect.png',
+      _ when _shader == '@none' => 'raw.png',
+      _ => null,
+    };
+    return asset == null ? null : 'assets/shader_previews/$asset';
+  }
+
+  Widget _shaderPreviewView() {
+    final format = widget.shaderFormat;
+    final asset = _shaderPreviewAsset;
+    final unavailable = AppLocale.visualShaderPreviewUnavailable.getString(
+      context,
+    );
+    if (asset == null) return Center(child: Text(unavailable));
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Image.asset(
+            asset,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.none,
+            errorBuilder: (_, _, _) => Center(child: Text(unavailable)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          [
+            AppLocale.visualShaderStaticPreview.getString(context),
+            if (_shader != '@none' && format != null) format.toUpperCase(),
+          ].join(' · '),
+        ),
+      ],
     );
   }
 
@@ -504,171 +622,214 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       widget.resolutionOnly ? _resolutionEditor() : _borderEditor();
 
   Widget _borderEditor() => AlertDialog(
-    title: Text(AppLocale.visualProfiles.getString(context)),
+    title: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(AppLocale.visualProfiles.getString(context)),
+        const SizedBox(height: 12),
+        SegmentedButton<bool>(
+          segments: [
+            ButtonSegment(
+              value: false,
+              label: Text(AppLocale.visualBorder.getString(context)),
+            ),
+            ButtonSegment(
+              value: true,
+              label: Text(AppLocale.visualShader.getString(context)),
+            ),
+          ],
+          selected: {_shaderTab},
+          onSelectionChanged: (selection) => _setShaderTab(selection.single),
+        ),
+      ],
+    ),
     content: SizedBox(
       width: 800,
       height: 360,
       child: Row(
         children: [
-          Expanded(child: _previewView()),
+          Expanded(child: _shaderTab ? _shaderPreviewView() : _previewView()),
           const SizedBox(width: 16),
           SizedBox(
             width: 300,
-            child: ListView(
-              controller: _scrollController,
-              children: [
-                ListTile(
-                  key: _rowKeys[0],
-                  selected: _row == 0,
-                  title: Text(
-                    _index == 0
-                        ? AppLocale.systemArtNone.getString(context)
-                        : _borders[_index - 1].zoomed
-                        ? '${_borders[_index - 1].name} · '
-                              '${AppLocale.visualBorderZoomed.getString(context)}'
-                        : _borders[_index - 1].name,
-                  ),
-                  subtitle: _index == 0
-                      ? null
-                      : Text(
-                          _borders[_index - 1].source == 'custom'
-                              ? AppLocale.visualCustomBorder.getString(context)
-                              : _borders[_index - 1].source,
-                        ),
-                  leading: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.chevron_left),
-                        onPressed: () => _choose(-1),
+            child: ListTileTheme(
+              selectedTileColor: Theme.of(context).colorScheme.primaryContainer
+                  .withValues(alpha: 0.35),
+              child: ListView(
+                controller: _scrollController,
+                children: [
+                  if (!_shaderTab) ...[
+                    ListTile(
+                      key: _rowKeys[0],
+                      selected: _row == 0,
+                      title: Text(
+                        _index == 0
+                            ? AppLocale.systemArtNone.getString(context)
+                            : _borders[_index - 1].zoomed
+                            ? '${_borders[_index - 1].name} · '
+                                  '${AppLocale.visualBorderZoomed.getString(context)}'
+                            : _borders[_index - 1].name,
                       ),
-                      if (_index != 0)
-                        Image(
-                          image: ResizeImage.resizeIfNeeded(
-                            96,
-                            null,
-                            _borders[_index - 1].thumbnail,
+                      subtitle: _index == 0
+                          ? null
+                          : Text(
+                              _borders[_index - 1].source == 'custom'
+                                  ? AppLocale.visualCustomBorder.getString(
+                                      context,
+                                    )
+                                  : _borders[_index - 1].source,
+                            ),
+                      leading: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left),
+                            onPressed: () => _choose(-1),
                           ),
-                          width: 48,
-                          height: 32,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                        ),
-                    ],
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    onPressed: () => _choose(1),
-                  ),
-                ),
-                _slider(
-                  1,
-                  AppLocale.visualGameplaySize.getString(context),
-                  _size,
-                  0.25,
-                  (v) => _size = v,
-                ),
-                _slider(
-                  2,
-                  AppLocale.visualHorizontal.getString(context),
-                  _x,
-                  -1,
-                  (v) => _x = v,
-                ),
-                _slider(
-                  3,
-                  AppLocale.visualVertical.getString(context),
-                  _y,
-                  -1,
-                  (v) => _y = v,
-                ),
-                ListTile(
-                  key: _rowKeys[4],
-                  selected: _row == 4,
-                  title: Text(AppLocale.reset.getString(context)),
-                  onTap: () => setState(_resetPlacement),
-                ),
-                ListTile(
-                  key: _rowKeys[5],
-                  selected: _row == 5,
-                  enabled: _canSave,
-                  title: Text(AppLocale.save.getString(context)),
-                  onTap: _canSave ? _save : null,
-                ),
-                ListTile(
-                  key: _rowKeys[6],
-                  selected: _row == 6,
-                  title: Text(AppLocale.disabled.getString(context)),
-                  onTap: _disable,
-                ),
-                ListTile(
-                  key: _rowKeys[7],
-                  selected: _row == 7,
-                  title: TextField(
-                    focusNode: _searchFocus,
-                    decoration: InputDecoration(
-                      labelText: AppLocale.visualBorderSearch.getString(
-                        context,
+                          if (_index != 0)
+                            Image(
+                              image: ResizeImage.resizeIfNeeded(
+                                96,
+                                null,
+                                _borders[_index - 1].thumbnail,
+                              ),
+                              width: 48,
+                              height: 32,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) =>
+                                  const SizedBox.shrink(),
+                            ),
+                        ],
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        onPressed: () => _choose(1),
                       ),
                     ),
-                    onChanged: (query) => setState(() => _query = query),
-                    onSubmitted: (_) => _searchFocus.unfocus(),
+                    _slider(
+                      1,
+                      AppLocale.visualGameplaySize.getString(context),
+                      _size,
+                      0.25,
+                      (v) => _size = v,
+                    ),
+                    _slider(
+                      2,
+                      AppLocale.visualHorizontal.getString(context),
+                      _x,
+                      -1,
+                      (v) => _x = v,
+                    ),
+                    _slider(
+                      3,
+                      AppLocale.visualVertical.getString(context),
+                      _y,
+                      -1,
+                      (v) => _y = v,
+                    ),
+                    ListTile(
+                      key: _rowKeys[4],
+                      selected: _row == 4,
+                      enabled: !_fixedPlacement,
+                      title: Text(AppLocale.reset.getString(context)),
+                      onTap: () => setState(_resetPlacement),
+                    ),
+                    ListTile(
+                      key: _rowKeys[7],
+                      selected: _row == 7,
+                      title: TextField(
+                        focusNode: _searchFocus,
+                        decoration: InputDecoration(
+                          labelText: AppLocale.visualBorderSearch.getString(
+                            context,
+                          ),
+                        ),
+                        onChanged: (query) => setState(() => _query = query),
+                        onSubmitted: (_) => _searchFocus.unfocus(),
+                      ),
+                    ),
+                    ListTile(
+                      key: _rowKeys[8],
+                      selected: _row == 8,
+                      enabled: !_importing && _geometry != null,
+                      title: Text(
+                        AppLocale.visualBorderImport.getString(context),
+                      ),
+                      subtitle: _importFailed
+                          ? Text(
+                              AppLocale.visualBorderUnavailable.getString(
+                                context,
+                              ),
+                            )
+                          : null,
+                      onTap: _importBorder,
+                    ),
+                    ListTile(
+                      key: _rowKeys[9],
+                      selected: _row == 9,
+                      enabled: _index != 0,
+                      title: Text(AppLocale.favorite.getString(context)),
+                      trailing: Icon(
+                        _index != 0 &&
+                                _favorites.contains(_borders[_index - 1].id)
+                            ? Icons.star
+                            : Icons.star_outline,
+                      ),
+                      onTap: _favoriteBorder,
+                    ),
+                    ListTile(
+                      key: _rowKeys[10],
+                      selected: _row == 10,
+                      title: Text(
+                        AppLocale.visualBorderFavorites.getString(context),
+                      ),
+                      trailing: Icon(
+                        _favoritesOnly
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
+                      ),
+                      onTap: () =>
+                          setState(() => _favoritesOnly = !_favoritesOnly),
+                    ),
+                  ] else ...[
+                    ListTile(
+                      key: _rowKeys[12],
+                      selected: _row == 12,
+                      title: Text(AppLocale.visualShader.getString(context)),
+                      subtitle: Text(_shaderLabel),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _changeShader(1),
+                    ),
+                    ListTile(
+                      key: _rowKeys[11],
+                      selected: _row == 11,
+                      title: Text(AppLocale.visualPreset.getString(context)),
+                      subtitle: Text(_presetLabel),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _changePreset(1),
+                    ),
+                    ListTile(
+                      key: _rowKeys[13],
+                      selected: _row == 13,
+                      title: Text(AppLocale.reset.getString(context)),
+                      onTap: () => setState(() => _shader = null),
+                    ),
+                  ],
+                  ListTile(
+                    key: _rowKeys[5],
+                    selected: _row == 5,
+                    enabled: _canSave,
+                    title: Text(AppLocale.save.getString(context)),
+                    onTap: _canSave ? _save : null,
                   ),
-                ),
-                ListTile(
-                  key: _rowKeys[8],
-                  selected: _row == 8,
-                  enabled: !_importing && _geometry != null,
-                  title: Text(AppLocale.visualBorderImport.getString(context)),
-                  subtitle: _importFailed
-                      ? Text(
-                          AppLocale.visualBorderUnavailable.getString(context),
-                        )
-                      : null,
-                  onTap: _importBorder,
-                ),
-                ListTile(
-                  key: _rowKeys[9],
-                  selected: _row == 9,
-                  enabled: _index != 0,
-                  title: Text(AppLocale.favorite.getString(context)),
-                  trailing: Icon(
-                    _index != 0 && _favorites.contains(_borders[_index - 1].id)
-                        ? Icons.star
-                        : Icons.star_outline,
+                  ListTile(
+                    key: _rowKeys[6],
+                    selected: _row == 6,
+                    title: Text(AppLocale.disabled.getString(context)),
+                    onTap: _disable,
                   ),
-                  onTap: _favoriteBorder,
-                ),
-                ListTile(
-                  key: _rowKeys[10],
-                  selected: _row == 10,
-                  title: Text(
-                    AppLocale.visualBorderFavorites.getString(context),
-                  ),
-                  trailing: Icon(
-                    _favoritesOnly
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
-                  ),
-                  onTap: () => setState(() => _favoritesOnly = !_favoritesOnly),
-                ),
-                ListTile(
-                  key: _rowKeys[11],
-                  selected: _row == 11,
-                  title: Text(AppLocale.visualPreset.getString(context)),
-                  subtitle: Text(_presetLabel),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _changePreset(1),
-                ),
-                ListTile(
-                  key: _rowKeys[12],
-                  selected: _row == 12,
-                  title: Text(AppLocale.visualShader.getString(context)),
-                  subtitle: Text(_shaderLabel),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _changeShader(1),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -676,7 +837,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
     ),
     actions: [
       TextButton(
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: _back,
         child: Text(AppLocale.cancel.getString(context)),
       ),
     ],

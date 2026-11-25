@@ -1409,6 +1409,9 @@ mixin AppLocale {
   static const String visualGameOverride = 'visualGameOverride';
   static const String visualPreset = 'visualPreset';
   static const String visualShader = 'visualShader';
+  static const String visualShaderPreviewUnavailable =
+      'visualShaderPreviewUnavailable';
+  static const String visualShaderStaticPreview = 'visualShaderStaticPreview';
   static const String visualEnhanced = 'visualEnhanced';
   static const String visualAuthentic = 'visualAuthentic';
   static const String visualCustom = 'visualCustom';

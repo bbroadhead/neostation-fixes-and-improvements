@@ -100,7 +100,10 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
           ? (emulatorId: null)
           : await showDialog<({String? emulatorId})>(
               context: context,
-              builder: (_) => VisualProfileScopeDialog(cores: cores),
+              builder: (_) => VisualProfileScopeDialog(
+                cores: cores,
+                defaultEmulatorName: defaultEmulator?.name,
+              ),
             );
       if (selection == null || !mounted) {
         saved = true;
@@ -120,12 +123,16 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
         system: system.folderName,
         coreFilename: core?.coreFilename,
       );
+      final shaderFormat = await RetroArchVisualSession.previewShaderFormat(
+        coreFilename: core?.coreFilename,
+      );
       if (!mounted) return;
       final updated = await showDialog<VisualBorderResult>(
         context: context,
         builder: (_) => VisualBorderDialog(
           system: system.folderName,
           previewGeometry: geometry,
+          shaderFormat: shaderFormat,
           profile: stored ?? const VisualProfile(),
           resolutionOnly: DolphinVisualProfile.supports(core?.uniqueId),
         ),

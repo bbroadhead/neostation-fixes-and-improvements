@@ -8,6 +8,9 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.visualBorderFavorites: 'Solo favoritos',
   AppLocale.visualGameOverride: 'Ajustar los gráficos de este juego',
   AppLocale.visualPreset: 'Preajuste',
+  AppLocale.visualShaderPreviewUnavailable:
+      'Vista previa del shader no disponible',
+  AppLocale.visualShaderStaticPreview: 'Vista previa estática de RetroArch',
   AppLocale.visualShader: 'Shader',
   AppLocale.visualEnhanced: 'Mejorado',
   AppLocale.visualAuthentic: 'Auténtico',
