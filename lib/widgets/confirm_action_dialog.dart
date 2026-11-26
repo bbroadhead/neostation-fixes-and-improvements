@@ -74,17 +74,16 @@ class ConfirmActionDialog extends StatefulWidget {
 
 class _ConfirmActionDialogState extends State<ConfirmActionDialog> {
   late final GamepadNavigation _gamepadNav;
+  bool _completing = false;
 
   @override
   void initState() {
     super.initState();
     _gamepadNav = GamepadNavigation(
-      onSelectItem: () {
-        if (mounted) Navigator.of(context).pop(true);
-      },
-      onBack: () {
-        if (mounted) Navigator.of(context).pop(false);
-      },
+      onSelectItem: () => _complete(true),
+      onBack: () => _complete(false),
+      canHandleInput: () =>
+          !_completing && mounted && ModalRoute.of(context)?.isCurrent == true,
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -96,6 +95,14 @@ class _ConfirmActionDialogState extends State<ConfirmActionDialog> {
         onDeactivate: () => _gamepadNav.deactivate(),
       );
     });
+  }
+
+  void _complete(bool confirmed) {
+    if (!mounted || _completing) return;
+    final route = ModalRoute.of(context);
+    if (route?.isCurrent != true) return;
+    _completing = true;
+    route!.navigator!.pop(confirmed);
   }
 
   @override
@@ -149,7 +156,7 @@ class _ConfirmActionDialogState extends State<ConfirmActionDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () => _complete(false),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -182,7 +189,7 @@ class _ConfirmActionDialogState extends State<ConfirmActionDialog> {
               borderRadius: BorderRadius.circular(6.r),
             ),
           ),
-          onPressed: () => Navigator.of(context).pop(true),
+          onPressed: () => _complete(true),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

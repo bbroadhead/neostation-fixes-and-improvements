@@ -75,6 +75,7 @@ class GameSettingsDialog extends StatefulWidget {
 
 class _GameSettingsDialogState extends State<GameSettingsDialog> {
   int _currentTab = 0;
+  bool _closing = false;
   late final GamepadNavigation _gamepadNav;
 
   final _emulatorTabKey = GlobalKey<GameSettingsEmulatorTabState>();
@@ -94,6 +95,8 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
       onNavigateRight: _moveRight,
       onSelectItem: _trigger,
       onBack: _handleBack,
+      canHandleInput: () =>
+          !_closing && mounted && ModalRoute.of(context)?.isCurrent == true,
       onPreviousTab: () => _switchTab(-1),
       onNextTab: () => _switchTab(1),
       isTextFieldFocused: () => _activeTabIsEditingText,
@@ -184,18 +187,26 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
       _scrappingTabKey.currentState?.cancelEdit();
       return;
     }
-    SfxService().playBackSound();
-    Navigator.of(context).pop();
+    _close();
+  }
+
+  void _close({bool playSound = true}) {
+    if (!mounted || _closing) return;
+    final route = ModalRoute.of(context);
+    if (route?.isCurrent != true) return;
+    _closing = true;
+    if (playSound) SfxService().playBackSound();
+    route!.navigator!.pop();
   }
 
   void _handleGameDeleted(String romname) {
     widget.onGameDeleted?.call(romname);
-    if (mounted) Navigator.of(context).pop();
+    _close(playSound: false);
   }
 
   void _handleGameHidden(String romname) {
     widget.onGameHidden?.call(romname);
-    if (mounted) Navigator.of(context).pop();
+    _close(playSound: false);
   }
 
   /// The system the *selected game* belongs to.
@@ -361,10 +372,7 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
               highlightColor: Colors.transparent,
               splashColor: Colors.transparent,
               borderRadius: BorderRadius.circular(8.r),
-              onTap: () {
-                SfxService().playBackSound();
-                Navigator.of(context).pop();
-              },
+              onTap: _close,
               child: Container(
                 padding: EdgeInsets.all(6.r),
                 child: Icon(
@@ -505,10 +513,7 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
             label: AppLocale.close.getString(context),
             backgroundColor: theme.colorScheme.tertiary,
             textColor: theme.colorScheme.onTertiary,
-            onTap: () {
-              SfxService().playBackSound();
-              Navigator.of(context).pop();
-            },
+            onTap: _close,
           ),
         ],
       ),

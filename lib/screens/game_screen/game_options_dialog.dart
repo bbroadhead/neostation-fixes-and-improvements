@@ -128,6 +128,8 @@ class _GameOptionsDialogState extends State<GameOptionsDialog> {
       onSelectItem: _activateFocused,
       onBack: _goBack,
       onSettings: _close,
+      canHandleInput: () =>
+          !_isClosing && mounted && ModalRoute.of(context)?.isCurrent == true,
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -389,22 +391,22 @@ class _GameOptionsDialogState extends State<GameOptionsDialog> {
 
     switch (row.id) {
       case 'game_settings':
-        Navigator.of(context).pop(GameOptionsAction.settings);
+        _close(GameOptionsAction.settings);
         return;
       case 'scrape':
-        Navigator.of(context).pop(GameOptionsAction.scrape);
+        _close(GameOptionsAction.scrape);
         return;
       case 'identify':
-        Navigator.of(context).pop(GameOptionsAction.identify);
+        _close(GameOptionsAction.identify);
         return;
       case 'search':
-        Navigator.of(context).pop(GameOptionsAction.search);
+        _close(GameOptionsAction.search);
         return;
       case 'random':
-        Navigator.of(context).pop(GameOptionsAction.random);
+        _close(GameOptionsAction.random);
         return;
       case 'new_collection':
-        Navigator.of(context).pop(GameOptionsAction.newCollection);
+        _close(GameOptionsAction.newCollection);
         return;
       case 'add_to':
         setState(() {
@@ -463,11 +465,12 @@ class _GameOptionsDialogState extends State<GameOptionsDialog> {
     _close();
   }
 
-  void _close() {
-    if (_isClosing) return;
+  void _close([GameOptionsAction? action]) {
+    final route = ModalRoute.of(context);
+    if (_isClosing || route?.isCurrent != true) return;
     _isClosing = true;
-    SfxService().playBackSound();
-    Navigator.of(context).pop();
+    if (action == null) SfxService().playBackSound();
+    route!.navigator!.pop(action);
   }
 
   void _revealRow(_OptionRow row) {

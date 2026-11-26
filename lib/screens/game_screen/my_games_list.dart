@@ -396,6 +396,7 @@ class _SystemGamesListState extends State<SystemGamesList> {
   /// Guards the Options panel against a second Start press landing before the
   /// dialog's own navigation layer is registered.
   bool _gameOptionsOpen = false;
+  bool _gameSettingsOpen = false;
 
   // Scraping state.
   final Set<String> _scrapingGameRomnames = {};
@@ -795,26 +796,32 @@ class _SystemGamesListState extends State<SystemGamesList> {
   ///
   /// Reachable from the side action bar (all views) and from gamepad START
   /// in grid/carousel mode (in list mode START belongs to the details card).
-  void _openGameSettingsDialog() {
+  Future<void> _openGameSettingsDialog() async {
+    if (_gameSettingsOpen || ModalRoute.of(context)?.isCurrent != true) return;
     final game = _selectedGame;
     if (game == null) return;
     // Folder rows are placeholders, not ROMs — a settings dialog for one would
     // write per-game rows keyed to a path that has no game behind it.
     if (_isFolderEntry(game)) return;
     SfxService().playNavSound();
-    showDialog(
-      context: context,
-      builder: (_) => GameSettingsDialog(
-        game: game,
-        system: widget.system,
-        fileProvider: _fileProvider,
-        syncProvider: context.read<SyncManager>().active,
-        isAllMode: SystemFolderNames.isAggregate(widget.system.folderName),
-        onGameUpdated: _handleGameUpdated,
-        onGameDeleted: _handleGameDeleted,
-        onGameHidden: _handleGameHidden,
-      ),
-    );
+    _gameSettingsOpen = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => GameSettingsDialog(
+          game: game,
+          system: widget.system,
+          fileProvider: _fileProvider,
+          syncProvider: context.read<SyncManager>().active,
+          isAllMode: SystemFolderNames.isAggregate(widget.system.folderName),
+          onGameUpdated: _handleGameUpdated,
+          onGameDeleted: _handleGameDeleted,
+          onGameHidden: _handleGameHidden,
+        ),
+      );
+    } finally {
+      _gameSettingsOpen = false;
+    }
   }
 
   /// Terminates all active multimedia and background processing tasks.
@@ -927,6 +934,9 @@ class _SystemGamesListState extends State<SystemGamesList> {
 
   /// Orchestrates a graceful exit from the game list, synchronizing state with previous screens.
   Future<void> _goBack() async {
+    // A dialog or a search route can still overlap this screen while input
+    // layers finish transitioning. Only this route can request its own exit.
+    if (ModalRoute.of(context)?.isCurrent != true) return;
     // Subfolder navigation: Back ascends one level before leaving the system,
     // stopping at the level a deep link opened on (see [_deepLinkRelPath]).
     if (_subfolderViewEnabled &&
@@ -2229,18 +2239,30 @@ class _SystemGamesListState extends State<SystemGamesList> {
   /// Synchronizes the selected game's metadata and refreshes the list sorting.
   Future<void> _handleGameUpdated() async {
     _collectionsProvider.load();
-    if (_selectedGame == null) return;
+    final previous = _selectedGame;
+    if (previous == null) return;
 
     try {
       _resetVideoState();
 
       // Fetch latest metadata from local storage.
       final updatedGame = await GameService.getGameDetails(
-        widget.system,
-        _selectedGame!.romname,
+        resolveEffectiveSystem(
+          listSystem: widget.system,
+          game: previous,
+          detectedSystems: _configProvider.detectedSystems,
+        ),
+        previous.romname,
       );
 
-      if (updatedGame != null) {
+      if (!mounted ||
+          _selectedGame?.romPath != previous.romPath ||
+          _selectedGame?.romname != previous.romname) {
+        return;
+      }
+      if (updatedGame != null &&
+          (previous.romPath == null ||
+              previous.romPath == updatedGame.romPath)) {
         final artworkFolder =
             updatedGame.systemFolderName ?? widget.system.primaryFolderName;
         final artworkPaths = scrapedArtworkPaths(
@@ -2257,12 +2279,21 @@ class _SystemGamesListState extends State<SystemGamesList> {
           // their cached artwork cards must be rebuilt. Publish a new list
           // instead of mutating this one in place.
           _games = replaceGameInList(_games, updatedGame);
+          _gameIndexMap = {
+            for (var i = 0; i < _games.length; i++) _games[i]: i,
+          };
         });
 
         _loadLocalizedDescription();
 
-        // Re-sort the collection following the edited game (name changes alter its rank).
-        _reorderGamesListFollowingGame(updatedGame.romname);
+        if (compareGameNames(
+              previous,
+              updatedGame,
+              ignoreArticles: _ignoreArticles,
+            ) !=
+            0) {
+          _reorderGamesListFollowingGame(updatedGame.romname);
+        }
 
         if (mounted && _selectedGame != null) {
           // A re-scrape rewrites the art at the same paths, so the dedup in
