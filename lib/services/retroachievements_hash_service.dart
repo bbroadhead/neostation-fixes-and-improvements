@@ -23,6 +23,7 @@ class RetroAchievementsHashService {
   static const int maxFileSizeBytes = 512 * 1024 * 1024;
 
   static final _log = LoggerService.instance;
+  static const _lynxRomExtensions = {'.lnx', '.lyx', '.bll', '.o', '.bin'};
 
   /// Whether a library-wide pass is in flight, and whether one has been asked
   /// to pause.
@@ -98,10 +99,17 @@ class RetroAchievementsHashService {
         final extractedPath = await ArchiveService.extractRom(
           romPathToProcess,
           game.systemFolderName ?? 'unknown',
+          allowedExtensions: policy.algo == RaHashAlgo.lynx
+              ? _lynxRomExtensions
+              : null,
         );
         if (extractedPath != null) {
           romPathToProcess = extractedPath;
         } else {
+          await ArchiveService.cleanupTempFolder(
+            game.systemFolderName ?? 'unknown',
+            game.romPath!,
+          );
           _log.w(
             'Failed to extract compressed file, aborting hash: ${game.name}',
           );
@@ -220,6 +228,9 @@ class RetroAchievementsHashService {
     // Either the caller's own flag or a pause requested through the service.
     bool cancelled() =>
         _rematchPauseRequested || (isCancelled?.call() ?? false);
+    if (mode == RaRematchMode.hashMissing) {
+      await RetroAchievementsRepository.retryLegacyLynxHashFailures();
+    }
     var candidates = mode == RaRematchMode.lookupOnly
         ? await RetroAchievementsRepository.getRomsNeedingRaGameId()
         : await RetroAchievementsRepository.getRomsNeedingRaHash();
@@ -303,7 +314,7 @@ class RetroAchievementsHashService {
             // Park it with the reason, so the next run does not walk it again
             // and the gap stays visible instead of looking like a stall.
             final reason =
-                attempt.skipReason ?? RetroAchievementsRepository.raSkipError;
+                attempt.skipReason ?? _hashErrorReason(candidate.policy.algo);
             await RetroAchievementsRepository.markRomRaHashSkipped(
               candidate.romPath,
               reason,
@@ -329,11 +340,11 @@ class RetroAchievementsHashService {
       } catch (e) {
         _log.e('RA re-match failed for ${candidate.label}: $e');
         if (mode == RaRematchMode.hashMissing) {
+          final reason = _hashErrorReason(candidate.policy.algo);
           await RetroAchievementsRepository.markRomRaHashSkipped(
             candidate.romPath,
-            RetroAchievementsRepository.raSkipError,
+            reason,
           );
-          final reason = RetroAchievementsRepository.raSkipError;
           skipReasons[reason] = (skipReasons[reason] ?? 0) + 1;
         }
         skipped++;
@@ -433,12 +444,21 @@ class RetroAchievementsHashService {
       final extractedPath = await ArchiveService.extractRom(
         romPathToProcess,
         candidate.systemFolderName,
+        allowedExtensions: candidate.policy.algo == RaHashAlgo.lynx
+            ? _lynxRomExtensions
+            : null,
       );
       if (extractedPath == null) {
+        await ArchiveService.cleanupTempFolder(
+          candidate.systemFolderName,
+          candidate.romPath,
+        );
         _log.w('Failed to extract, skipping: ${candidate.label}');
         return (
           hash: null,
-          skipReason: RetroAchievementsRepository.raSkipExtractFailed,
+          skipReason: candidate.policy.algo == RaHashAlgo.lynx
+              ? RetroAchievementsRepository.raSkipLynxHashError
+              : RetroAchievementsRepository.raSkipExtractFailed,
         );
       }
       romPathToProcess = extractedPath;
@@ -455,7 +475,7 @@ class RetroAchievementsHashService {
       if (hash == null || hash.isEmpty) {
         return (
           hash: null,
-          skipReason: RetroAchievementsRepository.raSkipError,
+          skipReason: _hashErrorReason(candidate.policy.algo),
         );
       }
       return (hash: hash, skipReason: null);
@@ -468,6 +488,10 @@ class RetroAchievementsHashService {
       }
     }
   }
+
+  static String _hashErrorReason(RaHashAlgo algo) => algo == RaHashAlgo.lynx
+      ? RetroAchievementsRepository.raSkipLynxHashError
+      : RetroAchievementsRepository.raSkipError;
 
   /// Whether [romPath] points at a disc image whose container hash is
   /// meaningless to RetroAchievements.

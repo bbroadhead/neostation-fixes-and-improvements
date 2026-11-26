@@ -174,6 +174,7 @@ class RetroAchievementsRepository {
         raSkipMissing,
         raSkipExtractFailed,
         raSkipError,
+        raSkipLynxHashError,
       }.contains(rom['ra_hash_skipped'])) {
         return const RaCompatibility(RaCompatibilityStatus.hashFailed);
       }
@@ -421,6 +422,25 @@ class RetroAchievementsRepository {
   static const String raSkipDisc = 'disc';
   static const String raSkipExtractFailed = 'extract_failed';
   static const String raSkipError = 'error';
+  static const String raSkipLynxHashError = 'lynx_hash_error';
+
+  /// Reopens only Lynx records parked by the former text-based hash or
+  /// extension-agnostic archive extraction. Successful hashes and manual
+  /// associations are retained. New failures use [raSkipLynxHashError].
+  static Future<int> retryLegacyLynxHashFailures() async {
+    final db = await SqliteService.getDatabase();
+    return db.rawUpdate(
+      '''
+      UPDATE user_roms SET ra_hash_skipped = NULL
+      WHERE COALESCE(ra_hash, '') = '' AND ra_hash_skipped IN (?, ?)
+        AND app_system_id IN (
+          SELECT id FROM app_systems WHERE CAST(ra_id AS INTEGER) = 13
+            AND ra_hash_algo = 'lynx'
+        )
+      ''',
+      [raSkipError, raSkipExtractFailed],
+    );
+  }
 
   /// Systems the hash pass will walk: everything non-disc, plus disc systems
   /// whose policy declares an algorithm that reads inside the image. Without

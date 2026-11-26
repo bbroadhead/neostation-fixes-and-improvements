@@ -455,32 +455,18 @@ class OptimizedMd5Utils {
   static Future<String> calculateLynxMd5(String filePath) async {
     try {
       if (!await fileExists(filePath)) throw Exception('File not found');
-      final bytes = await readAllBytes(filePath);
-      List<int> romBytes = bytes;
-
-      if (filePath.toLowerCase().endsWith('.zip')) {
-        try {
-          final archive = ZipDecoder().decodeBytes(bytes);
-          romBytes =
-              archive
-                      .firstWhere(
-                        (f) =>
-                            f.isFile && f.name.toLowerCase().endsWith('.lnx'),
-                        orElse: () => archive.firstWhere((f) => f.isFile),
-                      )
-                      .content
-                  as List<int>;
-        } catch (_) {}
-      }
-
-      if (romBytes.length >= 5 &&
-          utf8.decode(romBytes.sublist(0, 4)) == 'LYNX' &&
-          romBytes[4] == 0x00) {
-        return crypto.md5
-            .convert(romBytes.length > 64 ? romBytes.sublist(64) : romBytes)
-            .toString();
-      }
-      return crypto.md5.convert(romBytes).toString();
+      final rom = await readAllBytes(filePath);
+      // rcheevos compares the five magic bytes directly. An unheadered
+      // cartridge can begin with arbitrary binary data.
+      final hasHeader =
+          rom.length > 64 &&
+          rom[0] == 0x4c &&
+          rom[1] == 0x59 &&
+          rom[2] == 0x4e &&
+          rom[3] == 0x58 &&
+          rom[4] == 0;
+      final content = hasHeader ? Uint8List.sublistView(rom, 64) : rom;
+      return crypto.md5.convert(content).toString();
     } catch (e) {
       _log.e('Error calculating Atari Lynx MD5: $e');
       rethrow;

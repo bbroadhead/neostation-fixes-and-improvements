@@ -108,13 +108,15 @@ class ArchiveService {
   /// Extracts a ROM from a ZIP or 7z archive into a temporary system-specific directory.
   ///
   /// The extraction target is located at `user-data/temp/[systemFolderName]/[archiveName]`.
-  /// Identifies and returns the path to the largest file within the archive,
-  /// which is typically the actual ROM image.
+  /// Returns the largest file. With [allowedExtensions], requires exactly one
+  /// matching entry so the caller cannot identify the wrong ROM in a bundle.
+  /// Extensions include the leading dot and are compared case-insensitively.
   /// Returns null if extraction fails or no file is found.
   static Future<String?> extractRom(
     String archivePath,
-    String systemFolderName,
-  ) async {
+    String systemFolderName, {
+    Set<String>? allowedExtensions,
+  }) async {
     try {
       final userDataPath = await ConfigService.getUserDataPath();
       final archiveName = tempDirNameFor(archivePath);
@@ -134,9 +136,9 @@ class ArchiveService {
       await tempDir.create(recursive: true);
 
       if (extension == '.7z') {
-        return await _extract7z(archivePath, tempDirPath);
+        return await _extract7z(archivePath, tempDirPath, allowedExtensions);
       } else {
-        return await _extractZip(archivePath, tempDirPath);
+        return await _extractZip(archivePath, tempDirPath, allowedExtensions);
       }
     } catch (e) {
       _log.e('Error extracting file $archivePath: $e');
@@ -151,6 +153,7 @@ class ArchiveService {
   static Future<String?> _extract7z(
     String archivePath,
     String tempDirPath,
+    Set<String>? allowedExtensions,
   ) async {
     try {
       String pathToExtract = archivePath;
@@ -168,10 +171,16 @@ class ArchiveService {
       String? largestFilePath;
       int largestSize = -1;
       int largestIndex = -1;
+      var matches = 0;
 
       for (int i = 0; i < archive.numFiles; i++) {
         final file = archive.getFile(i);
-        if (!file.isDirectory) {
+        if (!file.isDirectory &&
+            (allowedExtensions == null ||
+                allowedExtensions.contains(
+                  path.extension(file.name).toLowerCase(),
+                ))) {
+          matches++;
           if (file.size > largestSize) {
             largestSize = file.size;
             largestIndex = i;
@@ -179,7 +188,7 @@ class ArchiveService {
         }
       }
 
-      if (largestIndex != -1) {
+      if (largestIndex != -1 && (allowedExtensions == null || matches == 1)) {
         final file = archive.getFile(largestIndex);
         final outPath = safeOutputPath(tempDirPath, file.name);
 
@@ -214,7 +223,11 @@ class ArchiveService {
   /// Internal logic for ZIP extraction using the pure Dart [Archive] package.
   ///
   /// Decodes bytes directly to support Scoped Storage (SAF) URI sources.
-  static Future<String?> _extractZip(String zipPath, String tempDirPath) async {
+  static Future<String?> _extractZip(
+    String zipPath,
+    String tempDirPath,
+    Set<String>? allowedExtensions,
+  ) async {
     try {
       final bytes = await OptimizedMd5Utils.readAllBytes(zipPath);
       final archive = ZipDecoder().decodeBytes(bytes);
@@ -222,7 +235,12 @@ class ArchiveService {
       ArchiveFile? largestFile;
 
       for (final file in archive) {
-        if (file.isFile) {
+        if (file.isFile &&
+            (allowedExtensions == null ||
+                allowedExtensions.contains(
+                  path.extension(file.name).toLowerCase(),
+                ))) {
+          if (allowedExtensions != null && largestFile != null) return null;
           if (largestFile == null || file.size > largestFile.size) {
             largestFile = file;
           }

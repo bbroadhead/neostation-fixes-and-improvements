@@ -221,6 +221,10 @@ class RaLibraryMatchRunner {
         }
       }
 
+      if (hashMissing) {
+        await RetroAchievementsRepository.retryLegacyLynxHashFailures();
+      }
+
       // The pass resumes: hashed ROMs are excluded from the candidate query, so
       // a stopped run picks up where it left off. Report progress against the
       // whole hashable library rather than the work left in this run, or the
