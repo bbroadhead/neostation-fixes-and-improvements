@@ -56,7 +56,10 @@ void main() {
         );
         await db.execute('UPDATE app_ra_game_list SET num_achievements = 23');
         await RetroAchievementsRepository.updateRomRaHash(rom, other);
-        expect((await classify()).status, RaCompatibilityStatus.unknown);
+        expect(
+          (await classify()).status,
+          RaCompatibilityStatus.verificationUnavailable,
+        );
         await db.execute('''
         INSERT INTO app_ra_catalogue_sync (console_id, refreshed_at, match_pending)
         VALUES (7, '2026-11-18T00:00:00Z', 0)
@@ -71,6 +74,30 @@ void main() {
       ''');
         expect((await classify()).status, RaCompatibilityStatus.unknown);
         expect(await RetroAchievementsRepository.getManualRomRaGameId(rom), 99);
+      },
+    );
+
+    test(
+      'keeps failed and pending hashes out of incompatible results',
+      () async {
+        for (final skipped in [null, 'error']) {
+          final rom = '/roms/nes/$skipped.nes';
+          await db.execute(
+            'INSERT INTO user_roms (filename, rom_path, app_system_id, ra_hash_skipped) '
+            "VALUES (?, ?, 'nes', ?)",
+            ['$skipped.nes', rom, skipped],
+          );
+          final result = await RetroAchievementsRepository.getRomCompatibility(
+            rom,
+          );
+          expect(
+            result.status,
+            skipped == null
+                ? RaCompatibilityStatus.unknown
+                : RaCompatibilityStatus.hashFailed,
+          );
+          expect(result.status.isIncompatible, isFalse);
+        }
       },
     );
 

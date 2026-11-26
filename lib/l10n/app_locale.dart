@@ -435,6 +435,20 @@ mixin AppLocale {
   /// Label for the RetroAchievements ROM hash shown on the achievements panel.
   static const String raHash = 'ra_hash';
   static const String raSupportedFiles = 'ra_supported_files';
+  static const String raReportExport = 'raReportExport';
+  static const String raReportFiltered = 'raReportFiltered';
+  static const String raReportAll = 'raReportAll';
+  static const String raReportStarted = 'raReportStarted';
+  static const String raReviewHashFailed = 'raReviewHashFailed';
+  static const String raReviewVerificationUnavailable =
+      'raReviewVerificationUnavailable';
+  static const String raReportSaved = 'raReportSaved';
+  static const String raReportFailed = 'raReportFailed';
+  static const String raReportCancelled = 'raReportCancelled';
+  static const String raReportOpenFolder = 'raReportOpenFolder';
+  static const String raReportCopyHash = 'raReportCopyHash';
+  static const String raReportHashCopied = 'raReportHashCopied';
+  static const String raReportManualMatch = 'raReportManualMatch';
   static const String raSupportedFilesUnavailable =
       'ra_supported_files_unavailable';
 

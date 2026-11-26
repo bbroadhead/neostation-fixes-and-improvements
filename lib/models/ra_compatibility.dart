@@ -2,11 +2,13 @@ enum RaCompatibilityStatus {
   supported,
   differentRomRequired,
   noAchievementSet,
-  unknown;
+  unknown,
+  hashFailed,
+  verificationUnavailable;
 
   bool get isIncompatible => switch (this) {
     differentRomRequired || noAchievementSet => true,
-    supported || unknown => false,
+    supported || unknown || hashFailed || verificationUnavailable => false,
   };
 }
 

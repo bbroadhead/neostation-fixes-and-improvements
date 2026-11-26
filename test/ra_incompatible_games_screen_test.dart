@@ -63,6 +63,10 @@ void main() {
       romname: 'Second.nes',
       romPath: '/roms/Second.nes',
     );
+    final verified = first.copyWith(
+      name: 'Verified',
+      romPath: '/roms/Verified.nes',
+    );
     final opened = <String?>[];
     await tester.pumpWidget(
       ScreenUtilInit(
@@ -76,6 +80,7 @@ void main() {
             loadGames: ({isCancelled}) async => [
               (game: first, reason: RaCompatibilityStatus.differentRomRequired),
               (game: second, reason: RaCompatibilityStatus.noAchievementSet),
+              (game: verified, reason: RaCompatibilityStatus.supported),
             ],
             openDetails: (game) async => opened.add(game.romPath),
           ),
@@ -85,6 +90,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('First'), findsOneWidget);
     expect(find.text('Second'), findsOneWidget);
+    expect(find.text('Verified'), findsNothing);
+    final supportedLabel =
+        AppLocale.en[AppLocale.raCompatibilitySupported] as String;
+    await tester.tap(find.widgetWithText(ChoiceChip, supportedLabel));
+    await tester.pumpAndSettle();
+    expect(find.text('Verified'), findsOneWidget);
+    expect(find.text('First'), findsNothing);
     final noSetLabel = AppLocale.en[AppLocale.raCompatibilityNoSet] as String;
     await tester.tap(find.widgetWithText(ChoiceChip, noSetLabel));
     await tester.pumpAndSettle();
@@ -103,6 +115,20 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
     expect(opened, ['/roms/Second.nes', '/roms/First.nes']);
+    for (final key in [
+      LogicalKeyboardKey.arrowUp,
+      LogicalKeyboardKey.arrowLeft,
+      LogicalKeyboardKey.enter,
+    ]) {
+      advanceGamepadClock(const Duration(milliseconds: 350));
+      await tester.sendKeyEvent(key);
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Filtered results'), findsOneWidget);
+    expect(
+      find.widgetWithText(TextButton, 'All unmatched games'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 }

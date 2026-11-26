@@ -525,10 +525,14 @@ class GameDetailsGameInfoTabState extends State<GameDetailsGameInfoTab> {
                   RaCompatibilityStatus.noAchievementSet =>
                     Symbols.remove_circle_outline,
                   RaCompatibilityStatus.unknown => Symbols.help_outline,
+                  RaCompatibilityStatus.hashFailed => Symbols.error_outline,
+                  RaCompatibilityStatus.verificationUnavailable =>
+                    Symbols.cloud_off,
                 };
                 final refreshedAt = result?.catalogueRefreshedAt;
                 final cached =
-                    status != RaCompatibilityStatus.unknown &&
+                    (status == RaCompatibilityStatus.supported ||
+                        status.isIncompatible) &&
                     (refreshedAt == null ||
                         DateTime.now().difference(refreshedAt) >=
                             RaCatalogueService.staleAfter);

@@ -157,7 +157,7 @@ class RetroAchievementsRepository {
     final db = await SqliteService.getDatabase();
     final roms = await db.rawQuery(
       '''
-      SELECT r.ra_hash, r.filename, CAST(s.ra_id AS INTEGER) AS console_id,
+      SELECT r.ra_hash, r.ra_hash_skipped, r.filename, CAST(s.ra_id AS INTEGER) AS console_id,
              sync.refreshed_at
       FROM user_roms r
       JOIN app_systems s ON s.id = r.app_system_id
@@ -170,6 +170,13 @@ class RetroAchievementsRepository {
     final rom = roms.single;
     final hash = rom['ra_hash']?.toString().toLowerCase();
     if (hash == null || !RegExp(r'^[0-9a-f]{32}$').hasMatch(hash)) {
+      if (const {
+        raSkipMissing,
+        raSkipExtractFailed,
+        raSkipError,
+      }.contains(rom['ra_hash_skipped'])) {
+        return const RaCompatibility(RaCompatibilityStatus.hashFailed);
+      }
       return unknown;
     }
     final consoleId = rom['console_id'];
@@ -200,7 +207,12 @@ class RetroAchievementsRepository {
         catalogueRefreshedAt: refreshedAt,
       );
     }
-    if (hashMatches.isNotEmpty || refreshedAt == null) return unknown;
+    if (hashMatches.isNotEmpty) return unknown;
+    if (refreshedAt == null) {
+      return const RaCompatibility(
+        RaCompatibilityStatus.verificationUnavailable,
+      );
+    }
 
     // Keep the title comparison exact and console-scoped. Strip only common
     // dump annotations, leaving hacks and other bracketed qualifiers intact.

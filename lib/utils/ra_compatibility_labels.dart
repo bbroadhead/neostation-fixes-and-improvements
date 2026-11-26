@@ -8,5 +8,8 @@ extension RaCompatibilityLabels on RaCompatibilityStatus {
       AppLocale.raCompatibilityDifferent,
     RaCompatibilityStatus.noAchievementSet => AppLocale.raCompatibilityNoSet,
     RaCompatibilityStatus.unknown => AppLocale.raCompatibilityUnknown,
+    RaCompatibilityStatus.hashFailed => AppLocale.raReviewHashFailed,
+    RaCompatibilityStatus.verificationUnavailable =>
+      AppLocale.raReviewVerificationUnavailable,
   };
 }
