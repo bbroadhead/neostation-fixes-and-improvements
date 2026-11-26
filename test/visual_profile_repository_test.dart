@@ -16,6 +16,60 @@ void main() {
   });
 
   test(
+    'resolves each game override independently after reopening preferences',
+    () async {
+      const system = (systemId: 'psp', emulatorId: null);
+      await repository.save(
+        system,
+        const VisualProfile(borderId: 'system-border'),
+      );
+      await repository.save(
+        scope,
+        const VisualProfile(shaderId: '@lcd', inheritBorder: true),
+      );
+      await repository.save(
+        system,
+        const VisualProfile(borderId: 'game-border', inheritShader: true),
+        gameKey: gameKey,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final reopened = VisualProfileRepository(prefs);
+      final first = reopened.resolve(
+        systemId: scope.systemId,
+        emulatorId: scope.emulatorId,
+        romPath: gameKey,
+      );
+      expect(first?.borderId, 'game-border');
+      expect(first?.shaderId, '@lcd');
+      await reopened.save(
+        system,
+        const VisualProfile(shaderId: '@none', inheritBorder: true),
+        gameKey: gameKey,
+      );
+      final second = reopened.resolve(
+        systemId: scope.systemId,
+        emulatorId: scope.emulatorId,
+        romPath: gameKey,
+      );
+      expect(second?.borderId, 'system-border');
+      expect(second?.shaderId, '@none');
+      await reopened.save(
+        scope,
+        const VisualProfile(borderId: 'core-game-border', inheritShader: true),
+        gameKey: gameKey,
+      );
+      final third = reopened.resolve(
+        systemId: scope.systemId,
+        emulatorId: scope.emulatorId,
+        romPath: gameKey,
+      );
+      expect(third?.borderId, 'core-game-border');
+      expect(third?.shaderId, '@lcd');
+    },
+  );
+
+  test(
     'resolves persisted global shader settings when the system has no profile',
     () async {
       await repository.save(

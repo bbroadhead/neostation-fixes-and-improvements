@@ -12,6 +12,9 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.visualShaderNoParameters:
       'У этого пресета нет редактируемых параметров',
   AppLocale.visualGlobalDefaults: 'Общие настройки изображения',
+  AppLocale.visualInheritDefault: 'Наследовать настройки',
+  AppLocale.visualInheritedSystem: 'Унаследовано от системы',
+  AppLocale.visualInheritedCore: 'Унаследовано от ядра',
   AppLocale.visualInstalledShaders: 'Установленные шейдеры',
   AppLocale.visualShaderPreviewUnavailable: 'Предпросмотр шейдера недоступен',
   AppLocale.visualShaderStaticPreview: 'Статический предпросмотр RetroArch',

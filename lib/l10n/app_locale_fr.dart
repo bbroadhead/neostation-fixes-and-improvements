@@ -12,6 +12,9 @@ const Map<String, dynamic> appLocaleFr = {
   AppLocale.visualShaderNoParameters:
       'Ce préréglage ne fournit aucun paramètre modifiable',
   AppLocale.visualGlobalDefaults: 'Réglages visuels globaux',
+  AppLocale.visualInheritDefault: 'Hériter du réglage par défaut',
+  AppLocale.visualInheritedSystem: 'Hérité du système',
+  AppLocale.visualInheritedCore: 'Hérité du cœur',
   AppLocale.visualInstalledShaders: 'Shaders installés',
   AppLocale.visualShaderPreviewUnavailable: 'Aperçu du shader indisponible',
   AppLocale.visualShaderStaticPreview: 'Aperçu statique de RetroArch',

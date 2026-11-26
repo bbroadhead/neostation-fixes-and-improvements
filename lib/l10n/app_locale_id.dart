@@ -12,6 +12,9 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.visualShaderNoParameters:
       'Preset ini tidak memiliki parameter yang dapat diedit',
   AppLocale.visualGlobalDefaults: 'Setelan visual global',
+  AppLocale.visualInheritDefault: 'Warisi setelan bawaan',
+  AppLocale.visualInheritedSystem: 'Diwarisi dari sistem',
+  AppLocale.visualInheritedCore: 'Diwarisi dari inti',
   AppLocale.visualInstalledShaders: 'Shader terpasang',
   AppLocale.visualShaderPreviewUnavailable: 'Pratinjau shader tidak tersedia',
   AppLocale.visualShaderStaticPreview: 'Pratinjau statis RetroArch',

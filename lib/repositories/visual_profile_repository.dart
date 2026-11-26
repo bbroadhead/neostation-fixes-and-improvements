@@ -34,15 +34,65 @@ class VisualProfileRepository {
     required String? emulatorId,
     required String? romPath,
   }) {
+    return resolveWithOrigins(
+      systemId: systemId,
+      emulatorId: emulatorId,
+      romPath: romPath,
+    )?.profile;
+  }
+
+  ({
+    VisualProfile profile,
+    VisualProfileScope? borderScope,
+    VisualProfileScope? shaderScope,
+  })?
+  resolveWithOrigins({
+    required String systemId,
+    required String? emulatorId,
+    String? romPath,
+  }) {
     final system = (systemId: systemId, emulatorId: null);
     final emulator = (systemId: systemId, emulatorId: emulatorId);
-    return (romPath == null ? null : read(emulator, gameKey: romPath)) ??
-        (romPath == null || emulator == system
-            ? null
-            : read(system, gameKey: romPath)) ??
-        read(emulator) ??
-        (emulator == system ? null : read(system)) ??
-        read(globalScope);
+    final choices = [
+      if (romPath != null) ...[
+        (emulator, romPath),
+        if (emulator != system) (system, romPath),
+      ],
+      (emulator, null),
+      if (emulator != system) (system, null),
+      (globalScope, null),
+    ];
+    VisualProfile? border;
+    VisualProfile? shader;
+    VisualProfileScope? borderScope;
+    VisualProfileScope? shaderScope;
+    var found = false;
+    var foundGame = false;
+    for (final (scope, gameKey) in choices) {
+      if (gameKey != null && foundGame) continue;
+      final profile = read(scope, gameKey: gameKey);
+      if (profile == null) continue;
+      if (gameKey != null) foundGame = true;
+      found = true;
+      if (border == null && !profile.inheritBorder) {
+        border = profile;
+        borderScope = scope;
+      }
+      if (shader == null && !profile.inheritShader) {
+        shader = profile;
+        shaderScope = scope;
+      }
+      if (border != null && shader != null) break;
+    }
+    if (!found) return null;
+    return (
+      profile: combineVisualSettings(
+        border: border ?? const VisualProfile(),
+        shader: shader ?? const VisualProfile(),
+      ),
+      borderScope: borderScope,
+      shaderScope: shaderScope,
+    );
   }
 
   Future<bool> save(

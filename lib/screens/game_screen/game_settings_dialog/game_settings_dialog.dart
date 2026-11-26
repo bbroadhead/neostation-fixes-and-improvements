@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -79,7 +81,8 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
   final _scrappingTabKey = GlobalKey<GameSettingsScrappingTabState>();
   final _manageTabKey = GlobalKey<GameSettingsManageTabState>();
 
-  static const _tabCount = 3;
+  bool get _hasVisualTab => Platform.isLinux && widget.game.romPath != null;
+  int get _tabCount => _hasVisualTab ? 4 : 3;
 
   @override
   void initState() {
@@ -165,6 +168,8 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
         _scrappingTabKey.currentState?.trigger();
       case 2:
         _manageTabKey.currentState?.trigger();
+      case 3:
+        _emulatorTabKey.currentState?.editVisualProfile();
     }
   }
 
@@ -294,6 +299,16 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
                         onGameDeleted: _handleGameDeleted,
                         onGameHidden: _handleGameHidden,
                       ),
+                      if (_hasVisualTab)
+                        Center(
+                          child: FilledButton(
+                            onPressed: () => _emulatorTabKey.currentState
+                                ?.editVisualProfile(),
+                            child: Text(
+                              AppLocale.visualProfiles.getString(context),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -391,6 +406,16 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
           _buildTabItem(theme, 1, AppLocale.scraping.getString(context)),
           SizedBox(width: 16.r),
           _buildTabItem(theme, 2, AppLocale.manage.getString(context)),
+          if (_hasVisualTab) ...[
+            SizedBox(width: 16.r),
+            Flexible(
+              child: _buildTabItem(
+                theme,
+                3,
+                AppLocale.visualProfiles.getString(context),
+              ),
+            ),
+          ],
           const Spacer(),
           Padding(
             padding: EdgeInsets.only(left: 8.r),
@@ -432,6 +457,8 @@ class _GameSettingsDialogState extends State<GameSettingsDialog> {
         ),
         child: Text(
           label.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 10.r,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,

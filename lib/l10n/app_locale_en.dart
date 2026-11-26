@@ -12,6 +12,9 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.visualShaderNoParameters:
       'This preset provides no editable parameters',
   AppLocale.visualGlobalDefaults: 'Global visual defaults',
+  AppLocale.visualInheritDefault: 'Inherit default',
+  AppLocale.visualInheritedSystem: 'Inherited from system',
+  AppLocale.visualInheritedCore: 'Inherited from core',
   AppLocale.visualInstalledShaders: 'Installed shaders',
   AppLocale.visualShaderPreviewUnavailable: 'Shader preview unavailable',
   AppLocale.visualShaderStaticPreview: 'Static RetroArch preview',

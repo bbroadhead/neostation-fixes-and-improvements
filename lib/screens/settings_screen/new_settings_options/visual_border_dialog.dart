@@ -27,6 +27,9 @@ class VisualBorderDialog extends StatefulWidget {
     required this.previewGeometry,
     this.shaderRegistry,
     this.shadersOnly = false,
+    this.inherited,
+    this.borderOrigin,
+    this.shaderOrigin,
   });
 
   final String system;
@@ -35,6 +38,9 @@ class VisualBorderDialog extends StatefulWidget {
   final ({double aspect, int? nativeHeight})? previewGeometry;
   final RetroArchShaderRegistry? shaderRegistry;
   final bool shadersOnly;
+  final VisualProfile? inherited;
+  final String? borderOrigin;
+  final String? shaderOrigin;
 
   @override
   State<VisualBorderDialog> createState() => _VisualBorderDialogState();
@@ -45,7 +51,9 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   late final GamepadNavigation _nav;
   List<InstalledBorder> _borders = [];
   ({PixelRect opening, Uint8List png})? _preview;
-  final _rowKeys = List.generate(16, (_) => GlobalKey());
+  final _rowKeys = List.generate(17, (_) => GlobalKey());
+  late bool _inheritBorder = widget.profile.inheritBorder;
+  late bool _inheritShader = widget.profile.inheritShader;
   late bool _shaderTab = widget.shadersOnly;
   late VisualPreset _preset = widget.profile.preset;
   late String? _shader = widget.profile.shaderId;
@@ -235,26 +243,29 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       setState(() => _row = rows[(rows.indexOf(_row) + direction + 3) % 3]);
       return;
     }
-    final rows = _shaderTab
-        ? [
-            12,
-            if (widget.shaderRegistry != null) 14,
-            if (_canEditShaderParameters) 15,
-            11,
-            13,
-            5,
-            6,
-          ]
-        : [
-            0,
-            if (!_fixedPlacement) ...[1, 2, 3, 4],
-            7,
-            8,
-            9,
-            10,
-            5,
-            6,
-          ];
+    final rows = <int>[
+      if (widget.inherited != null) 16,
+      ...(_shaderTab
+          ? [
+              12,
+              if (widget.shaderRegistry != null) 14,
+              if (_canEditShaderParameters) 15,
+              11,
+              13,
+              5,
+              6,
+            ]
+          : [
+              0,
+              if (!_fixedPlacement) ...[1, 2, 3, 4],
+              7,
+              8,
+              9,
+              10,
+              5,
+              6,
+            ]),
+    ];
     final current = rows.indexOf(_row);
     setState(() => _row = rows[(current + direction) % rows.length]);
     final rowContext = _rowKeys[_row].currentContext;
@@ -273,11 +284,20 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       case 0:
         _choose(direction);
       case 1:
-        setState(() => _size = (_size + direction * 0.05).clamp(0.25, 1.0));
+        setState(() {
+          _inheritBorder = false;
+          _size = (_size + direction * 0.05).clamp(0.25, 1.0);
+        });
       case 2:
-        setState(() => _x = (_x + direction * 0.1).clamp(-1.0, 1.0));
+        setState(() {
+          _inheritBorder = false;
+          _x = (_x + direction * 0.1).clamp(-1.0, 1.0);
+        });
       case 3:
-        setState(() => _y = (_y + direction * 0.1).clamp(-1.0, 1.0));
+        setState(() {
+          _inheritBorder = false;
+          _y = (_y + direction * 0.1).clamp(-1.0, 1.0);
+        });
       case 11:
         _changePreset(direction);
       case 12:
@@ -288,6 +308,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   void _changePreset(int direction) {
     final presets = VisualPreset.values;
     setState(() {
+      _inheritShader = false;
       _preset =
           presets[(_preset.index + direction + presets.length) %
               presets.length];
@@ -302,8 +323,9 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   }
 
   void _selectShader(String? shader) {
-    if (_shader == shader) return;
+    if (_shader == shader && !_inheritShader) return;
     setState(() {
+      _inheritShader = false;
       _shader = shader;
       _shaderParameters = const {};
     });
@@ -329,7 +351,10 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
     if (_importing) return;
     if (_borders.isEmpty) {
       if (!_busy && widget.profile.borderId != null) {
-        setState(() => _borderTouched = true);
+        setState(() {
+          _inheritBorder = false;
+          _borderTouched = true;
+        });
       }
       return;
     }
@@ -349,6 +374,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
 
   void _changeBorder(int index) {
     setState(() {
+      _inheritBorder = false;
       _borderTouched = true;
       _rememberPlacement();
       _index = index;
@@ -387,6 +413,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
         return;
       }
       _rememberPlacement();
+      _inheritBorder = false;
       _borderTouched = true;
       await _discover(selectedId: border.id);
     } catch (_) {
@@ -405,6 +432,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   }
 
   void _resetPlacement() {
+    _inheritBorder = false;
     _size = 1;
     _x = 0;
     _y = 0;
@@ -438,7 +466,36 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
         _browseShaders();
       case 15:
         _editShaderParameters();
+      case 16:
+        _toggleInheritance();
     }
+  }
+
+  void _toggleInheritance() {
+    final inherited = widget.inherited;
+    if (inherited == null) return;
+    setState(() {
+      if (_shaderTab) {
+        _inheritShader = !_inheritShader;
+        if (_inheritShader) {
+          _preset = inherited.preset;
+          _shader = inherited.shaderId;
+          _shaderParameters = inherited.shaderParameters;
+        }
+      } else {
+        _inheritBorder = !_inheritBorder;
+        if (_inheritBorder) {
+          _index =
+              _borders.indexWhere((border) => border.id == inherited.borderId) +
+              1;
+          _size = inherited.size;
+          _x = inherited.horizontal;
+          _y = inherited.vertical;
+          _borderTouched = true;
+        }
+      }
+    });
+    if (!_shaderTab) _render();
   }
 
   void _disable() {
@@ -478,7 +535,10 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       ),
     );
     if (!mounted || values == null) return;
-    setState(() => _shaderParameters = values);
+    setState(() {
+      _inheritShader = false;
+      _shaderParameters = values;
+    });
   }
 
   void _save() {
@@ -494,6 +554,8 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
         preset: _preset,
         shaderId: _shader,
         shaderParameters: _shaderParameters,
+        inheritBorder: _inheritBorder,
+        inheritShader: _inheritShader,
         borderId: _index == 0
             ? _borderTouched
                   ? null
@@ -650,6 +712,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
             ? null
             : (value) => setState(() {
                 _row = row;
+                _inheritBorder = false;
                 change(value);
               }),
       ),
@@ -732,6 +795,24 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
               child: ListView(
                 controller: _scrollController,
                 children: [
+                  if (widget.inherited != null)
+                    SwitchListTile(
+                      key: _rowKeys[16],
+                      selected: _row == 16,
+                      title: Text(
+                        AppLocale.visualInheritDefault.getString(context),
+                      ),
+                      subtitle: Text(
+                        (_shaderTab ? _inheritShader : _inheritBorder)
+                            ? (_shaderTab
+                                      ? widget.shaderOrigin
+                                      : widget.borderOrigin) ??
+                                  AppLocale.systemDefault.getString(context)
+                            : AppLocale.visualGameOverride.getString(context),
+                      ),
+                      value: _shaderTab ? _inheritShader : _inheritBorder,
+                      onChanged: (_) => _toggleInheritance(),
+                    ),
                   if (!_shaderTab) ...[
                     ListTile(
                       key: _rowKeys[0],
@@ -912,7 +993,12 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
                   ListTile(
                     key: _rowKeys[6],
                     selected: _row == 6,
-                    title: Text(AppLocale.disabled.getString(context)),
+                    title: Text(
+                      (widget.inherited == null
+                              ? AppLocale.disabled
+                              : AppLocale.resetToDefault)
+                          .getString(context),
+                    ),
                     onTap: _disable,
                   ),
                 ],

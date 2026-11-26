@@ -11,6 +11,8 @@ class VisualProfile {
     this.borderId,
     this.shaderId,
     this.shaderParameters = const {},
+    this.inheritBorder = false,
+    this.inheritShader = false,
     this.size = 1,
     this.horizontal = 0,
     this.vertical = 0,
@@ -22,6 +24,8 @@ class VisualProfile {
   final String? borderId;
   final String? shaderId;
   final Map<String, double> shaderParameters;
+  final bool inheritBorder;
+  final bool inheritShader;
   final double size;
   final double horizontal;
   final double vertical;
@@ -34,6 +38,8 @@ class VisualProfile {
       preset: preset ?? VisualPreset.sharpAndClean,
       borderId: _id(json['borderId']),
       shaderId: _id(json['shaderId']),
+      inheritBorder: json['inheritBorder'] == true,
+      inheritShader: json['inheritShader'] == true,
       shaderParameters: switch (json['shaderParameters']) {
         final Map<String, Object?> parameters => Map.unmodifiable({
           for (final entry in parameters.entries)
@@ -57,6 +63,8 @@ class VisualProfile {
     'preset': preset.name,
     'borderId': borderId,
     'shaderId': shaderId,
+    if (inheritBorder) 'inheritBorder': true,
+    if (inheritShader) 'inheritShader': true,
     if (shaderParameters.isNotEmpty) 'shaderParameters': shaderParameters,
     'size': size,
     'horizontal': horizontal,
@@ -96,6 +104,25 @@ class VisualProfile {
       ? value.clamp(min, max).toDouble()
       : fallback;
 }
+
+VisualProfile combineVisualSettings({
+  required VisualProfile border,
+  required VisualProfile shader,
+  bool inheritBorder = false,
+  bool inheritShader = false,
+}) => VisualProfile(
+  preset: shader.preset,
+  shaderId: shader.shaderId,
+  shaderParameters: shader.shaderParameters,
+  borderId: border.borderId,
+  size: border.size,
+  horizontal: border.horizontal,
+  vertical: border.vertical,
+  borderPlacements: border.borderPlacements,
+  favoriteBorderIds: border.favoriteBorderIds,
+  inheritBorder: inheritBorder,
+  inheritShader: inheritShader,
+);
 
 /// The caller supplies the persisted profiles for the selected game and
 /// system. Profiles scoped to other emulators cannot affect this launch.

@@ -88,7 +88,7 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
 
   bool _editingProfile = false;
 
-  Future<void> _editVisualProfile() async {
+  Future<void> editVisualProfile() async {
     if (_editingProfile || !_hasVisualProfiles) return;
     _editingProfile = true;
     try {
@@ -99,26 +99,54 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
         systemId: widget.system.id ?? widget.system.folderName,
         emulatorId: null,
       );
-      final scope = (
+      final requestedScope = (
         systemId: system.systemId,
         emulatorId: _resolvedEmulatorId,
       );
       final rom = widget.game.romPath!;
-      final current =
-          repository.read(scope, gameKey: rom) ??
-          repository.read(system, gameKey: rom) ??
-          repository.read(scope) ??
-          repository.read(system) ??
-          repository.read(VisualProfileRepository.globalScope) ??
-          const VisualProfile();
-      final selectedCore = scope.emulatorId == null
+      final selectedCore = requestedScope.emulatorId == null
           ? await GameLaunchService.resolveDefaultInstalledEmulator(
               widget.system,
               availableEmulators: _availableEmulators,
             )
           : _availableEmulators
-                .where((emulator) => emulator.uniqueId == scope.emulatorId)
+                .where(
+                  (emulator) => emulator.uniqueId == requestedScope.emulatorId,
+                )
                 .firstOrNull;
+      final coreScope = (
+        systemId: system.systemId,
+        emulatorId: selectedCore?.uniqueId,
+      );
+      final existingCoreProfile = coreScope == system
+          ? null
+          : repository.read(coreScope, gameKey: rom);
+      final scope = existingCoreProfile == null ? requestedScope : coreScope;
+      final stored =
+          existingCoreProfile ??
+          repository.read(scope, gameKey: rom) ??
+          repository.read(system, gameKey: rom) ??
+          const VisualProfile(inheritBorder: true, inheritShader: true);
+      final defaults = repository.resolveWithOrigins(
+        systemId: system.systemId,
+        emulatorId: selectedCore?.uniqueId ?? scope.emulatorId,
+      );
+      final inherited = defaults?.profile ?? const VisualProfile();
+      final current = combineVisualSettings(
+        border: stored.inheritBorder ? inherited : stored,
+        shader: stored.inheritShader ? inherited : stored,
+        inheritBorder: stored.inheritBorder,
+        inheritShader: stored.inheritShader,
+      );
+      String origin(VisualProfileScope? origin) {
+        final key = origin?.emulatorId != null
+            ? AppLocale.visualInheritedCore
+            : origin == VisualProfileRepository.globalScope
+            ? AppLocale.visualGlobalDefaults
+            : AppLocale.visualInheritedSystem;
+        return key.getString(context);
+      }
+
       final previewGeometry =
           await RetroArchVisualSession.previewBorderGeometry(
             system: widget.system.folderName,
@@ -138,6 +166,9 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
           resolutionOnly: DolphinVisualProfile.supports(selectedCore?.uniqueId),
           previewGeometry: previewGeometry,
           shaderRegistry: shaderRegistry,
+          inherited: inherited,
+          borderOrigin: origin(defaults?.borderScope),
+          shaderOrigin: origin(defaults?.shaderScope),
         ),
       );
       if (result == null) return;
@@ -145,6 +176,11 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
       final saved = profile == null
           ? await repository.reset(scope, gameKey: rom)
           : await repository.save(scope, profile, gameKey: rom);
+      if (saved && profile == null && scope != system) {
+        if (!await repository.reset(system, gameKey: rom)) {
+          throw StateError('Could not restore the system visual profile');
+        }
+      }
       if (!saved) throw StateError('Could not persist game visual profile');
     } catch (error) {
       _log.w('Game visual profile persistence failed: $error');
@@ -207,7 +243,7 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
       return;
     }
     if (_selectedIndex >= _visualIndex) {
-      _editVisualProfile();
+      editVisualProfile();
       return;
     }
     final emulator = _availableEmulators[_selectedIndex - 1];
@@ -343,7 +379,7 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
               subtitle: AppLocale.visualGameOverride.getString(context),
               onTap: () {
                 setState(() => _selectedIndex = _visualIndex);
-                _editVisualProfile();
+                editVisualProfile();
               },
             ),
         ],

@@ -12,6 +12,9 @@ const Map<String, dynamic> appLocaleEs = {
   AppLocale.visualShaderNoParameters:
       'Este ajuste no ofrece parámetros editables',
   AppLocale.visualGlobalDefaults: 'Ajustes visuales globales',
+  AppLocale.visualInheritDefault: 'Heredar valor predeterminado',
+  AppLocale.visualInheritedSystem: 'Heredado del sistema',
+  AppLocale.visualInheritedCore: 'Heredado del núcleo',
   AppLocale.visualInstalledShaders: 'Shaders instalados',
   AppLocale.visualShaderPreviewUnavailable:
       'Vista previa del shader no disponible',
