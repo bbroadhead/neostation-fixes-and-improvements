@@ -65,7 +65,8 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
       )
       .toList();
 
-  int getItemCount() => _systems(context.read<SqliteConfigProvider>()).length;
+  int getItemCount() =>
+      _systems(context.read<SqliteConfigProvider>()).length + 1;
 
   void scrollToIndex(int index) =>
       _scroller.ensureVisibleIndex(index, keys: _keys, controller: _controller);
@@ -73,10 +74,14 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
   Future<void> selectItem(int index) async {
     final systems = _systems(context.read<SqliteConfigProvider>());
     final repository = _repository;
-    if (repository == null || _saving || index < 0 || index >= systems.length) {
+    if (repository == null || _saving || index < 0 || index > systems.length) {
       return;
     }
-    final system = systems[index];
+    if (index == 0) {
+      await _editGlobal(repository);
+      return;
+    }
+    final system = systems[index - 1];
     final systemScope = (systemId: system.id!, emulatorId: null);
     setState(() => _saving = true);
     var saved = false;
@@ -113,7 +118,10 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
         systemId: systemScope.systemId,
         emulatorId: selection.emulatorId,
       );
-      final stored = repository.read(scope) ?? repository.read(systemScope);
+      final stored =
+          repository.read(scope) ??
+          repository.read(systemScope) ??
+          repository.read(VisualProfileRepository.globalScope);
       final core = scope.emulatorId == null
           ? defaultEmulator
           : cores
@@ -123,7 +131,7 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
         system: system.folderName,
         coreFilename: core?.coreFilename,
       );
-      final shaderFormat = await RetroArchVisualSession.previewShaderFormat(
+      final shaderRegistry = await RetroArchVisualSession.previewShaderRegistry(
         coreFilename: core?.coreFilename,
       );
       if (!mounted) return;
@@ -132,7 +140,7 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
         builder: (_) => VisualBorderDialog(
           system: system.folderName,
           previewGeometry: geometry,
-          shaderFormat: shaderFormat,
+          shaderRegistry: shaderRegistry,
           profile: stored ?? const VisualProfile(),
           resolutionOnly: DolphinVisualProfile.supports(core?.uniqueId),
         ),
@@ -157,6 +165,39 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
     }
   }
 
+  Future<void> _editGlobal(VisualProfileRepository repository) async {
+    setState(() => _saving = true);
+    try {
+      const scope = VisualProfileRepository.globalScope;
+      final registry = await RetroArchVisualSession.previewShaderRegistry(
+        coreFilename: null,
+      );
+      if (!mounted) return;
+      final result = await showDialog<VisualBorderResult>(
+        context: context,
+        builder: (_) => VisualBorderDialog(
+          system: scope.systemId,
+          profile: repository.read(scope) ?? const VisualProfile(),
+          previewGeometry: null,
+          shaderRegistry: registry,
+          shadersOnly: true,
+        ),
+      );
+      if (result == null) return;
+      final profile = result.profile;
+      final saved = profile == null
+          ? await repository.reset(scope)
+          : await repository.save(scope, profile);
+      if (!saved && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocale.error.getString(context))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -166,7 +207,7 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
   @override
   Widget build(BuildContext context) {
     final systems = _systems(context.watch<SqliteConfigProvider>());
-    while (_keys.length < systems.length) {
+    while (_keys.length <= systems.length) {
       _keys.add(GlobalKey());
     }
     return Column(
@@ -180,9 +221,22 @@ class VisualProfilesContentState extends State<VisualProfilesContent> {
         Expanded(
           child: ListView.builder(
             controller: _controller,
-            itemCount: systems.length,
+            itemCount: systems.length + 1,
             itemBuilder: (context, index) {
-              final system = systems[index];
+              if (index == 0) {
+                return SettingsCardRow(
+                  key: _keys[index],
+                  icon: Symbols.aspect_ratio_rounded,
+                  title: AppLocale.visualGlobalDefaults.getString(context),
+                  subtitle: AppLocale.visualShader.getString(context),
+                  selected:
+                      widget.isContentFocused &&
+                      index == widget.selectedContentIndex,
+                  disabled: _repository == null || _saving,
+                  onTap: () => selectItem(index),
+                );
+              }
+              final system = systems[index - 1];
               final scope = (systemId: system.id!, emulatorId: null);
               final profile = _repository?.read(scope);
               final preset = switch (profile?.preset) {

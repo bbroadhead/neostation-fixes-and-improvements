@@ -109,6 +109,7 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
           repository.read(system, gameKey: rom) ??
           repository.read(scope) ??
           repository.read(system) ??
+          repository.read(VisualProfileRepository.globalScope) ??
           const VisualProfile();
       final selectedCore = scope.emulatorId == null
           ? await GameLaunchService.resolveDefaultInstalledEmulator(
@@ -124,7 +125,7 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
             coreFilename: selectedCore?.coreFilename,
             romPath: rom,
           );
-      final shaderFormat = await RetroArchVisualSession.previewShaderFormat(
+      final shaderRegistry = await RetroArchVisualSession.previewShaderRegistry(
         coreFilename: selectedCore?.coreFilename,
         romPath: rom,
       );
@@ -136,7 +137,7 @@ class GameSettingsEmulatorTabState extends State<GameSettingsEmulatorTab> {
           profile: current,
           resolutionOnly: DolphinVisualProfile.supports(selectedCore?.uniqueId),
           previewGeometry: previewGeometry,
-          shaderFormat: shaderFormat,
+          shaderRegistry: shaderRegistry,
         ),
       );
       if (result == null) return;

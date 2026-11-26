@@ -10,6 +10,9 @@ import '../../../services/gamepad/gamepad_navigation_manager.dart';
 import '../../../services/visual_profiles/gameplay_viewport.dart';
 import '../../../services/visual_profiles/installed_border.dart';
 import '../../../services/visual_profiles/retroarch_visual_session.dart';
+import 'visual_shader_catalog_dialog.dart';
+import 'visual_shader_parameters_dialog.dart';
+import '../../../services/visual_profiles/retroarch_shader_registry.dart';
 import '../../../utils/gamepad_nav.dart';
 import '../../../widgets/tv_directory_picker.dart';
 
@@ -22,14 +25,16 @@ class VisualBorderDialog extends StatefulWidget {
     required this.profile,
     this.resolutionOnly = false,
     required this.previewGeometry,
-    this.shaderFormat,
+    this.shaderRegistry,
+    this.shadersOnly = false,
   });
 
   final String system;
   final VisualProfile profile;
   final bool resolutionOnly;
   final ({double aspect, int? nativeHeight})? previewGeometry;
-  final String? shaderFormat;
+  final RetroArchShaderRegistry? shaderRegistry;
+  final bool shadersOnly;
 
   @override
   State<VisualBorderDialog> createState() => _VisualBorderDialogState();
@@ -40,10 +45,13 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   late final GamepadNavigation _nav;
   List<InstalledBorder> _borders = [];
   ({PixelRect opening, Uint8List png})? _preview;
-  final _rowKeys = List.generate(14, (_) => GlobalKey());
-  bool _shaderTab = false;
+  final _rowKeys = List.generate(16, (_) => GlobalKey());
+  late bool _shaderTab = widget.shadersOnly;
   late VisualPreset _preset = widget.profile.preset;
   late String? _shader = widget.profile.shaderId;
+  late Map<String, double> _shaderParameters = widget.profile.shaderParameters;
+  bool get _canEditShaderParameters =>
+      widget.shaderRegistry != null && _shader != null && _shader != '@none';
   static const _shaders = <String?>[null, '@none', '@sharp', '@lcd', '@crt'];
 
   final _searchFocus = FocusNode();
@@ -54,7 +62,11 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   bool _importFailed = false;
   bool _borderTouched = false;
   late final Set<String> _favorites = {...widget.profile.favoriteBorderIds};
-  late int _row = widget.resolutionOnly ? 11 : 0;
+  late int _row = widget.resolutionOnly
+      ? 11
+      : widget.shadersOnly
+      ? 12
+      : 0;
   int _index = 0;
   final _previewCache = <String, ({PixelRect opening, Uint8List png})?>{};
   bool _renderingPreview = false;
@@ -102,7 +114,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
         onDeactivate: _nav.deactivate,
       );
     });
-    if (widget.resolutionOnly) {
+    if (widget.resolutionOnly || widget.shadersOnly) {
       _busy = false;
     } else {
       _discover();
@@ -204,7 +216,11 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   }
 
   void _setShaderTab(bool shaderTab) {
-    if (widget.resolutionOnly || _shaderTab == shaderTab) return;
+    if (widget.resolutionOnly ||
+        widget.shadersOnly ||
+        _shaderTab == shaderTab) {
+      return;
+    }
     _searchFocus.unfocus();
     setState(() {
       _shaderTab = shaderTab;
@@ -220,7 +236,15 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       return;
     }
     final rows = _shaderTab
-        ? const [12, 11, 13, 5, 6]
+        ? [
+            12,
+            if (widget.shaderRegistry != null) 14,
+            if (_canEditShaderParameters) 15,
+            11,
+            13,
+            5,
+            6,
+          ]
         : [
             0,
             if (!_fixedPlacement) ...[1, 2, 3, 4],
@@ -271,10 +295,17 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   }
 
   void _changeShader(int direction) {
+    final index = _shaders.indexOf(_shader);
+    _selectShader(
+      _shaders[(index + direction + _shaders.length) % _shaders.length],
+    );
+  }
+
+  void _selectShader(String? shader) {
+    if (_shader == shader) return;
     setState(() {
-      final index = _shaders.indexOf(_shader);
-      _shader =
-          _shaders[(index + direction + _shaders.length) % _shaders.length];
+      _shader = shader;
+      _shaderParameters = const {};
     });
   }
 
@@ -402,12 +433,52 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       case 12:
         _changeShader(1);
       case 13:
-        setState(() => _shader = null);
+        _selectShader(null);
+      case 14:
+        _browseShaders();
+      case 15:
+        _editShaderParameters();
     }
   }
 
   void _disable() {
     Navigator.of(context).pop<VisualBorderResult>((profile: null));
+  }
+
+  Future<void> _browseShaders() async {
+    final registry = widget.shaderRegistry;
+    if (registry == null) return;
+    final id = await showDialog<String>(
+      context: context,
+      builder: (_) =>
+          VisualShaderCatalogDialog(registry: registry, selectedId: _shader),
+    );
+    if (!mounted || id == null) return;
+    _selectShader(id);
+  }
+
+  Future<void> _editShaderParameters() async {
+    if (!_canEditShaderParameters) return;
+    final id = _shader!;
+    final parameters = await widget.shaderRegistry!.parameters(id);
+    if (!mounted || _shader != id) return;
+    if (parameters.isEmpty) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(AppLocale.visualShaderNoParameters.getString(context)),
+        ),
+      );
+      return;
+    }
+    final values = await showDialog<Map<String, double>>(
+      context: context,
+      builder: (_) => VisualShaderParametersDialog(
+        parameters: parameters,
+        values: _shaderParameters,
+      ),
+    );
+    if (!mounted || values == null) return;
+    setState(() => _shaderParameters = values);
   }
 
   void _save() {
@@ -422,6 +493,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       profile: VisualProfile(
         preset: _preset,
         shaderId: _shader,
+        shaderParameters: _shaderParameters,
         borderId: _index == 0
             ? _borderTouched
                   ? null
@@ -513,13 +585,14 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   }
 
   String? get _shaderPreviewAsset {
-    final effect = switch (_shader) {
+    if (_shaderParameters.isNotEmpty) return null;
+    final effect = switch (widget.shaderRegistry?.previewPreset(_shader)) {
       '@sharp' => 'sharp',
       '@lcd' => 'lcd',
       '@crt' => 'crt',
       _ => null,
     };
-    final asset = switch ((widget.shaderFormat, effect)) {
+    final asset = switch ((widget.shaderRegistry?.format, effect)) {
       ('glsl', final effect?) => 'gl-$effect.png',
       ('slang', final effect?) => 'slang-$effect.png',
       _ when _shader == '@none' => 'raw.png',
@@ -529,7 +602,7 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
   }
 
   Widget _shaderPreviewView() {
-    final format = widget.shaderFormat;
+    final format = widget.shaderRegistry?.format;
     final asset = _shaderPreviewAsset;
     final unavailable = AppLocale.visualShaderPreviewUnavailable.getString(
       context,
@@ -626,21 +699,22 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(AppLocale.visualProfiles.getString(context)),
-        const SizedBox(height: 12),
-        SegmentedButton<bool>(
-          segments: [
-            ButtonSegment(
-              value: false,
-              label: Text(AppLocale.visualBorder.getString(context)),
-            ),
-            ButtonSegment(
-              value: true,
-              label: Text(AppLocale.visualShader.getString(context)),
-            ),
-          ],
-          selected: {_shaderTab},
-          onSelectionChanged: (selection) => _setShaderTab(selection.single),
-        ),
+        if (!widget.shadersOnly) const SizedBox(height: 12),
+        if (!widget.shadersOnly)
+          SegmentedButton<bool>(
+            segments: [
+              ButtonSegment(
+                value: false,
+                label: Text(AppLocale.visualBorder.getString(context)),
+              ),
+              ButtonSegment(
+                value: true,
+                label: Text(AppLocale.visualShader.getString(context)),
+              ),
+            ],
+            selected: {_shaderTab},
+            onSelectionChanged: (selection) => _setShaderTab(selection.single),
+          ),
       ],
     ),
     content: SizedBox(
@@ -800,6 +874,26 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => _changeShader(1),
                     ),
+                    if (widget.shaderRegistry != null)
+                      ListTile(
+                        key: _rowKeys[14],
+                        selected: _row == 14,
+                        title: Text(
+                          AppLocale.visualInstalledShaders.getString(context),
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: _browseShaders,
+                      ),
+                    if (_canEditShaderParameters)
+                      ListTile(
+                        key: _rowKeys[15],
+                        selected: _row == 15,
+                        title: Text(
+                          AppLocale.visualShaderParameters.getString(context),
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: _editShaderParameters,
+                      ),
                     ListTile(
                       key: _rowKeys[11],
                       selected: _row == 11,
@@ -812,16 +906,9 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
                       key: _rowKeys[13],
                       selected: _row == 13,
                       title: Text(AppLocale.reset.getString(context)),
-                      onTap: () => setState(() => _shader = null),
+                      onTap: () => _selectShader(null),
                     ),
                   ],
-                  ListTile(
-                    key: _rowKeys[5],
-                    selected: _row == 5,
-                    enabled: _canSave,
-                    title: Text(AppLocale.save.getString(context)),
-                    onTap: _canSave ? _save : null,
-                  ),
                   ListTile(
                     key: _rowKeys[6],
                     selected: _row == 6,
@@ -836,6 +923,16 @@ class _VisualBorderDialogState extends State<VisualBorderDialog> {
       ),
     ),
     actions: [
+      FilledButton(
+        key: _rowKeys[5],
+        style: _row == 5
+            ? FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.tertiary,
+              )
+            : null,
+        onPressed: _canSave ? _save : null,
+        child: Text(AppLocale.save.getString(context)),
+      ),
       TextButton(
         onPressed: _back,
         child: Text(AppLocale.cancel.getString(context)),

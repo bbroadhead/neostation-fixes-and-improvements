@@ -10,6 +10,7 @@ class VisualProfile {
     this.preset = VisualPreset.sharpAndClean,
     this.borderId,
     this.shaderId,
+    this.shaderParameters = const {},
     this.size = 1,
     this.horizontal = 0,
     this.vertical = 0,
@@ -20,6 +21,7 @@ class VisualProfile {
   final VisualPreset preset;
   final String? borderId;
   final String? shaderId;
+  final Map<String, double> shaderParameters;
   final double size;
   final double horizontal;
   final double vertical;
@@ -32,6 +34,14 @@ class VisualProfile {
       preset: preset ?? VisualPreset.sharpAndClean,
       borderId: _id(json['borderId']),
       shaderId: _id(json['shaderId']),
+      shaderParameters: switch (json['shaderParameters']) {
+        final Map<String, Object?> parameters => Map.unmodifiable({
+          for (final entry in parameters.entries)
+            if (entry.value case final num value when value.isFinite)
+              entry.key: value.toDouble(),
+        }),
+        _ => const {},
+      },
       size: _bounded(json['size'], 0, 1, 1),
       horizontal: _bounded(json['horizontal'], -1, 1, 0),
       vertical: _bounded(json['vertical'], -1, 1, 0),
@@ -47,6 +57,7 @@ class VisualProfile {
     'preset': preset.name,
     'borderId': borderId,
     'shaderId': shaderId,
+    if (shaderParameters.isNotEmpty) 'shaderParameters': shaderParameters,
     'size': size,
     'horizontal': horizontal,
     'vertical': vertical,

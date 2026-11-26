@@ -1411,6 +1411,10 @@ mixin AppLocale {
   static const String visualShader = 'visualShader';
   static const String visualShaderPreviewUnavailable =
       'visualShaderPreviewUnavailable';
+  static const String visualShaderParameters = 'visualShaderParameters';
+  static const String visualShaderNoParameters = 'visualShaderNoParameters';
+  static const String visualGlobalDefaults = 'visualGlobalDefaults';
+  static const String visualInstalledShaders = 'visualInstalledShaders';
   static const String visualShaderStaticPreview = 'visualShaderStaticPreview';
   static const String visualEnhanced = 'visualEnhanced';
   static const String visualAuthentic = 'visualAuthentic';

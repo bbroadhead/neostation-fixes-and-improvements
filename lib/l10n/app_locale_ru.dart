@@ -8,6 +8,11 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.visualBorderFavorites: 'Только избранное',
   AppLocale.visualGameOverride: 'Настроить графику для этой игры',
   AppLocale.visualPreset: 'Предустановка',
+  AppLocale.visualShaderParameters: 'Параметры шейдера',
+  AppLocale.visualShaderNoParameters:
+      'У этого пресета нет редактируемых параметров',
+  AppLocale.visualGlobalDefaults: 'Общие настройки изображения',
+  AppLocale.visualInstalledShaders: 'Установленные шейдеры',
   AppLocale.visualShaderPreviewUnavailable: 'Предпросмотр шейдера недоступен',
   AppLocale.visualShaderStaticPreview: 'Статический предпросмотр RetroArch',
   AppLocale.visualShader: 'Шейдер',

@@ -12,6 +12,7 @@ import '../config_service.dart';
 import '../logger_service.dart';
 import 'gameplay_viewport.dart';
 import 'installed_border.dart';
+import 'retroarch_shader_registry.dart';
 
 /// Private configuration for one launch of the detected Flatpak install.
 class RetroArchVisualSession {
@@ -80,13 +81,12 @@ class RetroArchVisualSession {
               _lcdSystems.contains(systemFolder) ? '@lcd' : '@crt',
             _ => null,
           };
-      final shader = await _compatibleShader(
-        configRoot,
-        base,
-        corePath,
-        romPath,
-        selectedShader,
-      );
+      final shaderRegistry = selectedShader == null || selectedShader == '@none'
+          ? null
+          : await _shaderRegistry(configRoot, base, corePath, romPath);
+      var shader = selectedShader == null
+          ? null
+          : await shaderRegistry?.resolve(selectedShader);
       final overrides = <String, String>{'config_save_on_exit': 'false'};
       if (selectedShader == '@none') overrides['video_shader_enable'] = 'false';
       if (profile.preset != VisualPreset.custom) {
@@ -194,7 +194,22 @@ class RetroArchVisualSession {
       } catch (error) {
         _log.w('Could not prepare RetroArch core options: $error');
       }
-      final scratch = [?artwork, ?coreOptions];
+      Directory? shaderOptions;
+      if (shader != null && profile.shaderParameters.isNotEmpty) {
+        try {
+          shaderOptions = await Directory(configRoot)
+              .createTemp('.neostation-shader-');
+          final parameterized = await shaderRegistry!.withParameters(
+            selectedShader!,
+            shaderOptions,
+            profile.shaderParameters,
+          );
+          if (parameterized != null) shader = parameterized;
+        } catch (error) {
+          _log.w('Could not prepare RetroArch shader parameters: $error');
+        }
+      }
+      final scratch = [?artwork, ?coreOptions, ?shaderOptions];
 
       final filename =
           '.neostation-visual-'
@@ -719,76 +734,48 @@ class RetroArchVisualSession {
     'atarilynx',
   };
 
-  static String? _presetPath(String id, String format) {
-    final directory = switch ((id, format)) {
-      ('@sharp', 'slang') => 'pixel-art-scaling/sharp-bilinear-simple',
-      ('@sharp', 'glsl') => 'interpolation/sharp-bilinear-simple',
-      ('@enhanced', 'slang') => 'interpolation/jinc2-sharp',
-      ('@enhanced', 'glsl') => 'interpolation/sharp-bilinear-simple',
-      ('@lcd', _) => 'handheld/lcd-grid-v2',
-      ('@crt', _) => 'crt/crt-pi',
-      _ => null,
-    };
-    return directory == null ? null : 'shaders_$format/$directory.${format}p';
-  }
-
-  static Future<String?> _compatibleShader(
-    String root,
-    String config,
-    String corePath,
-    String? romPath,
-    String? shaderId,
-  ) async {
-    if (shaderId == null || path.isAbsolute(shaderId)) return null;
-    final format = await _shaderFormat(root, config, corePath, romPath);
-    if (format == null) return null;
-    final relativePath = shaderId.startsWith('@')
-        ? _presetPath(shaderId, format)
-        : shaderId;
-    if (relativePath == null || path.extension(relativePath) != '.${format}p') {
-      return null;
-    }
-    final shaders = Directory(path.join(root, 'shaders'));
-    final file = File(path.join(shaders.path, relativePath));
-    if (!await file.exists()) return null;
-    final canonical = await file.resolveSymbolicLinks();
-    return path.isWithin(await shaders.resolveSymbolicLinks(), canonical)
-        ? canonical
-        : null;
-  }
-
-  static Future<String?> previewShaderFormat({
+  static Future<RetroArchShaderRegistry?> previewShaderRegistry({
     required String? coreFilename,
     String? romPath,
   }) async {
-    if (coreFilename == null) return null;
     final root = flatpakConfigRoot;
     try {
       final config = await File(path.join(root, 'retroarch.cfg'))
           .readAsString();
-      return await _shaderFormat(root, config, coreFilename, romPath);
+      return await _shaderRegistry(root, config, coreFilename, romPath);
     } on FileSystemException {
       return null;
     }
   }
 
-  static Future<String?> _shaderFormat(
+  static Future<RetroArchShaderRegistry?> _shaderRegistry(
     String root,
     String config,
-    String corePath,
+    String? corePath,
     String? romPath,
   ) async {
-    final native = await _nativeOverrides(root, config, corePath, romPath);
+    final native = corePath == null
+        ? const <String>[]
+        : await _nativeOverrides(root, config, corePath, romPath);
     if (native == null) return null;
     var driver = _value(config, 'video_driver');
+    var directory = _value(config, 'video_shader_dir');
     for (final override in native) {
       driver = _value(override, 'video_driver') ?? driver;
+      directory = _value(override, 'video_shader_dir') ?? directory;
     }
-    return switch (driver) {
-      'vulkan' || 'glcore' => 'slang',
-      'gl' => 'glsl',
-      _ => null,
+    final format = RetroArchShaderRegistry.formatForDriver(driver);
+    if (format == null) return null;
+    final home = homeOverride ?? Platform.environment['HOME'];
+    final shaderDir = switch (directory) {
+      null || '' || 'default' => path.join(root, 'shaders'),
+      final dir when home != null && dir.startsWith('~/') => path.join(
+        home,
+        dir.substring(2),
+      ),
+      final dir => path.join(root, dir),
     };
+    return RetroArchShaderRegistry(Directory(shaderDir), format);
   }
 
   /// Native includes inherit all base settings while leaving the base config

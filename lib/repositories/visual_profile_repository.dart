@@ -9,6 +9,11 @@ import '../models/visual_profile.dart';
 class VisualProfileRepository {
   VisualProfileRepository(this._preferences);
 
+  static const VisualProfileScope globalScope = (
+    systemId: ':global:',
+    emulatorId: null,
+  );
+
   final SharedPreferences _preferences;
 
   VisualProfile? read(VisualProfileScope scope, {String? gameKey}) {
@@ -36,7 +41,8 @@ class VisualProfileRepository {
             ? null
             : read(system, gameKey: romPath)) ??
         read(emulator) ??
-        (emulator == system ? null : read(system));
+        (emulator == system ? null : read(system)) ??
+        read(globalScope);
   }
 
   Future<bool> save(

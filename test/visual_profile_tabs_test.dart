@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localization/flutter_localization.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:neostation/l10n/app_locale.dart';
 import 'package:neostation/models/visual_profile.dart';
 import 'package:neostation/screens/settings_screen/new_settings_options/visual_border_dialog.dart';
 import 'package:neostation/services/sfx_service.dart';
+import 'package:neostation/services/visual_profiles/retroarch_shader_registry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -38,11 +41,14 @@ void main() {
               onPressed: () async {
                 saved = await showDialog<VisualBorderResult>(
                   context: context,
-                  builder: (_) => const VisualBorderDialog(
+                  builder: (_) => VisualBorderDialog(
                     system: 'ds-no-layout-test',
-                    profile: VisualProfile(borderId: 'saved-border'),
+                    profile: const VisualProfile(borderId: 'saved-border'),
                     previewGeometry: null,
-                    shaderFormat: 'glsl',
+                    shaderRegistry: RetroArchShaderRegistry(
+                      Directory.systemTemp,
+                      'glsl',
+                    ),
                   ),
                 );
               },
@@ -70,6 +76,7 @@ void main() {
     await tester.tap(find.text('Shader'));
     await tester.pumpAndSettle();
     expect(find.text('Sharp Bilinear Simple'), findsOneWidget);
+    await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 

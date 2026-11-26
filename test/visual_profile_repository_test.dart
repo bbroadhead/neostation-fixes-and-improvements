@@ -16,6 +16,37 @@ void main() {
   });
 
   test(
+    'resolves persisted global shader settings when the system has no profile',
+    () async {
+      await repository.save(
+        VisualProfileRepository.globalScope,
+        const VisualProfile(
+          shaderId: '@crt',
+          shaderParameters: {'CURVATURE_X': 0.2},
+        ),
+      );
+      final profile = repository.resolve(
+        systemId: scope.systemId,
+        emulatorId: scope.emulatorId,
+        romPath: gameKey,
+      );
+      expect(profile?.shaderId, '@crt');
+      expect(profile?.shaderParameters, {'CURVATURE_X': 0.2});
+      await repository.save(scope, const VisualProfile(shaderId: '@none'));
+      expect(
+        repository
+            .resolve(
+              systemId: scope.systemId,
+              emulatorId: scope.emulatorId,
+              romPath: gameKey,
+            )
+            ?.shaderId,
+        '@none',
+      );
+    },
+  );
+
+  test(
     'persists settings and resets the game without removing core settings',
     () async {
       expect(

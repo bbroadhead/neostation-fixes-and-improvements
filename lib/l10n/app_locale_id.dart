@@ -8,6 +8,11 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.visualBorderFavorites: 'Hanya favorit',
   AppLocale.visualGameOverride: 'Atur grafis untuk permainan ini',
   AppLocale.visualPreset: 'Prasetel',
+  AppLocale.visualShaderParameters: 'Parameter shader',
+  AppLocale.visualShaderNoParameters:
+      'Preset ini tidak memiliki parameter yang dapat diedit',
+  AppLocale.visualGlobalDefaults: 'Setelan visual global',
+  AppLocale.visualInstalledShaders: 'Shader terpasang',
   AppLocale.visualShaderPreviewUnavailable: 'Pratinjau shader tidak tersedia',
   AppLocale.visualShaderStaticPreview: 'Pratinjau statis RetroArch',
   AppLocale.visualShader: 'Shader',
