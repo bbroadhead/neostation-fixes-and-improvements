@@ -166,8 +166,11 @@ class SqliteDatabaseService {
     String selection, {
     required bool folder,
     required bool ignoreHiddenFiles,
+    bool Function()? isCancelled,
+    void Function(RomImportStage)? onStage,
   }) async {
     final timer = Stopwatch()..start();
+    onStage?.call(RomImportStage.discovering);
     final id = system.id;
     if (id == null) throw ArgumentError('Missing system ID');
     final extensions = (await SqliteService.getExtensionsForSystem(id))
@@ -222,6 +225,14 @@ class SqliteDatabaseService {
       }
     }
 
+    if (isCancelled?.call() == true) {
+      return RomImportResult(
+        discovered: discovered,
+        cancelled: true,
+        elapsed: timer.elapsed,
+      );
+    }
+    onStage?.call(RomImportStage.checkingDuplicates);
     final playable = extensions.contains('m3u')
         ? await _filterM3uReferencedFiles(entries, false)
         : entries;
@@ -242,8 +253,17 @@ class SqliteDatabaseService {
         )
         .toList();
 
+    if (isCancelled?.call() == true) {
+      return RomImportResult(
+        discovered: discovered,
+        cancelled: true,
+        elapsed: timer.elapsed,
+      );
+    }
+
     var added = 0;
     if (candidates.isNotEmpty) {
+      onStage?.call(RomImportStage.saving);
       final prefs = await SharedPreferences.getInstance();
       final registered = (prefs.getStringList(_directImportsKey) ?? []).toSet();
       await _batchInsertRoms(system.folderName, candidates);
@@ -268,6 +288,11 @@ class SqliteDatabaseService {
       discovered: discovered,
       added: added,
       existing: playable.length - candidates.length,
+      duplicates:
+          playable
+              .where((entry) => !existingPaths.contains(entry.path))
+              .length -
+          candidates.length,
       unsupported: unsupported,
       playlistDiscs: entries.length - playable.length,
       failures: failures,

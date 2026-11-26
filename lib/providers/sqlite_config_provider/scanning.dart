@@ -1417,6 +1417,8 @@ extension SqliteConfigScanning on SqliteConfigProvider {
     SystemModel system,
     String selection, {
     required bool folder,
+    bool Function()? isCancelled,
+    void Function(RomImportStage)? onStage,
   }) async {
     if (_isScanning || _isSilentScanning) throw StateError('Scan in progress');
     _setScanning(true);
@@ -1426,6 +1428,8 @@ extension SqliteConfigScanning on SqliteConfigProvider {
         selection,
         folder: folder,
         ignoreHiddenFiles: _config.ignoreHiddenFiles,
+        isCancelled: isCancelled,
+        onStage: onStage,
       );
       if (result.added > 0) {
         await SystemRepository.addDetectedSystem(system.id!, system.folderName);

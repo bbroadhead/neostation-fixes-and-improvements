@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:neostation/models/rom_import_result.dart';
 import 'package:neostation/data/datasources/sqlite_database_service.dart';
 import 'package:neostation/models/system_model.dart';
 
@@ -112,6 +113,46 @@ void main() {
       expect(missing.hasErrors, isTrue);
     },
   );
+
+  test('targeted scan reports stages, skips duplicates, and can cancel before saving', () async {
+    final root = await createAliasedRomTree(['Original.rvz']);
+    final folder = Directory('${root.path}/gc');
+    final stages = <RomImportStage>[];
+    var cancelled = false;
+    final stopped = await SqliteDatabaseService.importRomSelection(
+      gcSystem,
+      folder.path,
+      folder: true,
+      ignoreHiddenFiles: true,
+      isCancelled: () => cancelled,
+      onStage: (stage) {
+        stages.add(stage);
+        cancelled = stage == RomImportStage.checkingDuplicates;
+      },
+    );
+    expect(stopped.cancelled, isTrue);
+    expect(stages, [
+      RomImportStage.discovering,
+      RomImportStage.checkingDuplicates,
+    ]);
+    expect(await romRows(), isEmpty);
+
+    final original = File('${folder.path}/Original.rvz');
+    await original.copy('${folder.path}/Duplicate.rvz');
+    stages.clear();
+    final completed = await SqliteDatabaseService.importRomSelection(
+      gcSystem,
+      folder.path,
+      folder: true,
+      ignoreHiddenFiles: true,
+      onStage: stages.add,
+    );
+    expect(completed.cancelled, isFalse);
+    expect(completed.discovered, 2);
+    expect(completed.added, 1);
+    expect(completed.duplicates, 1);
+    expect(stages, RomImportStage.values);
+  });
 
   group('ROM scan across symlinked alias folders', () {
     test(

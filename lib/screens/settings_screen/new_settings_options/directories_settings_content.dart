@@ -3,7 +3,12 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as paths;
+import 'package:neostation/models/ra_compatibility.dart';
+import 'package:neostation/models/rom_import_result.dart';
 import 'package:neostation/models/system_model.dart';
+import 'package:neostation/repositories/retro_achievements_repository.dart';
+import 'package:neostation/utils/ra_compatibility_labels.dart';
+import 'package:neostation/utils/ra_coverage.dart';
 import 'package:neostation/providers/sqlite_database_provider.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
@@ -83,6 +88,9 @@ class DirectoriesSettingsContentState
   // ignored rather than opening another picker whose folder would not be
   // scanned while the first scan runs.
   bool _addingRomFolder = false;
+  String? _activeTargetedScan;
+  RomImportStage? _targetedScanStage;
+  bool _cancelTargetedScan = false;
 
   // Migration progress state (shown inline, no dialog).
   bool _isMigrating = false;
@@ -252,6 +260,12 @@ class DirectoriesSettingsContentState
         break;
       case 'scan_file':
       case 'scan_folder':
+        if (_activeTargetedScan == action) {
+          if (_targetedScanStage != RomImportStage.saving) {
+            setState(() => _cancelTargetedScan = true);
+          }
+          break;
+        }
         await _importRomSelection(
           configProvider,
           folder: action == 'scan_folder',
@@ -280,6 +294,11 @@ class DirectoriesSettingsContentState
       return;
     }
     _addingRomFolder = true;
+    const notificationId = 'targeted_rom_scan';
+    final notifications = GlobalNotificationService();
+    final cancelled = AppLocale.romScanCanceled.getString(context);
+    final failed = AppLocale.errorScanningRoms.getString(context);
+    var started = false;
     try {
       final extensions = provider.availableSystems
           .expand((system) => system.extensions)
@@ -361,18 +380,58 @@ class DirectoriesSettingsContentState
         return;
       }
       final database = context.read<SqliteDatabaseProvider>();
+      final stages = {
+        RomImportStage.discovering: AppLocale.scanningRoms.getString(context),
+        RomImportStage.checkingDuplicates: AppLocale.romScanCheckingDuplicates
+            .getString(context),
+        RomImportStage.saving: AppLocale.romScanSaving.getString(context),
+      };
+      final complete = AppLocale.scanningComplete.getString(context);
+      final warnings = AppLocale.romScanWarnings.getString(context);
+      setState(() {
+        _activeTargetedScan = folder ? 'scan_folder' : 'scan_file';
+        _cancelTargetedScan = false;
+      });
+      started = true;
+      notifications.show(
+        id: notificationId,
+        message: AppLocale.romScanStarted.getString(context),
+        ongoing: true,
+      );
       final result = await provider.importRomSelection(
         system,
         selection,
         folder: folder,
+        isCancelled: () => _cancelTargetedScan,
+        onStage: (stage) {
+          if (mounted) setState(() => _targetedScanStage = stage);
+          notifications.update(
+            id: notificationId,
+            message: stages[stage]!,
+            ongoing: true,
+          );
+        },
       );
-      if (result.added > 0) await database.refresh();
-      if (!mounted) return;
+      if (result.cancelled) {
+        notifications.update(id: notificationId, message: cancelled);
+        if (mounted) AppNotification.showNotification(context, cancelled);
+        return;
+      }
+      if (result.added > 0 && mounted) await database.refresh();
+      final title = result.hasErrors
+          ? result.discovered == 0 || (!folder && result.existing == 0)
+                ? failed
+                : warnings
+          : complete;
+      if (!mounted) {
+        notifications.update(id: notificationId, message: title);
+        return;
+      }
       final counts = AppLocale.romImportSummary
           .getString(context)
           .replaceFirst('{found}', '${result.discovered}')
           .replaceFirst('{added}', '${result.added}')
-          .replaceFirst('{existing}', '${result.existing}')
+          .replaceFirst('{existing}', '${result.existing - result.duplicates}')
           .replaceFirst('{unsupported}', '${result.unsupported}')
           .replaceFirst('{playlist}', '${result.playlistDiscs}')
           .replaceFirst('{failed}', '${result.failures.length}')
@@ -380,8 +439,14 @@ class DirectoriesSettingsContentState
             '{seconds}',
             (result.elapsed.inMilliseconds / 1000).toStringAsFixed(1),
           );
+      final duplicates = AppLocale.romScanDuplicates
+          .getString(context)
+          .replaceFirst('{count}', '${result.duplicates}');
+      final updated = AppLocale.romScanUpdated
+          .getString(context)
+          .replaceFirst('{count}', '0');
       final message = folder
-          ? counts
+          ? '$counts · $updated · $duplicates'
           : (result.added > 0
                     ? AppLocale.romImported
                     : result.existing > 0
@@ -390,9 +455,53 @@ class DirectoriesSettingsContentState
                     ? AppLocale.unsupportedGameFormat
                     : AppLocale.romNoneImported)
                 .getString(context);
+      String? achievements;
+      if (!folder &&
+          isRaSupportedSystem(system.raId) &&
+          (result.added > 0 || result.existing > 0)) {
+        final unavailable = AppLocale.raReviewVerificationUnavailable.getString(
+          context,
+        );
+        try {
+          final hash = await RetroAchievementsRepository.getRomRaHash(
+            selection,
+          );
+          final compatibility =
+              await RetroAchievementsRepository.getRomCompatibility(selection);
+          if (mounted) {
+            final hashStatus = hash == null
+                ? AppLocale.romScanHashPending
+                : AppLocale.romScanHashReady;
+            final label = compatibility.status.labelKey.getString(context);
+            achievements =
+                compatibility.status == RaCompatibilityStatus.hashFailed
+                ? label
+                : '${hashStatus.getString(context)} · $label';
+          }
+        } catch (error) {
+          _log.w('Could not read targeted ROM achievement status: $error');
+          achievements = unavailable;
+        }
+        if (!mounted) {
+          notifications.update(id: notificationId, message: title);
+          return;
+        }
+      }
+      if (folder && result.added > 0 && isRaSupportedSystem(system.raId)) {
+        final pending = AppLocale.romScanHashPending.getString(context);
+        achievements = '$pending (${result.added})';
+      }
+      final feedback = [title, message, ?achievements].join('\n');
+      notifications.update(
+        id: notificationId,
+        message: feedback,
+        type: result.hasErrors
+            ? GlobalNotificationType.error
+            : GlobalNotificationType.success,
+      );
       AppNotification.showNotification(
         context,
-        message,
+        feedback,
         type: result.hasErrors
             ? NotificationType.error
             : result.added > 0
@@ -409,6 +518,13 @@ class DirectoriesSettingsContentState
       }
     } catch (error) {
       _log.e('Selected ROM import failed: $error');
+      if (started) {
+        notifications.update(
+          id: notificationId,
+          message: '$failed (${error.runtimeType})',
+          type: GlobalNotificationType.error,
+        );
+      }
       if (!mounted) return;
       AppNotification.showNotification(
         context,
@@ -419,6 +535,12 @@ class DirectoriesSettingsContentState
       );
     } finally {
       _addingRomFolder = false;
+      if (mounted && started) {
+        setState(() {
+          _activeTargetedScan = null;
+          _targetedScanStage = null;
+        });
+      }
     }
   }
 
@@ -1210,6 +1332,12 @@ class DirectoriesSettingsContentState
 
                       final isRemoveItem = item['action'] == 'remove_rom';
                       final isUserData = item['action'] == 'user_data';
+                      final isTargetedScan =
+                          item['action'] == _activeTargetedScan;
+                      final canCancel =
+                          isTargetedScan &&
+                          !_cancelTargetedScan &&
+                          _targetedScanStage != RomImportStage.saving;
                       final isEsdeDisabled = _isEsdeDisabled(
                         item['action'] as String,
                       );
@@ -1294,8 +1422,11 @@ class DirectoriesSettingsContentState
                                                     isRemoveItem
                                                         ? (item['title']
                                                               as String)
-                                                        : (item['title']
-                                                                  as String)
+                                                        : (canCancel
+                                                                  ? AppLocale
+                                                                        .cancelScan
+                                                                  : item['title']
+                                                                        as String)
                                                               .getString(
                                                                 context,
                                                               ),
@@ -1320,7 +1451,11 @@ class DirectoriesSettingsContentState
                                                   ),
                                                   SizedBox(height: 2.r),
                                                   Text(
-                                                    (item['subtitle'] as String)
+                                                    (isTargetedScan
+                                                            ? AppLocale
+                                                                  .scanningRoms
+                                                            : item['subtitle']
+                                                                  as String)
                                                         .getString(context),
                                                     style: theme
                                                         .textTheme
