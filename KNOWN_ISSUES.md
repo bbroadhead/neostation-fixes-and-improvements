@@ -24,3 +24,7 @@ The NeoStation Achievements panel supports opening Guides, but the emulator is a
 The 2144 readiness indicator reports a preflight based on ROM hash, resolved core, account, Hardcore configuration and current frontend API health. The warning and recovery notifications likewise observe the frontend API. Live emulator session acknowledgement and submission failures still require an emulator-specific signal. Confirm account, unlock and Hardcore continuity across real disc switches before closing the multi-disc phase.
 
 The 3DS alternatives from the Retro808 archives passed stacked Citra viewport geometry checks. Their in-game screen placement and touch still need a physical test. The original two-window 3DS shell from the ci2own pack remains excluded.
+
+## Web artwork provider
+
+Heronite's DuckDuckGo results request returned a challenge from the Steam Deck during the November 27 investigation. The fallback providers use HTML parsers with no stable API contract. From the Web remains pending provider approval. See [development progress](DEVELOPMENT_PROGRESS.md).
