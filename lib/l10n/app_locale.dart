@@ -1670,6 +1670,7 @@ mixin AppLocale {
   static const String raCouldNotResolveLocalSystem =
       'ra_could_not_resolve_local_system';
   static const String raMissable = 'ra_missable';
+  static const String raFilterUnlocked = 'ra_filter_unlocked';
   static const String raFilterLocked = 'ra_filter_locked';
   static const String raFilterMissables = 'ra_filter_missables';
   static const String raGuide = 'ra_guide';
@@ -1883,7 +1884,7 @@ mixin AppLocale {
   static const String artworkLayout = 'artwork_layout';
   static const String artworkLayoutDynamic = 'artwork_layout_dynamic';
   static const String artworkLayoutStacked = 'artwork_layout_stacked';
-  static const String artworkLayoutRows = 'artwork_layout_rows';
+  static const String artworkLayoutFan = 'artwork_layout_fan';
 
   static const Map<String, dynamic> en = appLocaleEn;
   static const Map<String, dynamic> es = appLocaleEs;

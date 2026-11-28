@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/game_artwork_layout.dart';
+import 'neo_glass.dart';
 
 class GameMediaComposite extends StatelessWidget {
   const GameMediaComposite({
@@ -27,6 +28,7 @@ class GameMediaComposite extends StatelessWidget {
 
   Widget _image(String path) => Image.file(
     File(path),
+    key: ValueKey(path),
     fit: BoxFit.contain,
     cacheWidth: 640,
     errorBuilder: (_, _, _) => const SizedBox.shrink(),
@@ -41,105 +43,76 @@ class GameMediaComposite extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final paths = {cover, titleScreen, screenshot, logo}..remove('');
-    final primary = paths.contains(cover) ? cover : paths.firstOrNull;
-    final secondary = paths.where((path) => path != primary).toList();
-    if (primary == null) return icon.isEmpty ? fallback : _image(icon);
+    final dynamicLayout = layout == GameArtworkLayout.dynamic;
+    final paths = {cover, titleScreen, screenshot, icon}..remove('');
+    if (dynamicLayout && logo.isNotEmpty) paths.remove(logo);
+    final primary = [
+      if (!dynamicLayout) logo,
+      ...paths,
+    ].where((path) => path.isNotEmpty).firstOrNull;
+    if (primary == null) return fallback;
+    paths.remove(primary);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final showIcon = icon.isNotEmpty && !paths.contains(icon);
-        final iconSize = (constraints.maxWidth * .12).clamp(12.0, 42.0);
-        final gap = math.min(10.0, constraints.maxWidth * .025);
-        final panels = <String>[primary, ...secondary];
-        final grouped = switch (layout) {
-          GameArtworkLayout.dynamic => _dynamic(context, primary, secondary),
-          GameArtworkLayout.stacked || GameArtworkLayout.rows => Flex(
-            spacing: 8,
-            direction: layout == GameArtworkLayout.stacked
-                ? Axis.horizontal
-                : Axis.vertical,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var index = 0; index < panels.length; index += 2)
+    if (!dynamicLayout) {
+      if (paths.isEmpty) return _image(primary);
+      final stacked = layout == GameArtworkLayout.stacked;
+      return Flex(
+        direction: stacked ? Axis.vertical : Axis.horizontal,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 8,
+        children: [
+          Expanded(flex: stacked ? 2 : 1, child: _image(primary)),
+          Expanded(
+            flex: stacked ? 3 : 2,
+            child: _group(
+              paths.toList(),
+              stacked ? Axis.horizontal : Axis.vertical,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final showIcon = paths.remove(icon);
+    return NeoGlass(
+      cornerRadius: 12,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final gap = math.min(10.0, constraints.maxWidth * .025);
+          final iconSize = (constraints.maxWidth * .12).clamp(12.0, 42.0);
+          return Padding(
+            padding: EdgeInsets.all(gap),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Expanded(
-                  child: _group(
-                    panels.skip(index).take(2).toList(),
-                    layout == GameArtworkLayout.stacked
-                        ? Axis.vertical
-                        : Axis.horizontal,
-                  ),
+                  child: paths.isEmpty
+                      ? _image(primary)
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          spacing: gap,
+                          children: [
+                            Expanded(flex: 58, child: _image(primary)),
+                            Expanded(
+                              flex: 42,
+                              child: _group(paths.toList(), Axis.vertical),
+                            ),
+                          ],
+                        ),
                 ),
-            ],
-          ),
-        };
-        return Padding(
-          padding: EdgeInsets.all(gap),
-          child: Column(
-            children: [
-              Expanded(child: grouped),
-              if (showIcon)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox.square(
-                    dimension: iconSize,
-                    child: _image(icon),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _dynamic(BuildContext context, String primary, List<String> others) {
-    if (others.isEmpty) return _image(primary);
-    final colors = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final overlap = math.min(12.0, constraints.maxWidth * .035);
-        return Stack(
-          children: [
-            Positioned.fill(
-              right: constraints.maxWidth * .42,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surface.withValues(alpha: .4),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.only(right: overlap + 3),
-                  child: _image(primary),
-                ),
-              ),
-            ),
-            Positioned(
-              right: 0,
-              top: 4,
-              bottom: 4,
-              width: constraints.maxWidth * .42 + overlap,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colors.shadow.withValues(alpha: .25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
+                if (showIcon)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox.square(
+                      dimension: iconSize,
+                      child: _image(icon),
                     ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: _group(others, Axis.vertical),
-                ),
-              ),
+                  ),
+              ],
             ),
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

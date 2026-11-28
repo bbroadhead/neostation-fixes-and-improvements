@@ -360,7 +360,9 @@ class LibretroThumbnailService {
                 mediaDirectory: root,
               ),
             );
-      final hasManual = await manual?.exists() ?? false;
+      final hasManual = await ArtworkAssignmentService.hasManualDecision(
+        manual,
+      );
       final cached = hasManual || await _hasLocalArtwork(file);
       available = available || cached;
       if (hasManual) onArtwork?.call(folder, ArtworkScrapeEvent.skippedManual);
@@ -425,7 +427,7 @@ class LibretroThumbnailService {
         }
         if (selected != null) {
           onArtwork?.call(folder, ArtworkScrapeEvent.downloaded);
-          if ((await manual?.exists() ?? false) ||
+          if (await ArtworkAssignmentService.hasManualDecision(manual) ||
               (!forceOverwrite && await _hasLocalArtwork(file))) {
             available = true;
           } else {

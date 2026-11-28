@@ -6,6 +6,7 @@ import 'package:neostation/utils/atomic_file_writer.dart';
 
 import '../../models/artwork_scrape_event.dart';
 import '../../models/game_model.dart';
+import '../artwork_assignment_service.dart';
 import 'region_config.dart';
 import 'rom_hasher.dart';
 import 'media_resolver.dart';
@@ -139,13 +140,15 @@ class ScreenscraperMediaDownloader {
       final image = mediaType != 'video';
       if (image &&
           romPath != null &&
-          await File(
-            GameModel.artworkOverridePathForRom(
-              romPath,
-              folder,
-              mediaDirectory: userDataDir,
+          await ArtworkAssignmentService.hasManualDecision(
+            File(
+              GameModel.artworkOverridePathForRom(
+                romPath,
+                folder,
+                mediaDirectory: userDataDir,
+              ),
             ),
-          ).exists()) {
+          )) {
         onArtwork?.call(folder, ArtworkScrapeEvent.skippedManual);
         continue;
       }

@@ -41,6 +41,7 @@ class _RaGameAchievementsPageState extends State<RaGameAchievementsPage> {
   final GlobalKey<GameDetailsLeaderboardsTabState> _leaderboardsKey =
       GlobalKey<GameDetailsLeaderboardsTabState>();
   final _browserKey = GlobalKey<RaAchievementBrowserState>();
+  late final _layer = 'ra_game_achievements#${identityHashCode(this)}';
   GamepadNavigation? _gamepadNav;
   GameInfoAndUserProgress? _gameInfo;
   bool _headerFocused = false;
@@ -62,10 +63,12 @@ class _RaGameAchievementsPageState extends State<RaGameAchievementsPage> {
       onNavigateRight: _moveRight,
       onSelectItem: _activate,
       onBack: _handleBack,
-      allowRepeat: false,
+      onLeftBumper: () => _browserKey.currentState?.cycleStatus(-1),
+      onRightBumper: () => _browserKey.currentState?.cycleStatus(1),
+      onFavorite: () => unawaited(_load(forceRefresh: true)),
     )..initialize();
     GamepadNavigationManager.pushLayer(
-      'ra_game_achievements',
+      _layer,
       onActivate: () => _gamepadNav?.activate(),
       onDeactivate: () => _gamepadNav?.deactivate(),
     );
@@ -74,7 +77,7 @@ class _RaGameAchievementsPageState extends State<RaGameAchievementsPage> {
 
   @override
   void dispose() {
-    GamepadNavigationManager.popLayer('ra_game_achievements');
+    GamepadNavigationManager.popLayer(_layer);
     _gamepadNav?.dispose();
 
     super.dispose();
@@ -96,9 +99,9 @@ class _RaGameAchievementsPageState extends State<RaGameAchievementsPage> {
     );
     if (!mounted) return;
     setState(() {
-      _gameInfo = info;
+      _gameInfo = info ?? _gameInfo;
       _loading = false;
-      _error = info == null
+      _error = _gameInfo == null
           ? (provider.error ??
                 AppLocale.raErrorGameInfoUnavailable.getString(context))
           : null;
@@ -150,6 +153,7 @@ class _RaGameAchievementsPageState extends State<RaGameAchievementsPage> {
   }
 
   List<String> get _headerActions => [
+    if (!_loading) 'refresh',
     if (_gameInfo?.guideUrl case final url? when _isHttpUrl(url)) 'guide',
   ];
 
@@ -167,6 +171,8 @@ class _RaGameAchievementsPageState extends State<RaGameAchievementsPage> {
     if (actions.isEmpty) return;
     final action = actions[_headerActionIndex.clamp(0, actions.length - 1)];
     switch (action) {
+      case 'refresh':
+        unawaited(_load(forceRefresh: true));
       case 'guide':
         final url = _gameInfo?.guideUrl;
         if (url != null && _isHttpUrl(url)) {
@@ -249,6 +255,14 @@ class _RaGameAchievementsPageState extends State<RaGameAchievementsPage> {
           icon: const Icon(Symbols.arrow_back_rounded),
         ),
         actions: [
+          IconButton(
+            tooltip: AppLocale.refresh.getString(context),
+            onPressed: _loading ? null : () => _load(forceRefresh: true),
+            color: _headerActionFocused('refresh')
+                ? theme.colorScheme.primary
+                : null,
+            icon: const Icon(Symbols.refresh_rounded),
+          ),
           if (info?.guideUrl case final url? when _isHttpUrl(url))
             IconButton(
               tooltip: AppLocale.raGuide.getString(context),

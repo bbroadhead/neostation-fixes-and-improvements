@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 
 import '../models/artwork_preview.dart';
+import '../models/game_model.dart';
 import '../utils/atomic_file_writer.dart';
 
 class ArtworkAssignmentService {
@@ -47,8 +48,26 @@ class ArtworkAssignmentService {
         }),
       ),
     );
-    await writeFileAtomically(target, image.bytes);
+    if (manual) {
+      await replaceManual(target, image.bytes);
+    } else {
+      await writeFileAtomically(target, image.bytes);
+    }
   }
+
+  static Future<void> clearManual(File target) =>
+      writeFileAtomically(GameModel.artworkClearMarker(target), const [1]);
+
+  static Future<void> replaceManual(File target, List<int> bytes) async {
+    await writeFileAtomically(target, bytes);
+    final marker = GameModel.artworkClearMarker(target);
+    if (await marker.exists()) await marker.delete();
+  }
+
+  static Future<bool> hasManualDecision(File? target) async =>
+      target != null &&
+      (await target.exists() ||
+          await GameModel.artworkClearMarker(target).exists());
 
   static Future<({ArtworkProvider source, bool manual})?> readProvenance(
     File target,

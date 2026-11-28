@@ -1400,6 +1400,7 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.raMasteryLabel: '精通',
   AppLocale.raCouldNotResolveLocalSystem: '無法解析此遊戲的本機系統',
   AppLocale.raMissable: '可錯過',
+  AppLocale.raFilterUnlocked: '已解鎖',
   AppLocale.raFilterLocked: '未解鎖',
   AppLocale.raFilterMissables: '可錯過',
   AppLocale.raGuide: '指南',
@@ -1617,5 +1618,5 @@ const Map<String, dynamic> appLocaleZhHant = {
   AppLocale.artworkLayout: '遊戲圖片配置',
   AppLocale.artworkLayoutDynamic: '動態',
   AppLocale.artworkLayoutStacked: '堆疊',
-  AppLocale.artworkLayoutRows: '分列',
+  AppLocale.artworkLayoutFan: 'Fan',
 };

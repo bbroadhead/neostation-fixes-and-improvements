@@ -14,11 +14,11 @@ import 'package:neostation/providers/file_provider.dart';
 import 'package:neostation/repositories/scraper_repository.dart';
 import 'package:neostation/repositories/system_repository.dart';
 import 'package:neostation/screens/game_screen/my_games_grid.dart';
+import 'package:neostation/services/artwork_assignment_service.dart';
 import 'package:neostation/services/logger_service.dart';
 import 'package:neostation/services/screenscraper_service.dart';
 import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/utils/artwork_cache.dart';
-import 'package:neostation/utils/atomic_file_writer.dart';
 import 'package:neostation/widgets/custom_notification.dart';
 
 /// Sub-tabs inside the Scrapping tab of [GameSettingsDialog].
@@ -108,10 +108,14 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
       ? _totalDataItems
       : _mediaActions.length;
 
-  List<({String type, bool reset})> get _mediaActions => [
+  List<({String type, bool reset, bool remove})> get _mediaActions => [
     for (final type in _imageTypes) ...[
-      (type: type, reset: false),
-      if (_overrideFile(type)?.existsSync() ?? false) (type: type, reset: true),
+      (type: type, reset: false, remove: false),
+      if (_overrideFile(type) != null &&
+          File(_pathForImageType(type)).existsSync())
+        (type: type, reset: false, remove: true),
+      if (_hasManualArtworkDecision(type))
+        (type: type, reset: true, remove: false),
     ],
   ];
 
@@ -406,6 +410,29 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
     return path == null ? null : File(path);
   }
 
+  bool _hasManualArtworkDecision(String type) {
+    final file = _overrideFile(type);
+    return file != null &&
+        (file.existsSync() || GameModel.artworkClearMarker(file).existsSync());
+  }
+
+  Future<void> _removeImage(String type) async {
+    final file = _overrideFile(type);
+    if (file == null) return;
+    try {
+      final displayed = _pathForImageType(type);
+      await ArtworkAssignmentService.clearManual(file);
+      await _refreshArtwork(displayed);
+    } on FileSystemException {
+      if (!mounted) return;
+      AppNotification.showNotification(
+        context,
+        AppLocale.failedToSaveSetting.getString(context),
+        type: NotificationType.error,
+      );
+    }
+  }
+
   Future<void> _refreshArtwork(String path) async {
     await evictScrapedArtwork([path]);
     GamesGrid.evictArtworkCaches([path]);
@@ -422,6 +449,8 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
     if (file == null) return;
     try {
       if (await file.exists()) await file.delete();
+      final marker = GameModel.artworkClearMarker(file);
+      if (await marker.exists()) await marker.delete();
       await _refreshArtwork(file.path);
     } on FileSystemException {
       if (!mounted) return;
@@ -452,7 +481,7 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
               widget.fileProvider,
             ),
           );
-      await writeFileAtomically(target, bytes);
+      await ArtworkAssignmentService.replaceManual(target, bytes);
       await _refreshArtwork(target.path);
 
       if (!mounted) return;
@@ -549,6 +578,8 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
         final action = actions[idx];
         if (action.reset) {
           _resetImage(action.type);
+        } else if (action.remove) {
+          _removeImage(action.type);
         } else {
           _replaceImage(action.type);
         }
@@ -814,16 +845,26 @@ class GameSettingsScrappingTabState extends State<GameSettingsScrappingTab> {
             label: AppLocale.systemArt.getString(context),
           ),
           for (final (i, action) in actions.indexed)
-            if (action.reset)
+            if (action.reset || action.remove)
               _NavRow(
                 key: _itemKey(i),
                 isSelected: _selectedIndex == i,
-                icon: Symbols.undo_rounded,
-                label: AppLocale.resetToDefault.getString(context),
+                icon: action.remove
+                    ? Symbols.delete_outline_rounded
+                    : Symbols.undo_rounded,
+                label:
+                    (action.remove
+                            ? AppLocale.removeImage
+                            : AppLocale.resetToDefault)
+                        .getString(context),
                 subtitle: _imageTypeLabel(context, action.type),
                 onTap: () {
                   setState(() => _selectedIndex = i);
-                  _resetImage(action.type);
+                  if (action.remove) {
+                    _removeImage(action.type);
+                  } else {
+                    _resetImage(action.type);
+                  }
                 },
               )
             else

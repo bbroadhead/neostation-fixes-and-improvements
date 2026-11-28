@@ -34,8 +34,8 @@ class RaAchievementBrowserState extends State<RaAchievementBrowser> {
   final RaAchievementQuery _query = RaAchievementQuery();
   final _list = ScrollController();
   final _detail = ScrollController();
-  final _controlKeys = List.generate(4, (_) => GlobalKey());
-  static const _controlCount = 4;
+  final _controlKeys = List.generate(_controlCount, (_) => GlobalKey());
+  static const _controlCount = 5;
   int _selected = 0;
   int _control = -1;
   bool _details = false;
@@ -193,6 +193,12 @@ class RaAchievementBrowserState extends State<RaAchievementBrowser> {
     if (_current != null) _open(_selected);
   }
 
+  void cycleStatus(int delta) {
+    if (_details) return;
+    final selected = [0, 1, 2].indexWhere(_filterSelected);
+    _activateControl(((selected < 0 ? 0 : selected) + delta) % 3);
+  }
+
   void enterFilters() => setState(() => _control = 0);
   void _open(int index) {
     _request++;
@@ -210,7 +216,7 @@ class RaAchievementBrowserState extends State<RaAchievementBrowser> {
   }
 
   void _activateControl(int index) {
-    if (index == 3) {
+    if (index == 4) {
       setState(() => _control = -1);
       widget.onLeaderboards?.call();
       return;
@@ -228,6 +234,11 @@ class RaAchievementBrowserState extends State<RaAchievementBrowser> {
             ..status = RaUnlockFilter.locked
             ..type = null;
         case 2:
+          _query
+            ..hardcore = false
+            ..status = RaUnlockFilter.unlocked
+            ..type = null;
+        case 3:
           _query
             ..hardcore = false
             ..status = RaUnlockFilter.locked
@@ -276,7 +287,8 @@ class RaAchievementBrowserState extends State<RaAchievementBrowser> {
   bool _filterSelected(int index) => switch (index) {
     0 => _query.status == RaUnlockFilter.all && _query.type == null,
     1 => _query.status == RaUnlockFilter.locked && _query.type == null,
-    2 => _query.status == RaUnlockFilter.locked && _query.type == 'missable',
+    2 => _query.status == RaUnlockFilter.unlocked && _query.type == null,
+    3 => _query.status == RaUnlockFilter.locked && _query.type == 'missable',
     _ => false,
   };
 
@@ -347,7 +359,8 @@ class RaAchievementBrowserState extends State<RaAchievementBrowser> {
                         _s(switch (i) {
                           0 => AppLocale.filterAll,
                           1 => AppLocale.raFilterLocked,
-                          2 => AppLocale.raFilterMissables,
+                          2 => AppLocale.raFilterUnlocked,
+                          3 => AppLocale.raFilterMissables,
                           _ => AppLocale.raSubtabLeaderboards,
                         }),
                       ),

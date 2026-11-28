@@ -1439,6 +1439,7 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.raMasteryLabel: 'マスター',
   AppLocale.raCouldNotResolveLocalSystem: 'このゲームのローカルシステムを特定できませんでした',
   AppLocale.raMissable: '見逃し注意',
+  AppLocale.raFilterUnlocked: '解除済み',
   AppLocale.raFilterLocked: '未解除',
   AppLocale.raFilterMissables: '見逃し注意',
   AppLocale.raGuide: 'ガイド',
@@ -1667,5 +1668,5 @@ const Map<String, dynamic> appLocaleJa = {
   AppLocale.artworkLayout: 'アートワークの配置',
   AppLocale.artworkLayoutDynamic: 'ダイナミック',
   AppLocale.artworkLayoutStacked: '縦並び',
-  AppLocale.artworkLayoutRows: '横並び',
+  AppLocale.artworkLayoutFan: 'Fan',
 };

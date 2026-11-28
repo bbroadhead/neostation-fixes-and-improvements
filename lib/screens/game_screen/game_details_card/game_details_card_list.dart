@@ -43,7 +43,6 @@ import 'widgets/game_details_tabs_header.dart';
 import 'detail_tab.dart';
 import 'widgets/scraping_progress_panel.dart';
 import 'tabs/game_details_general_tab.dart';
-import 'tabs/game_details_box2d_tab.dart';
 import 'tabs/game_details_screenshot_video_tab.dart';
 import 'tabs/game_details_game_info_tab.dart';
 import 'tabs/game_details_achievements_tab.dart';
@@ -1034,7 +1033,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
             right: 0.r,
             top: 0.r,
             child: GameDetailsTabsHeader(
-              isScreenshotVideoHidden: _isGameInfoHidden,
               hasRetroAchievements: _hasRetroAchievements,
               currentTab: _currentTab,
               onTabChanged: _setTab,
@@ -1088,17 +1086,6 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
                         fileProvider: widget.fileProvider,
                         imageVersion: _artworkImageVersion,
                         androidAppIconFuture: _androidAppIconFuture,
-                      ),
-                    ),
-                  if (_isPanelMounted(DetailTab.box2d))
-                    _slidingPanel(
-                      DetailTab.box2d,
-                      GameDetailsBox2dTab(
-                        bottomOffset: panelBottomOffset,
-                        system: _effectiveSystem,
-                        game: _game,
-                        fileProvider: widget.fileProvider,
-                        imageVersion: _artworkImageVersion,
                       ),
                     ),
                   // The media tab stays mounted whatever the current tab
@@ -1288,16 +1275,18 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
 
   /// Whether [tab] sits to the right of the current one in the header order.
   bool _isTabToTheRight(DetailTab tab) {
-    final available = DetailTab.values.where(_isTabAvailable).toList();
+    final available = DetailTab.navigationTabs.where(_isTabAvailable).toList();
     return available.indexOf(tab) > available.indexOf(_currentTab);
   }
 
   /// The tab one step to the left or right of the current one, wrapping at the
   /// ends exactly as the D-pad does. Null when there is nowhere to go.
   DetailTab? _neighbourTab(bool isRight) {
-    final available = DetailTab.values.where(_isTabAvailable).toList();
+    final available = DetailTab.navigationTabs.where(_isTabAvailable).toList();
     if (available.length < 2) return null;
-    final int index = available.indexOf(_currentTab);
+    final int index = available.indexOf(
+      _currentTab == DetailTab.screenshotVideo ? DetailTab.wheel : _currentTab,
+    );
     if (index == -1) return null;
     int next = (index + (isRight ? 1 : -1)) % available.length;
     if (next < 0) next += available.length;
@@ -1426,7 +1415,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
         .read<SqliteConfigProvider>()
         .config
         .gameDetailsTab;
-    final tab = DetailTab.values.firstWhere(
+    final tab = DetailTab.navigationTabs.firstWhere(
       (t) => t.name == storedName,
       orElse: () => DetailTab.wheel,
     );
@@ -1437,7 +1426,9 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
   bool _handleTabNavigation(bool isRight) {
     if (!mounted) return false;
 
-    final availableTabs = DetailTab.values.where(_isTabAvailable).toList();
+    final availableTabs = DetailTab.navigationTabs
+        .where(_isTabAvailable)
+        .toList();
 
     int currentIndexInAvailable = availableTabs.indexOf(_currentTab);
     if (currentIndexInAvailable == -1) currentIndexInAvailable = 0;
@@ -1571,7 +1562,7 @@ class _GameDetailsCardListState extends State<GameDetailsCardList>
       _currentTab = tab;
 
       final config = context.read<SqliteConfigProvider>();
-      if (persist) {
+      if (persist && DetailTab.navigationTabs.contains(tab)) {
         config.updateGameDetailsTab(tab.name);
       }
       if (tab == DetailTab.screenshotVideo) {

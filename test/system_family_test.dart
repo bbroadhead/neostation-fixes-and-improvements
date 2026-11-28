@@ -77,6 +77,36 @@ void main() {
     });
   }
 
+  test(
+    'discovers new hacks categories and preserves official Genesis aliases',
+    () {
+      final expanded = JsonConfigService.inheritHacksDefinitions(
+        JsonConfigService.withHacksCategories(definitions),
+      );
+      final byFolder = {
+        for (final config in expanded) config.system.folderName: config,
+      };
+      expect(byFolder['mame-hacks']?.system.folders, contains('mame_hacks'));
+      expect(
+        byFolder['mame-hacks']?.system.raId,
+        byFolder['mame']?.system.raId,
+      );
+      expect(byFolder['mame-hacks']?.emulators, isNotEmpty);
+      expect(
+        expanded.where(
+          (config) =>
+              parentSystemId(config.system.folderName) == 'genesis' &&
+              config.system.folderName != 'genesis',
+        ),
+        hasLength(1),
+      );
+      expect(
+        byFolder['gba-hacks']?.system.folders,
+        containsAll(['gbah', 'gba_hacks']),
+      );
+    },
+  );
+
   test('GameCube and GameCube Hacks use the logical disc hashing policy', () {
     for (final id in ['gc', 'gc-hacks']) {
       expect(resolved[id]!.system.raId, '16');

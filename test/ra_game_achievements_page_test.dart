@@ -18,6 +18,7 @@ class _PageProvider extends RetroAchievementsProvider {
 
   final GameInfoAndUserProgress info;
   int gameLeaderboardCalls = 0;
+  int refreshCalls = 0;
 
   @override
   bool get isConnected => true;
@@ -30,7 +31,13 @@ class _PageProvider extends RetroAchievementsProvider {
     int gameId, {
     bool forceRefresh = false,
     String? md5Hash,
-  }) async => info;
+  }) async {
+    if (forceRefresh) {
+      refreshCalls++;
+      return null;
+    }
+    return info;
+  }
 
   @override
   Future<RaGameLeaderboardsPage?> getGameLeaderboards(
@@ -164,6 +171,16 @@ void main() {
       await tester.tap(find.text('Back'));
       await tester.pump();
       expect(find.text('Third'), findsOneWidget);
+
+      await tester.tap(find.text('Unlocked'));
+      await tester.pump();
+      expect(find.text('2 / 3 Achievements'), findsOneWidget);
+      expect(find.text('Third'), findsNothing);
+      await tester.tap(find.byTooltip('Refresh'));
+      await tester.pump();
+      await tester.pump();
+      expect(provider.refreshCalls, 1);
+      expect(find.text('2 / 3 Achievements'), findsOneWidget);
 
       await tester.tap(find.text('Leaderboards'));
       await tester.pump();

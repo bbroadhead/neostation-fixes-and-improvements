@@ -4,6 +4,7 @@ import 'package:flutter_localization/flutter_localization.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:neostation/constants/system_folder_names.dart';
 import 'package:neostation/models/my_systems.dart';
+import 'package:neostation/models/system_family.dart';
 import 'package:neostation/providers/neo_assets_provider.dart';
 import 'package:neostation/providers/sqlite_config_provider.dart';
 import 'package:neostation/services/music_player_service.dart';
@@ -685,8 +686,32 @@ class _SystemCardState extends State<SystemCard> {
       fit: BoxFit.contain,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
           tint(child),
-      errorBuilder: (context, error, stackTrace) =>
-          _buildLogoFallback(height: resolvedHeight, color: color),
+      errorBuilder: (context, error, stackTrace) {
+        final id =
+            widget.info.primaryFolderName ?? widget.info.folderName ?? '';
+        final parent = parentSystemId(id);
+        if (parent == id) {
+          return _buildLogoFallback(height: resolvedHeight, color: color);
+        }
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Image.asset(
+                'assets/images/logos/$parent.webp',
+                height: resolvedHeight,
+                cacheWidth: 256,
+                fit: BoxFit.contain,
+                frameBuilder: (_, child, _, _) => tint(child),
+                errorBuilder: (_, _, _) =>
+                    _buildLogoFallback(height: resolvedHeight, color: color),
+              ),
+            ),
+            SizedBox(width: 5.r),
+            Icon(Symbols.extension_rounded, size: 16.r, color: color),
+          ],
+        );
+      },
     );
 
     if (hasCustomLogo) {

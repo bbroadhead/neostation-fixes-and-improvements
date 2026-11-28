@@ -327,7 +327,10 @@ class GameModel {
     FileProvider? fileProvider,
   ]) {
     final override = getArtworkOverridePath(imageType, fileProvider);
-    if (override != null && File(override).existsSync()) return override;
+    if (override != null) {
+      if (artworkClearMarker(File(override)).existsSync()) return '';
+      if (File(override).existsSync()) return override;
+    }
     if (fileProvider != null && fileProvider.isInitialized) {
       final owned = _existingNeoStationImagePath(
         fileProvider,
@@ -383,6 +386,9 @@ class GameModel {
     final key = sha256.convert(utf8.encode('$romPath\u0000$imageType'));
     return path.join(mediaDirectory, 'manual_artwork', '$key.png');
   }
+
+  static File artworkClearMarker(File override) =>
+      File('${override.path}.cleared');
 
   /// Resolves the path new art for [imageType] must be *written* to.
   ///
@@ -481,13 +487,21 @@ class GameModel {
     required FileProvider fileProvider,
   }) async {
     if (!fileProvider.isInitialized) return null;
+    final override = romPath == null || romPath.isEmpty
+        ? null
+        : artworkOverridePathForRom(
+            romPath,
+            imageType,
+            mediaDirectory: fileProvider.getMediaDirectoryPath(),
+          );
+    if (override != null &&
+        await fileProvider.fileExists(
+          artworkClearMarker(File(override)).path,
+        )) {
+      return null;
+    }
     for (final candidate in [
-      if (romPath != null && romPath.isNotEmpty)
-        artworkOverridePathForRom(
-          romPath,
-          imageType,
-          mediaDirectory: fileProvider.getMediaDirectoryPath(),
-        ),
+      ?override,
       ..._neoStationImageCandidates(
         fileProvider,
         romname,

@@ -1421,6 +1421,7 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.raMasteryLabel: '숙달',
   AppLocale.raCouldNotResolveLocalSystem: '이 게임의 로컬 시스템을 확인할 수 없습니다',
   AppLocale.raMissable: '놓칠 수 있음',
+  AppLocale.raFilterUnlocked: '잠금 해제됨',
   AppLocale.raFilterLocked: '잠김',
   AppLocale.raFilterMissables: '놓칠 수 있음',
   AppLocale.raGuide: '가이드',
@@ -1674,5 +1675,5 @@ const Map<String, dynamic> appLocaleKo = {
   AppLocale.artworkLayout: '아트워크 배치',
   AppLocale.artworkLayoutDynamic: '동적',
   AppLocale.artworkLayoutStacked: '세로 배열',
-  AppLocale.artworkLayoutRows: '가로 행',
+  AppLocale.artworkLayoutFan: 'Fan',
 };

@@ -63,6 +63,7 @@ class GameDetailsGeneralTab extends StatelessWidget {
           cover: artwork('box2d'),
           titleScreen: artwork('title_screens'),
           screenshot: artwork('screenshots'),
+          icon: artwork('icons'),
           logo: wheelExists ? wheelPath : '',
           layout: context.select(
             (SqliteConfigProvider provider) => provider.artworkLayout,

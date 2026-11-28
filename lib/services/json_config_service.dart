@@ -21,6 +21,69 @@ class JsonConfigService {
   JsonConfigService._internal();
 
   @visibleForTesting
+  static List<SystemConfiguration> withHacksCategories(
+    List<SystemConfiguration> definitions,
+  ) {
+    final parents = {
+      for (final config in definitions) config.system.folderName: config,
+    };
+    final categories = {
+      for (final config in definitions)
+        if (parentSystemId(config.system.folderName) !=
+            config.system.folderName)
+          parentSystemId(config.system.folderName): config,
+    };
+    final claimed = {
+      for (final config in definitions)
+        for (final folder in [
+          config.system.folderName,
+          ...config.system.folders,
+        ])
+          folder.toLowerCase(),
+    };
+    final additions = <String, SystemConfiguration>{};
+    for (final parent in parents.values) {
+      final system = parent.system;
+      final id = system.folderName;
+      if (parentSystemId(id) != id ||
+          parent.emulators.isEmpty ||
+          system.extensions.isEmpty ||
+          system.folders.isEmpty ||
+          id == 'ports') {
+        continue;
+      }
+
+      final official = categories[id];
+      final categoryId = official?.system.folderName ?? '$id-hacks';
+      final aliases = [
+        for (final folder in {id, ...system.folders})
+          for (final separator in ['-', '_', ' '])
+            if (claimed.add('$folder${separator}hacks'.toLowerCase()))
+              '$folder${separator}hacks',
+      ];
+      final child =
+          official?.system ??
+          system.copyWith(
+            folderName: categoryId,
+            realName: '${system.realName} Hacks',
+            shortName: '${system.shortName ?? system.realName} Hacks',
+            iconImage: 'assets/images/systems/$categoryId-icon.png',
+            backgroundImage: 'assets/images/systems/$categoryId-bg.jpg',
+            folders: const [],
+          );
+      additions[categoryId] = SystemConfiguration(
+        system: child.copyWith(folders: [...child.folders, ...aliases]),
+        emulators: official?.emulators ?? const [],
+      );
+    }
+    return [
+      for (final config in definitions)
+        additions.remove(config.system.folderName) ?? config,
+      ...additions.values,
+    ];
+  }
+
+  @visibleForTesting
   static List<SystemConfiguration> inheritHacksDefinitions(
     List<SystemConfiguration> definitions,
   ) {
@@ -195,7 +258,7 @@ class JsonConfigService {
         }
       }
 
-      return inheritHacksDefinitions(systems);
+      return inheritHacksDefinitions(withHacksCategories(systems));
     } catch (e) {
       _log.e('Error loading system configurations: $e');
       return [];

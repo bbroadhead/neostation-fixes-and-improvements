@@ -1526,6 +1526,7 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.raCouldNotResolveLocalSystem:
       'Tidak dapat menemukan sistem lokal untuk game ini',
   AppLocale.raMissable: 'BISA TERLEWAT',
+  AppLocale.raFilterUnlocked: 'Terbuka',
   AppLocale.raFilterLocked: 'Terkunci',
   AppLocale.raFilterMissables: 'Bisa Terlewat',
   AppLocale.raGuide: 'Panduan',
@@ -1773,5 +1774,5 @@ const Map<String, dynamic> appLocaleId = {
   AppLocale.artworkLayout: 'Tata letak gambar',
   AppLocale.artworkLayoutDynamic: 'Dinamis',
   AppLocale.artworkLayoutStacked: 'Bertumpuk',
-  AppLocale.artworkLayoutRows: 'Baris',
+  AppLocale.artworkLayoutFan: 'Fan',
 };

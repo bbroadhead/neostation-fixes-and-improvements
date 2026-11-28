@@ -4,6 +4,12 @@ import 'package:neostation/models/game_artwork_layout.dart';
 import 'package:neostation/widgets/game_media_composite.dart';
 
 void main() {
+  test('a saved Rows preference resolves to Fan', () {
+    expect(GameArtworkLayout.fromPreference('rows'), GameArtworkLayout.fan);
+    expect(GameArtworkLayout.fromPreference('fan'), GameArtworkLayout.fan);
+    expect(GameArtworkLayout.fromPreference(null), GameArtworkLayout.dynamic);
+  });
+
   testWidgets('shows the four media slots at Steam Deck size', (tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -90,18 +96,74 @@ void main() {
           ),
         );
         final images = find.byType(Image);
-        expect(images, findsNWidgets(4));
+        expect(
+          images,
+          findsNWidgets(layout == GameArtworkLayout.dynamic ? 3 : 4),
+        );
+        expect(
+          find.byKey(const ValueKey('logo.png')),
+          layout == GameArtworkLayout.dynamic ? findsNothing : findsOneWidget,
+        );
         final first = tester.getTopLeft(images.at(0));
         final second = tester.getTopLeft(images.at(1));
         if (layout == GameArtworkLayout.stacked) {
-          expect(first.dx, second.dx);
           expect(first.dy, lessThan(second.dy));
-        } else if (layout == GameArtworkLayout.rows) {
-          expect(first.dy, second.dy);
+        } else if (layout == GameArtworkLayout.fan) {
           expect(first.dx, lessThan(second.dx));
         }
         expect(tester.takeException(), isNull);
       }
     },
   );
+
+  testWidgets('logo and cover fallbacks use space at external display size', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    Future<void> render(GameArtworkLayout layout, String cover, String logo) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: Center(
+              child: SizedBox(
+                width: 640,
+                height: 480,
+                child: GameMediaComposite(
+                  cover: cover,
+                  titleScreen: '',
+                  screenshot: 'shot.png',
+                  logo: logo,
+                  icon: 'icon.png',
+                  layout: layout,
+                  fallback: const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    for (final layout in [GameArtworkLayout.stacked, GameArtworkLayout.fan]) {
+      await render(layout, 'cover.png', '');
+      final cover = find.byKey(const ValueKey('cover.png'));
+      final screenshot = find.byKey(const ValueKey('shot.png'));
+      expect(cover, findsOneWidget);
+      if (layout == GameArtworkLayout.stacked) {
+        expect(
+          tester.getTopLeft(cover).dy,
+          lessThan(tester.getTopLeft(screenshot).dy),
+        );
+      } else {
+        expect(
+          tester.getTopLeft(cover).dx,
+          lessThan(tester.getTopLeft(screenshot).dx),
+        );
+      }
+
+      await render(layout, '', '');
+      expect(find.byType(Image), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+    }
+  });
 }

@@ -2447,11 +2447,47 @@ class _SystemGamesListState extends State<SystemGamesList> {
         });
       }
 
+      final imageSystem = game.systemFolderName ?? widget.system.folderName;
+      const galleryCategories = [
+        'box2d',
+        'screenshots',
+        'title_screens',
+        'icons',
+        'fanarts',
+        'wheels',
+      ];
+      Map<String, String> selectedPaths() {
+        final paths = <String, String>{};
+        for (final category in galleryCategories) {
+          final selected = game.getImagePath(
+            imageSystem,
+            category,
+            _fileProvider,
+          );
+          if (File(selected).existsSync()) paths[category] = selected;
+        }
+        return paths;
+      }
+
       final selection = await showDialog<List<ArtworkPreview>>(
         context: context,
         builder: (_) => ArtworkGalleryDialog(
           detectedTitle: detectedTitle,
           savedTitle: savedTitle,
+          selectedPaths: selectedPaths,
+          removeSelected: (category) async {
+            final target = game.getArtworkOverridePath(category, _fileProvider);
+            if (target == null) return;
+            final previous = game.getImagePath(
+              imageSystem,
+              category,
+              _fileProvider,
+            );
+            await ArtworkAssignmentService.clearManual(File(target));
+            await evictScrapedArtwork([previous]);
+            GamesGrid.evictArtworkCaches([previous]);
+            if (mounted) await _handleGameUpdated();
+          },
           isCurrent: (image) async {
             final selected = game.getImagePath(
               game.systemFolderName ?? widget.system.folderName,

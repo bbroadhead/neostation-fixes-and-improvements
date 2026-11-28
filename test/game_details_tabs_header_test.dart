@@ -56,7 +56,6 @@ void main() {
   Future<void> pumpHeader(
     WidgetTester tester, {
     DetailTab current = DetailTab.wheel,
-    bool isScreenshotVideoHidden = false,
     bool hasRetroAchievements = true,
     ValueChanged<DetailTab>? onTabChanged,
     Size designSize = const Size(1280, 720),
@@ -79,7 +78,6 @@ void main() {
                 child: SizedBox(
                   width: 1280,
                   child: GameDetailsTabsHeader(
-                    isScreenshotVideoHidden: isScreenshotVideoHidden,
                     hasRetroAchievements: hasRetroAchievements,
                     currentTab: current,
                     onTabChanged: onTabChanged ?? (_) {},
@@ -101,8 +99,6 @@ void main() {
 
       for (final icon in [
         Symbols.branding_watermark_rounded,
-        Symbols.filter_frames_rounded,
-        Symbols.image_rounded,
         Symbols.info_rounded,
         Symbols.emoji_events_rounded,
       ]) {
@@ -149,18 +145,14 @@ void main() {
   testWidgets('a tab this game cannot reach is absent, not dead', (
     tester,
   ) async {
-    await pumpHeader(
-      tester,
-      isScreenshotVideoHidden: true,
-      hasRetroAchievements: false,
-    );
+    await pumpHeader(tester, hasRetroAchievements: false);
 
     expect(find.byIcon(Symbols.image_rounded), findsNothing);
     expect(find.byIcon(Symbols.emoji_events_rounded), findsNothing);
     expect(find.byIcon(Symbols.leaderboard_rounded), findsNothing);
-    // The three that are always there stay.
+    // The layout and metadata tabs stay.
     expect(find.byIcon(Symbols.branding_watermark_rounded), findsOneWidget);
-    expect(find.byIcon(Symbols.filter_frames_rounded), findsOneWidget);
+    expect(find.byIcon(Symbols.filter_frames_rounded), findsNothing);
     expect(find.byIcon(Symbols.info_rounded), findsOneWidget);
   });
 
@@ -206,11 +198,7 @@ void main() {
     // With the media tab hidden, achievements is the *fourth* visible tab
     // even though it is the fifth enum value. Resolving the cursor against
     // DetailTab.values would put it a slot past the end of the pill.
-    await pumpHeader(
-      tester,
-      current: DetailTab.achievements,
-      isScreenshotVideoHidden: true,
-    );
+    await pumpHeader(tester, current: DetailTab.achievements);
 
     final trophy = tester.getRect(find.byIcon(Symbols.emoji_events_rounded));
     final cursor = tester.getRect(

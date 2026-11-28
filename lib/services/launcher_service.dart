@@ -52,27 +52,17 @@ class LauncherService {
   /// Returns true if the configuration was successfully loaded and cached.
   Future<bool> loadSystemConfig(String jsonFileName) async {
     try {
-      // Prefer locally cached version downloaded from GitHub (newer than bundled).
-      String jsonString;
-      final cachedPath = await SystemsUpdateService.getCachedSystemPath(
-        jsonFileName,
-      );
-      if (cachedPath != null) {
-        jsonString = await File(cachedPath).readAsString();
-      } else {
-        jsonString = await rootBundle.loadString(
-          'assets/systems/$jsonFileName',
-        );
-      }
-      final config = jsonDecode(jsonString) as Map<String, dynamic>;
-
-      final systemId = config['system']['id'].toString();
-      final parent = parentSystemId(systemId);
-      if (parent != systemId && await loadSystemConfig('$parent.json')) {
+      final requested = jsonFileName.endsWith('.json')
+          ? jsonFileName.substring(0, jsonFileName.length - 5)
+          : jsonFileName;
+      final parent = parentSystemId(requested);
+      final config = await _readSystemConfig(jsonFileName);
+      if (parent != requested && await loadSystemConfig('$parent.json')) {
         final parentConfig = _configs[parent]!;
+        final effective = config ?? {...parentConfig, 'emulators': const []};
         final players = <String, Map<String, dynamic>>{
           for (final entry
-              in (config['emulators'] ?? config['players'] ?? []) as List)
+              in (effective['emulators'] ?? effective['players'] ?? []) as List)
             entry['unique_id'].toString(): Map<String, dynamic>.from(
               entry as Map,
             ),
@@ -83,20 +73,27 @@ class LauncherService {
           final id = emulatorIdForSystem(
             entry['unique_id'].toString(),
             parent,
-            systemId,
+            requested,
           );
           players[id] = {
             ...Map<String, dynamic>.from(entry as Map),
             'unique_id': id,
           };
         }
-        config['emulators'] = players.values.toList();
+        final inherited = {
+          ...effective,
+          'system': {...effective['system'] as Map, 'id': requested},
+          'emulators': players.values.toList(),
+        };
+        _configs[requested] = inherited;
+      } else if (config != null) {
+        _configs[config['system']['id'].toString()] = config;
+      } else {
+        return false;
       }
 
-      _configs[systemId] = config;
-
       LoggerService.instance.log(
-        'Loaded configuration for $systemId',
+        'Loaded configuration for $requested',
         level: LogLevel.debug,
       );
       return true;
@@ -108,6 +105,19 @@ class LauncherService {
       );
       return false;
     }
+  }
+
+  Future<Map<String, dynamic>?> _readSystemConfig(String fileName) async {
+    final cached = await SystemsUpdateService.getCachedSystemPath(fileName);
+    if (cached != null) {
+      return jsonDecode(await File(cached).readAsString())
+          as Map<String, dynamic>;
+    }
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    final asset = 'assets/systems/$fileName';
+    if (!manifest.listAssets().contains(asset)) return null;
+    return jsonDecode(await rootBundle.loadString(asset))
+        as Map<String, dynamic>;
   }
 
   /// Retrieves the detailed configuration for a specific player (emulator)

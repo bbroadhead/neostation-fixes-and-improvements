@@ -293,6 +293,8 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
       onNavigateLeft: () => _moveHeader(-1),
       onNavigateRight: () => _moveHeader(1),
       isTextFieldFocused: () => _searchFocus.hasFocus,
+      onLeftTrigger: () => _page(-1),
+      onRightTrigger: () => _page(1),
       onLeftBumper: () => _selectFilter((_filter - 1) % _filters.length),
       onRightBumper: () => _selectFilter((_filter + 1) % _filters.length),
       onSelectItem: () {
@@ -305,6 +307,8 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
             case 2:
               _toggleSort();
             case 3:
+              _refresh();
+            case 4:
               _chooseExport();
           }
         } else if (_loadFailed) {
@@ -401,6 +405,19 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
     if (_scroll.hasClients) _scroll.jumpTo(0);
   }
 
+  void _refresh() {
+    if (_loading) return;
+    _load(preserveRomPath: _visible.elementAtOrNull(_selected)?.game.romPath);
+  }
+
+  void _page(int direction) {
+    if (_headerFocus != null || _searchFocus.hasFocus || !_scroll.hasClients) {
+      return;
+    }
+    final page = (_scroll.position.viewportDimension / _rowHeight).floor();
+    _move(direction * (page > 1 ? page - 1 : 1));
+  }
+
   void _move(int step) {
     if (_visible.isEmpty || _loading || _loadFailed) return;
     setState(
@@ -421,7 +438,7 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
 
   void _moveHeader(int step) {
     if (_headerFocus == null) return;
-    setState(() => _headerFocus = (_headerFocus! + step) % 4);
+    setState(() => _headerFocus = (_headerFocus! + step) % 5);
   }
 
   void _cycleSystem() {
@@ -431,15 +448,22 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
     );
   }
 
-  void _selectSystem(String? value) => setState(() {
-    _system = (value?.isEmpty ?? true) ? null : value;
-    _updateVisible(null);
-  });
+  void _selectSystem(String? value) {
+    setState(() {
+      _system = (value?.isEmpty ?? true) ? null : value;
+      _updateVisible(null);
+    });
+    _revealSelection();
+  }
 
-  void _toggleSort() => setState(() {
-    _ascending = !_ascending;
-    _updateVisible(null);
-  });
+  void _toggleSort() {
+    final current = _visible.elementAtOrNull(_selected)?.game.romPath;
+    setState(() {
+      _ascending = !_ascending;
+      _updateVisible(current);
+    });
+    _revealSelection();
+  }
 
   Future<void> _chooseExport() async {
     if (_exporting || _loading || _loadFailed) return;
@@ -653,13 +677,21 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
+          IconButton(
+            tooltip: AppLocale.refresh.getString(context),
+            onPressed: _loading ? null : _refresh,
+            color: _headerFocus == 3
+                ? Theme.of(context).colorScheme.primary
+                : null,
+            icon: const Icon(Icons.refresh),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: FilledButton.tonalIcon(
               onPressed: _loading || _loadFailed || _exporting
                   ? null
                   : _chooseExport,
-              style: _headerFocus == 3
+              style: _headerFocus == 4
                   ? FilledButton.styleFrom(
                       backgroundColor: Theme.of(context)
                           .colorScheme
@@ -685,10 +717,13 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
                       hintText: AppLocale.searchNameHint.getString(context),
                       filled: _headerFocus == 0,
                     ),
-                    onChanged: (value) => setState(() {
-                      _query = value.trim().toLowerCase();
-                      _updateVisible(null);
-                    }),
+                    onChanged: (value) {
+                      setState(() {
+                        _query = value.trim().toLowerCase();
+                        _updateVisible(null);
+                      });
+                      _revealSelection();
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -756,6 +791,7 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
               ],
             ),
             SizedBox(height: 8.r),
+            if (_loading && _games.isNotEmpty) const LinearProgressIndicator(),
             Expanded(child: _buildResults(context)),
           ],
         ),
@@ -764,7 +800,9 @@ class _RaIncompatibleGamesScreenState extends State<RaIncompatibleGamesScreen> {
   }
 
   Widget _buildResults(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading && _games.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (_loadFailed) {
       return Center(
         child: Column(

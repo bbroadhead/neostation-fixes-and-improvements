@@ -195,13 +195,13 @@ void main() {
     final context = tester.element(find.byType(GameOptionsDialog));
     await tester.tap(find.text(AppLocale.viewMode.getString(context)));
     await tester.pumpAndSettle();
-    final rows = find.text(AppLocale.artworkLayoutRows.getString(context));
-    await tester.ensureVisible(rows);
-    await tester.tap(rows);
+    final fan = find.text(AppLocale.artworkLayoutFan.getString(context));
+    await tester.ensureVisible(fan);
+    await tester.tap(fan);
     await tester.pumpAndSettle();
-    expect(provider.artworkLayout, GameArtworkLayout.rows);
+    expect(provider.artworkLayout, GameArtworkLayout.fan);
     final preferences = await SharedPreferences.getInstance();
-    expect(preferences.getString('gameArtworkLayout'), 'rows');
+    expect(preferences.getString('gameArtworkLayout'), 'fan');
   });
 
   testWidgets('remounting the game view keeps input in Options', (

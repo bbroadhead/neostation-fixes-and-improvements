@@ -1,8 +1,9 @@
 enum GameArtworkLayout {
   dynamic,
   stacked,
-  rows;
+  fan;
 
-  static GameArtworkLayout fromPreference(String? value) =>
-      values.where((layout) => layout.name == value).firstOrNull ?? dynamic;
+  static GameArtworkLayout fromPreference(String? value) => value == 'rows'
+      ? fan
+      : values.where((layout) => layout.name == value).firstOrNull ?? dynamic;
 }

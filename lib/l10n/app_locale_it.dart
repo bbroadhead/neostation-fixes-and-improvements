@@ -1541,6 +1541,7 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.raCouldNotResolveLocalSystem:
       'Impossibile determinare il sistema locale per questo gioco',
   AppLocale.raMissable: 'PERDIBILE',
+  AppLocale.raFilterUnlocked: 'Sbloccati',
   AppLocale.raFilterLocked: 'Bloccati',
   AppLocale.raFilterMissables: 'Perdibili',
   AppLocale.raGuide: 'Guida',
@@ -1797,5 +1798,5 @@ const Map<String, dynamic> appLocaleIt = {
   AppLocale.artworkLayout: 'Disposizione immagini',
   AppLocale.artworkLayoutDynamic: 'Dinamica',
   AppLocale.artworkLayoutStacked: 'Impilata',
-  AppLocale.artworkLayoutRows: 'Righe',
+  AppLocale.artworkLayoutFan: 'Fan',
 };

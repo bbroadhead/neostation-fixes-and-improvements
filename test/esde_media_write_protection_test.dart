@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neostation/models/game_model.dart';
 import 'package:neostation/providers/file_provider.dart';
+import 'package:neostation/services/artwork_assignment_service.dart';
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -111,6 +112,38 @@ void main() {
         );
       }
     });
+
+    test(
+      'an explicit clear masks cached art by ROM and category until replaced',
+      () async {
+        const romPath = '/roms/snes/sonic.smc';
+        final rom = game.copyWith(romPath: romPath);
+        final other = game.copyWith(romPath: '/roms/snes/other/sonic.smc');
+        for (final category in [...mediaTypes, 'icons', 'title_screens']) {
+          final cached = File(
+            rom.getWritableImagePath('snes', category, provider),
+          );
+          await cached.parent.create(recursive: true);
+          await cached.writeAsString('cached artwork');
+          final target = File(rom.getArtworkOverridePath(category, provider)!);
+          await ArtworkAssignmentService.clearManual(target);
+
+          final reopened = FileProvider();
+          await reopened.initialize();
+          expect(
+            await ArtworkAssignmentService.hasManualDecision(target),
+            isTrue,
+          );
+          expect(rom.getImagePath('snes', category, reopened), isEmpty);
+          expect(other.getImagePath('snes', category, reopened), cached.path);
+          expect(await cached.readAsString(), 'cached artwork');
+
+          await ArtworkAssignmentService.replaceManual(target, [1, 2, 3]);
+          expect(rom.getImagePath('snes', category, reopened), target.path);
+          expect(await cached.readAsString(), 'cached artwork');
+        }
+      },
+    );
 
     test('finds the same art from a file name alone', () async {
       Future<String?> lookUp() => GameModel.findExistingImagePath(

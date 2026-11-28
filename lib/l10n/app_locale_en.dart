@@ -1508,6 +1508,7 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.raCouldNotResolveLocalSystem:
       'Could not resolve the local system for this game',
   AppLocale.raMissable: 'MISSABLE',
+  AppLocale.raFilterUnlocked: 'Unlocked',
   AppLocale.raFilterLocked: 'Locked',
   AppLocale.raFilterMissables: 'Missables',
   AppLocale.raGuide: 'Guide',
@@ -1747,5 +1748,5 @@ const Map<String, dynamic> appLocaleEn = {
   AppLocale.artworkLayout: 'Artwork layout',
   AppLocale.artworkLayoutDynamic: 'Dynamic',
   AppLocale.artworkLayoutStacked: 'Stacked',
-  AppLocale.artworkLayoutRows: 'Rows',
+  AppLocale.artworkLayoutFan: 'Fan',
 };

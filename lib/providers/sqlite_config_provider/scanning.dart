@@ -1423,8 +1423,22 @@ extension SqliteConfigScanning on SqliteConfigProvider {
     if (_isScanning || _isSilentScanning) throw StateError('Scan in progress');
     _setScanning(true);
     try {
+      final directory = folder ? Directory(selection) : File(selection).parent;
+      final segments = directory.uri.pathSegments
+          .map((part) => part.toLowerCase())
+          .toSet();
+      final target =
+          _availableSystems.where((candidate) {
+            final parent = parentSystemId(candidate.folderName);
+            return parent != candidate.folderName &&
+                parent == system.folderName &&
+                candidate.folders.any(
+                  (alias) => segments.contains(alias.toLowerCase()),
+                );
+          }).firstOrNull ??
+          system;
       final result = await SqliteDatabaseService.importRomSelection(
-        system,
+        target,
         selection,
         folder: folder,
         ignoreHiddenFiles: _config.ignoreHiddenFiles,
@@ -1432,7 +1446,7 @@ extension SqliteConfigScanning on SqliteConfigProvider {
         onStage: onStage,
       );
       if (result.added > 0) {
-        await SystemRepository.addDetectedSystem(system.id!, system.folderName);
+        await SystemRepository.addDetectedSystem(target.id!, target.folderName);
         final all = await SystemRepository.getSystemByFolderName(
           SystemFolderNames.all,
         );

@@ -1401,6 +1401,7 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.raMasteryLabel: '精通',
   AppLocale.raCouldNotResolveLocalSystem: '无法解析该游戏的本地系统',
   AppLocale.raMissable: '可错过',
+  AppLocale.raFilterUnlocked: '已解锁',
   AppLocale.raFilterLocked: '未解锁',
   AppLocale.raFilterMissables: '可错过',
   AppLocale.raGuide: '指南',
@@ -1618,5 +1619,5 @@ const Map<String, dynamic> appLocaleZh = {
   AppLocale.artworkLayout: '游戏画面布局',
   AppLocale.artworkLayoutDynamic: '动态',
   AppLocale.artworkLayoutStacked: '堆叠',
-  AppLocale.artworkLayoutRows: '分行',
+  AppLocale.artworkLayoutFan: 'Fan',
 };

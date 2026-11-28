@@ -12,6 +12,7 @@ import 'package:neostation/services/sfx_service.dart';
 import 'package:neostation/themes/corner_radii.dart';
 import 'package:neostation/utils/gamepad_nav.dart';
 import 'package:neostation/widgets/context_menu/game_context_menu.dart';
+import 'package:neostation/widgets/neo_glass.dart';
 
 /// Actions the game Options panel can hand back to the games screen.
 enum GameOptionsAction {
@@ -516,22 +517,8 @@ class _GameOptionsDialogState extends State<GameOptionsDialog> {
               width: panelWidth,
               child: Material(
                 color: Colors.transparent,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: radii,
-                    border: Border.all(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.5),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.shadow.withValues(alpha: 0.5),
-                        blurRadius: 24.r,
-                        offset: Offset(8.r, 0),
-                      ),
-                    ],
-                  ),
-                  clipBehavior: Clip.antiAlias,
+                child: NeoGlass(
+                  cornerRadius: radii.topLeft.x,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -910,7 +897,7 @@ class _GameOptionsDialogState extends State<GameOptionsDialog> {
           labels: [
             AppLocale.artworkLayoutDynamic.getString(context),
             AppLocale.artworkLayoutStacked.getString(context),
-            AppLocale.artworkLayoutRows.getString(context),
+            AppLocale.artworkLayoutFan.getString(context),
           ],
           selectedIndex: provider.artworkLayout.index,
           apply: (value) => provider.updateArtworkLayout(

@@ -16,6 +16,7 @@ import 'package:neostation/services/sfx_service.dart';
 import '../models/system_model.dart';
 import '../models/rom_import_result.dart';
 import '../models/config_model.dart';
+import '../models/system_family.dart';
 import '../models/game_artwork_layout.dart';
 import '../models/artwork_preview.dart';
 import '../repositories/scraper_repository.dart';
@@ -577,9 +578,11 @@ class SqliteConfigProvider extends ChangeNotifier with WidgetsBindingObserver {
               RetroAchievementsService.connectionNotificationsPreference,
             ) ??
             true;
-        _artworkLayout = GameArtworkLayout.fromPreference(
-          preferences.getString(_artworkLayoutKey),
-        );
+        final storedLayout = preferences.getString(_artworkLayoutKey);
+        _artworkLayout = GameArtworkLayout.fromPreference(storedLayout);
+        if (storedLayout == 'rows') {
+          await preferences.setString(_artworkLayoutKey, _artworkLayout.name);
+        }
       } catch (error) {
         _log.w('Could not load the game artwork layout: $error');
       }

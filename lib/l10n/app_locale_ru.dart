@@ -1514,6 +1514,7 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.raCouldNotResolveLocalSystem:
       'Не удалось определить локальную систему для этой игры',
   AppLocale.raMissable: 'МОЖНО ПРОПУСТИТЬ',
+  AppLocale.raFilterUnlocked: 'Открытые',
   AppLocale.raFilterLocked: 'Заблокированные',
   AppLocale.raFilterMissables: 'Пропускаемые',
   AppLocale.raGuide: 'Руководство',
@@ -1761,5 +1762,5 @@ const Map<String, dynamic> appLocaleRu = {
   AppLocale.artworkLayout: 'Расположение изображений',
   AppLocale.artworkLayoutDynamic: 'Динамическое',
   AppLocale.artworkLayoutStacked: 'Столбцы',
-  AppLocale.artworkLayoutRows: 'Ряды',
+  AppLocale.artworkLayoutFan: 'Fan',
 };

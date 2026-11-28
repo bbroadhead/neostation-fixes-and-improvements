@@ -617,9 +617,9 @@ class GameListViewState extends State<GameListView>
                               right: 8.r,
                               bottom: 0,
                               child: Divider(
-                                height: 1.r,
-                                thickness: 1.r,
-                                color: theme.colorScheme.outline,
+                                height: 2.r,
+                                thickness: 2.r,
+                                color: Colors.white,
                               ),
                             ),
                           Positioned.fill(
